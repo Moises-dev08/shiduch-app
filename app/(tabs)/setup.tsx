@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -11,16 +11,43 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InfoRequestHistoryItem from '../../components/setup/InfoRequestHistoryItem';
+import MatchmakerSuggestionItem from '../../components/setup/MatchmakerSuggestionItem';
 import ReceivedInfoRequestItem from '../../components/setup/ReceivedInfoRequestItem';
+import ReceivedSuggestionItem from '../../components/setup/ReceivedSuggestionItem';
 import SuggestionHistoryItem from '../../components/setup/SuggestionHistoryItem';
 import { useSetupHistory } from '../../hooks/useSetupHistory';
-import { profileService } from '../../lib/profileService';
+import { Profile, profileService } from '../../lib/profileService';
 
-type TabType = 'suggestions' | 'sentRequests' | 'receivedRequests';
+type TabType = 'sentSuggestions' | 'receivedSuggestions' | 'matchmakerSuggestions' | 'sentRequests' | 'receivedRequests';
 
 export default function SetupScreen() {
-  const { suggestions, infoRequests, receivedInfoRequests, loading, refreshing, error, refresh } = useSetupHistory();
-  const [activeTab, setActiveTab] = useState<TabType>('suggestions');
+  const { 
+    suggestions, 
+    receivedSuggestions, 
+    matchmakerSuggestions,
+    infoRequests, 
+    receivedInfoRequests, 
+    loading, 
+    refreshing, 
+    error, 
+    refresh 
+  } = useSetupHistory();
+  const [activeTab, setActiveTab] = useState<TabType>('sentSuggestions');
+  const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
+
+  // Get current user profile to check role
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    const result = await profileService.getProfile();
+    if (result.success && result.profile) {
+      setCurrentUserProfile(result.profile);
+    }
+  };
+
+  const isMatchmaker = currentUserProfile?.role === 'matchmaker';
 
   const getImageUrl = (pictures: any): string | undefined => {
     if (!pictures || !Array.isArray(pictures) || pictures.length === 0) {
@@ -58,52 +85,66 @@ export default function SetupScreen() {
     );
   }
 
-  const hasSuggestions = suggestions.length > 0;
+  const hasSentSuggestions = suggestions.length > 0;
+  const hasReceivedSuggestions = receivedSuggestions.length > 0;
+  const hasMatchmakerSuggestions = matchmakerSuggestions.length > 0;
   const hasSentRequests = infoRequests.length > 0;
   const hasReceivedRequests = receivedInfoRequests.length > 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Set up</Text>
+      </View>
 
-      <View style={styles.tabContainer}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabScrollView}
+        contentContainerStyle={styles.tabContainer}
+      >
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'suggestions' && styles.activeTab]}
-          onPress={() => setActiveTab('suggestions')}
+          style={[styles.tab, activeTab === 'sentSuggestions' && styles.activeTab]}
+          onPress={() => setActiveTab('sentSuggestions')}
           activeOpacity={0.7}
         >
-          <Ionicons
-            name="heart"
-            size={18}
-            color={activeTab === 'suggestions' ? '#007AFF' : '#999'}
-          />
-          <Text style={[styles.tabText, activeTab === 'suggestions' && styles.activeTabText]}>
-            Setups
-          </Text>
-          {hasSuggestions && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{suggestions.length}</Text>
-            </View>
-          )}
+          <Ionicons name="paper-plane" size={16} color={activeTab === 'sentSuggestions' ? '#007AFF' : '#999'} />
+          <Text style={[styles.tabText, activeTab === 'sentSuggestions' && styles.activeTabText]}>Sent</Text>
+          {hasSentSuggestions && <View style={styles.badge}><Text style={styles.badgeText}>{suggestions.length}</Text></View>}
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'receivedSuggestions' && styles.activeTab]}
+          onPress={() => setActiveTab('receivedSuggestions')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="heart-circle" size={16} color={activeTab === 'receivedSuggestions' ? '#007AFF' : '#999'} />
+          <Text style={[styles.tabText, activeTab === 'receivedSuggestions' && styles.activeTabText]}>Received</Text>
+          {hasReceivedSuggestions && <View style={styles.badge}><Text style={styles.badgeText}>{receivedSuggestions.length}</Text></View>}
+        </TouchableOpacity>
+
+        {/* Only show for matchmakers */}
+        {isMatchmaker && (
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'matchmakerSuggestions' && styles.activeTab]}
+            onPress={() => setActiveTab('matchmakerSuggestions')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="people" size={16} color={activeTab === 'matchmakerSuggestions' ? '#007AFF' : '#999'} />
+            <Text style={[styles.tabText, activeTab === 'matchmakerSuggestions' && styles.activeTabText]}>Friend&apos;s setups</Text>
+            {hasMatchmakerSuggestions && <View style={styles.badge}><Text style={styles.badgeText}>{matchmakerSuggestions.length}</Text></View>}
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[styles.tab, activeTab === 'sentRequests' && styles.activeTab]}
           onPress={() => setActiveTab('sentRequests')}
           activeOpacity={0.7}
         >
-          <Ionicons
-            name="arrow-forward-circle"
-            size={18}
-            color={activeTab === 'sentRequests' ? '#007AFF' : '#999'}
-          />
-          <Text style={[styles.tabText, activeTab === 'sentRequests' && styles.activeTabText]}>
-            Sent
-          </Text>
-          {hasSentRequests && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{infoRequests.length}</Text>
-            </View>
-          )}
+          <Ionicons name="information" size={16} color={activeTab === 'sentRequests' ? '#007AFF' : '#999'} />
+          <Text style={[styles.tabText, activeTab === 'sentRequests' && styles.activeTabText]}>Info Sent</Text>
+          {hasSentRequests && <View style={styles.badge}><Text style={styles.badgeText}>{infoRequests.length}</Text></View>}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -111,21 +152,11 @@ export default function SetupScreen() {
           onPress={() => setActiveTab('receivedRequests')}
           activeOpacity={0.7}
         >
-          <Ionicons
-            name="arrow-down-circle"
-            size={18}
-            color={activeTab === 'receivedRequests' ? '#007AFF' : '#999'}
-          />
-          <Text style={[styles.tabText, activeTab === 'receivedRequests' && styles.activeTabText]}>
-            Received
-          </Text>
-          {hasReceivedRequests && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{receivedInfoRequests.length}</Text>
-            </View>
-          )}
+          <Ionicons name="mail" size={16} color={activeTab === 'receivedRequests' ? '#007AFF' : '#999'} />
+          <Text style={[styles.tabText, activeTab === 'receivedRequests' && styles.activeTabText]}>Info Received</Text>
+          {hasReceivedRequests && <View style={styles.badge}><Text style={styles.badgeText}>{receivedInfoRequests.length}</Text></View>}
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       <ScrollView
         style={styles.content}
@@ -134,9 +165,9 @@ export default function SetupScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#007AFF']} />
         }
       >
-        {activeTab === 'suggestions' && (
+        {activeTab === 'sentSuggestions' && (
           <>
-            {hasSuggestions ? (
+            {hasSentSuggestions ? (
               suggestions.map((suggestion) => (
                 <SuggestionHistoryItem
                   key={suggestion.id}
@@ -153,10 +184,62 @@ export default function SetupScreen() {
               ))
             ) : (
               <View style={styles.emptyContainer}>
-                <Ionicons name="heart-outline" size={64} color="#ccc" />
-                <Text style={styles.emptyTitle}>No Suggestions Yet</Text>
+                <Ionicons name="paper-plane-outline" size={64} color="#ccc" />
+                <Text style={styles.emptyTitle}>No Sent Suggestions</Text>
                 <Text style={styles.emptyText}>
-                  When you send setup suggestions, they will appear here.
+                  When you send setup suggestions from viewing profiles, they will appear here.
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+
+        {activeTab === 'receivedSuggestions' && (
+          <>
+            {hasReceivedSuggestions ? (
+              receivedSuggestions.map((suggestion) => (
+                <ReceivedSuggestionItem
+                  key={suggestion.id}
+                  suggesterName={`${suggestion.suggested_profile.first_name} ${suggestion.suggested_profile.last_name}`}
+                  suggesterPicture={getImageUrl(suggestion.suggested_profile.pictures)}
+                  status={suggestion.status}
+                  createdAt={suggestion.created_at}
+                  notes={suggestion.notes}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="heart-circle-outline" size={64} color="#ccc" />
+                <Text style={styles.emptyTitle}>No Received Suggestions</Text>
+                <Text style={styles.emptyText}>
+                  When others suggest you for a setup, they will appear here.
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+
+        {activeTab === 'matchmakerSuggestions' && (
+          <>
+            {hasMatchmakerSuggestions ? (
+              matchmakerSuggestions.map((suggestion) => (
+                <MatchmakerSuggestionItem
+                  key={suggestion.id}
+                  suggesterName={`${suggestion.suggester_profile?.first_name} ${suggestion.suggester_profile?.last_name}`}
+                  suggesterPicture={getImageUrl(suggestion.suggester_profile?.pictures)}
+                  suggestedName={`${suggestion.suggested_profile.first_name} ${suggestion.suggested_profile.last_name}`}
+                  suggestedPicture={getImageUrl(suggestion.suggested_profile.pictures)}
+                  status={suggestion.status}
+                  createdAt={suggestion.created_at}
+                  notes={suggestion.notes}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="people-outline" size={64} color="#ccc" />
+                <Text style={styles.emptyTitle}>No Client Suggestions</Text>
+                <Text style={styles.emptyText}>
+                  Suggestions from your clients will appear here.
                 </Text>
               </View>
             )}
@@ -225,33 +308,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-    gap: 12,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
   },
+  tabScrollView: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,    borderBottomColor: '#e0e0e0',
+    height: 50
+  },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: 8,
+    height: 50
   },
   tab: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 6,
     borderBottomWidth: 3,
     borderBottomColor: 'transparent',
   },
@@ -283,9 +367,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    height: '100%'
   },
   contentContainer: {
     padding: 16,
+
   },
   loadingContainer: {
     flex: 1,

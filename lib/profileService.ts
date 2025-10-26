@@ -81,31 +81,51 @@ class ProfileService {
   }
 
   /**
-   * Search for a matchmaker by email
+   * Search for a matchmaker ONLY by their authentication email (signup email)
    */
-  async findMatchmakerByEmail(email: string): Promise<{ success: boolean; matchmaker?: Profile; error?: string }> {
+  async findMatchmakerByEmail(searchTerm: string): Promise<{ success: boolean; matchmaker?: Profile; error?: string }> {
     try {
-      if (!email || !email.trim()) {
+      if (!searchTerm || !searchTerm.trim()) {
         return { success: false, error: 'Email is required' };
       }
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('email', email.trim().toLowerCase())
-        .eq('role', 'matchmaker')
-        .eq('status', 'approved')
-        .single();
+      const trimmedSearch = searchTerm.trim().toLowerCase();
+      console.log('Searching for matchmaker by auth email:', trimmedSearch);
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No matchmaker found
-          return { success: false, error: 'Matchmaker not found. Please invite them to create a matchmaker account in the app.' };
-        }
-        return { success: false, error: error.message };
+      // Search by auth email ONLY (the email they used to sign up)
+      const { data: authUsers, error: authError } = await supabase.rpc('get_matchmaker_by_auth_email', {
+        search_email: trimmedSearch
+      });
+
+      if (authError) {
+        console.error('Error calling RPC function:', authError);
+        return { success: false, error: 'Failed to search for matchmaker' };
       }
 
-      return { success: true, matchmaker: data };
+      if (!authUsers || authUsers.length === 0) {
+        console.log('No matchmaker found with auth email:', trimmedSearch);
+        return { 
+          success: false, 
+          error: 'Matchmaker not found. Please use the email they signed up with and ensure they have an approved matchmaker account.' 
+        };
+      }
+
+      const matchmakerId = authUsers[0].profile_id;
+      console.log('Found matchmaker profile ID:', matchmakerId);
+
+      const { data: matchmaker, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', matchmakerId)
+        .single();
+      
+      if (profileError || !matchmaker) {
+        console.error('Error fetching matchmaker profile:', profileError);
+        return { success: false, error: 'Failed to load matchmaker profile' };
+      }
+
+      console.log('Found matchmaker by auth email:', matchmaker.first_name, matchmaker.last_name);
+      return { success: true, matchmaker };
     } catch (error) {
       console.error('Error finding matchmaker:', error);
       return { success: false, error: 'An unexpected error occurred' };

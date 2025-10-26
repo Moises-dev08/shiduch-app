@@ -17,12 +17,17 @@ export default function ProfileActions({
   showSetupButton = true,
   showAskForInfoButton = true,
 }: ProfileActionsProps) {
+  const handleSetupPress = () => {
+    console.log('ProfileActions: Setup button tapped');
+    onSetupPress();
+  };
+
   return (
     <View style={styles.actionsContainer}>
       {showSetupButton && (
         <TouchableOpacity 
           style={[styles.actionButton, styles.setupButton]} 
-          onPress={onSetupPress}
+          onPress={handleSetupPress}
           activeOpacity={0.8}
         >
           <Ionicons name="heart-circle" size={20} color="#fff" />

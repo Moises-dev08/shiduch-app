@@ -491,14 +491,14 @@ export default function ProfileScreen() {
                 style={styles.input}
                 value={profileData.matchmakerEmail}
                 onChangeText={(value) => handleInputChange('matchmakerEmail', value)}
-                placeholder="Enter matchmaker's email"
+                placeholder="Enter matchmaker's signup email"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
                 textContentType="emailAddress"
               />
               <Text style={styles.helpText}>
-                If you have a matchmaker, enter their email. They must have an approved matchmaker account.
+                Enter the email your matchmaker used to sign up (not their profile contact email). They must have an approved matchmaker account.
               </Text>
             </View>
           )}

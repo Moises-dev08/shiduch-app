@@ -38,6 +38,12 @@ export interface SuggestionWithDetails {
     first_name: string;
     last_name: string;
   };
+  suggester_profile?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    pictures?: any;
+  };
 }
 
 export interface InfoRequestWithDetails {
@@ -469,6 +475,148 @@ class SuggestionService {
       return { success: true, requests: data as any };
     } catch (error) {
       console.error('Error fetching info requests with details:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Get suggestions received by the user (where they are the suggested profile)
+   */
+  async getReceivedSuggestions(): Promise<{ 
+    success: boolean; 
+    suggestions?: SuggestionWithDetails[]; 
+    error?: string 
+  }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log('No authenticated user found');
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      console.log('Fetching profile for user:', user.id);
+
+      const { data: userProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileError || !userProfile) {
+        console.error('User profile not found', profileError);
+        return { success: true, suggestions: [] };
+      }
+
+      console.log('Fetching received suggestions for profile:', userProfile.id);
+
+      const { data, error } = await supabase
+        .from('suggestions')
+        .select(`
+          id,
+          status,
+          notes,
+          created_at,
+          updated_at,
+          suggested_profile:profiles!suggestions_suggester_id_fkey(
+            id,
+            first_name,
+            last_name,
+            pictures
+          )
+        `)
+        .eq('suggested_profile_id', userProfile.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching received suggestions:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('Fetched received suggestions:', data?.length || 0);
+      return { success: true, suggestions: data as any };
+    } catch (error) {
+      console.error('Error fetching received suggestions:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Get suggestions where the current user is the matchmaker
+   */
+  async getMatchmakerSuggestions(): Promise<{ 
+    success: boolean; 
+    suggestions?: SuggestionWithDetails[]; 
+    error?: string 
+  }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log('No authenticated user found');
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      console.log('Fetching profile for user:', user.id);
+
+      const { data: userProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileError || !userProfile) {
+        console.error('User profile not found', profileError);
+        return { success: true, suggestions: [] };
+      }
+
+      console.log('Fetching matchmaker suggestions for profile:', userProfile.id);
+
+      const { data, error } = await supabase
+        .from('suggestions')
+        .select(`
+          id,
+          status,
+          notes,
+          created_at,
+          updated_at,
+          suggester_profile:profiles!suggestions_suggester_id_fkey(
+            id,
+            first_name,
+            last_name,
+            pictures
+          ),
+          suggested_profile:profiles!suggestions_suggested_profile_id_fkey(
+            id,
+            first_name,
+            last_name,
+            pictures
+          )
+        `)
+        .eq('matchmaker_id', userProfile.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching matchmaker suggestions:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('Fetched matchmaker suggestions:', data?.length || 0);
+      
+      // Transform to include both profiles
+      const transformedData = data?.map(item => ({
+        id: item.id,
+        status: item.status,
+        notes: item.notes,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        suggester_profile: item.suggester_profile,
+        suggested_profile: item.suggested_profile,
+      }));
+
+      return { success: true, suggestions: transformedData as any };
+    } catch (error) {
+      console.error('Error fetching matchmaker suggestions:', error);
       return { success: false, error: 'An unexpected error occurred' };
     }
   }

@@ -20,21 +20,31 @@ export function useSuggestions(
 
   // Handle Setup button press
   const handleSetupPress = () => {
-    if (!currentUserProfile || !selectedProfile) return;
+    console.log('Setup button pressed!');
+    console.log('Current user profile:', currentUserProfile?.first_name, currentUserProfile?.role);
+    console.log('Selected profile:', selectedProfile?.name);
+    
+    if (!currentUserProfile || !selectedProfile) {
+      console.log('Missing profile data');
+      return;
+    }
     
     // Check if user is single
     if (currentUserProfile.role !== 'single') {
+      console.log('User is not single, role:', currentUserProfile.role);
       Alert.alert('Not Available', 'Only single users can create setup suggestions.');
       return;
     }
     
     // Check if user has matchmaker associated
     if (!currentUserProfile.matchmaker_id) {
+      console.log('No matchmaker associated');
       setShowNoMatchmakerModal(true);
       return;
     }
     
     // Show confirmation modal
+    console.log('Showing confirmation modal');
     setShowSetupConfirmModal(true);
   };
 

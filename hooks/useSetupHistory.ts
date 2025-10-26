@@ -7,6 +7,8 @@ import {
 
 export function useSetupHistory() {
   const [suggestions, setSuggestions] = useState<SuggestionWithDetails[]>([]);
+  const [receivedSuggestions, setReceivedSuggestions] = useState<SuggestionWithDetails[]>([]);
+  const [matchmakerSuggestions, setMatchmakerSuggestions] = useState<SuggestionWithDetails[]>([]);
   const [infoRequests, setInfoRequests] = useState<InfoRequestWithDetails[]>([]);
   const [receivedInfoRequests, setReceivedInfoRequests] = useState<InfoRequestWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,19 +24,43 @@ export function useSetupHistory() {
       }
       setError(null);
 
-      // Fetch suggestions, sent info requests, and received info requests in parallel
-      const [suggestionsResult, infoRequestsResult, receivedInfoRequestsResult] = await Promise.all([
+      // Fetch all data in parallel
+      const [
+        suggestionsResult, 
+        receivedSuggestionsResult,
+        matchmakerSuggestionsResult,
+        infoRequestsResult, 
+        receivedInfoRequestsResult
+      ] = await Promise.all([
         suggestionService.getUserSuggestionsWithDetails(),
+        suggestionService.getReceivedSuggestions(),
+        suggestionService.getMatchmakerSuggestions(),
         suggestionService.getUserInfoRequestsWithDetails(),
         suggestionService.getReceivedInfoRequests(),
       ]);
 
-      // Handle suggestions
+      // Handle sent suggestions
       if (suggestionsResult.success) {
         setSuggestions(suggestionsResult.suggestions || []);
       } else {
         console.error('Error loading suggestions:', suggestionsResult.error);
         setSuggestions([]);
+      }
+
+      // Handle received suggestions
+      if (receivedSuggestionsResult.success) {
+        setReceivedSuggestions(receivedSuggestionsResult.suggestions || []);
+      } else {
+        console.error('Error loading received suggestions:', receivedSuggestionsResult.error);
+        setReceivedSuggestions([]);
+      }
+
+      // Handle matchmaker suggestions
+      if (matchmakerSuggestionsResult.success) {
+        setMatchmakerSuggestions(matchmakerSuggestionsResult.suggestions || []);
+      } else {
+        console.error('Error loading matchmaker suggestions:', matchmakerSuggestionsResult.error);
+        setMatchmakerSuggestions([]);
       }
 
       // Handle sent info requests
@@ -54,10 +80,15 @@ export function useSetupHistory() {
       }
 
       // Only set error if all failed with actual errors (not just empty results)
-      if (!suggestionsResult.success && !infoRequestsResult.success && !receivedInfoRequestsResult.success) {
-        if (suggestionsResult.error !== 'User profile not found' && 
-            infoRequestsResult.error !== 'User profile not found' &&
-            receivedInfoRequestsResult.error !== 'User profile not found') {
+      const allFailed = !suggestionsResult.success && !receivedSuggestionsResult.success && 
+                        !matchmakerSuggestionsResult.success && !infoRequestsResult.success && 
+                        !receivedInfoRequestsResult.success;
+      
+      if (allFailed) {
+        const notProfileError = suggestionsResult.error !== 'User profile not found' && 
+                               infoRequestsResult.error !== 'User profile not found' &&
+                               receivedInfoRequestsResult.error !== 'User profile not found';
+        if (notProfileError) {
           setError('Failed to load history');
         }
       }
@@ -80,6 +111,8 @@ export function useSetupHistory() {
 
   return {
     suggestions,
+    receivedSuggestions,
+    matchmakerSuggestions,
     infoRequests,
     receivedInfoRequests,
     loading,
