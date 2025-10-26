@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   Image,
@@ -15,6 +16,8 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ProfileStatusModal from '../../components/ProfileStatusModal';
+import { Profile, profileService } from '../../lib/profileService';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -26,6 +29,11 @@ interface ProfileData {
   role: 'single' | 'matchmaker';
   gender: 'male' | 'female';
   address: string;
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
   school: string;
   occupation: string;
   bio: string;
@@ -34,6 +42,7 @@ interface ProfileData {
   whatsapp: string;
   pictures: string[];
   picturePrivacy: 'none' | 'one-time' | 'always' | 'private';
+  matchmakerEmail?: string;
 }
 
 interface PrivacySettings {
@@ -54,6 +63,11 @@ export default function ProfileScreen() {
     role: 'single',
     gender: 'male',
     address: '',
+    street: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: '',
     school: '',
     occupation: '',
     bio: '',
@@ -61,7 +75,8 @@ export default function ProfileScreen() {
     email: '',
     whatsapp: '',
     pictures: [],
-    picturePrivacy: 'none'
+    picturePrivacy: 'none',
+    matchmakerEmail: ''
   });
 
   const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
@@ -76,6 +91,64 @@ export default function ProfileScreen() {
   const [showPictureViewer, setShowPictureViewer] = useState(false);
   const [selectedPictureIndex, setSelectedPictureIndex] = useState(0);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [profileStatus, setProfileStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [rejectionReason, setRejectionReason] = useState<string>();
+  const [loading, setLoading] = useState(false);
+  const [existingProfile, setExistingProfile] = useState<Profile | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  // Load existing profile on mount
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      const result = await profileService.getProfile();
+      if (result.success && result.profile) {
+        const profile = result.profile;
+        setExistingProfile(profile);
+        setProfileStatus(profile.status);
+        setRejectionReason(profile.rejection_reason);
+
+        // Populate form with existing data
+        setProfileData({
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          age: profile.age.toString(),
+          hashkafa: profile.hashkafa,
+          role: profile.role as 'single' | 'matchmaker',
+          gender: profile.gender as 'male' | 'female',
+          address: profile.address,
+          street: profile.street || '',
+          city: profile.city || '',
+          state: profile.state || '',
+          zipCode: profile.zip_code || '',
+          country: profile.country || '',
+          school: profile.school,
+          occupation: profile.occupation,
+          bio: profile.bio,
+          phone: profile.phone,
+          email: profile.email,
+          whatsapp: profile.whatsapp,
+          pictures: profile.pictures,
+          picturePrivacy: profile.picture_privacy as any,
+        });
+
+        setPrivacySettings(profile.privacy_settings);
+
+        // Show status modal if pending or rejected (not approved)
+        if (profile.status === 'pending' || profile.status === 'rejected') {
+          setShowStatusModal(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    } finally {
+      setInitialLoading(false);
+    }
+  };
 
   const handleInputChange = (field: keyof ProfileData, value: string) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
@@ -118,7 +191,7 @@ export default function ProfileScreen() {
     setShowPictureViewer(true);
   };
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
     const requiredFields = ['firstName', 'lastName', 'age', 'hashkafa', 'bio', 'phone', 'email', 'whatsapp'];
     const missingFields = requiredFields.filter(field => !profileData[field as keyof ProfileData]);
     
@@ -127,9 +200,44 @@ export default function ProfileScreen() {
       return;
     }
 
-    // TODO: Save profile data
-    console.log('Profile saved:', { profileData, privacySettings });
-    Alert.alert('Success', 'Profile saved successfully!');
+    setLoading(true);
+    try {
+      let result;
+      if (existingProfile) {
+        // Update existing profile
+        result = await profileService.updateProfile(profileData, privacySettings);
+      } else {
+        // Create new profile
+        result = await profileService.createProfile(profileData, privacySettings);
+      }
+
+      if (result.success && result.profile) {
+        setExistingProfile(result.profile);
+        setProfileStatus(result.profile.status);
+        setRejectionReason(result.profile.rejection_reason);
+        
+        // Only show status modal for pending/rejected profiles
+        const shouldShowStatusModal = result.profile.status !== 'approved';
+        
+        Alert.alert('Success', 'Profile saved successfully!', [
+          { 
+            text: 'OK', 
+            onPress: () => {
+              if (shouldShowStatusModal) {
+                setShowStatusModal(true);
+              }
+            }
+          }
+        ]);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to save profile');
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
   };
 
 
@@ -374,6 +482,26 @@ export default function ProfileScreen() {
               autoCorrect={false}
             />
           </View>
+
+          {/* Matchmaker Email - Only for Singles */}
+          {profileData.role === 'single' && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Matchmaker Email (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                value={profileData.matchmakerEmail}
+                onChangeText={(value) => handleInputChange('matchmakerEmail', value)}
+                placeholder="Enter matchmaker's email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
+              />
+              <Text style={styles.helpText}>
+                If you have a matchmaker, enter their email. They must have an approved matchmaker account.
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Location */}
@@ -381,17 +509,87 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Location</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Address</Text>
+            <Text style={styles.label}>Street Address</Text>
             <TextInput
               style={styles.input}
-              value={profileData.address}
-              onChangeText={(value) => handleInputChange('address', value)}
-              placeholder="Enter your address"
-               textContentType="none" 
-               autoComplete="off"
-               autoCapitalize="none"
-               autoCorrect={false}
+              value={profileData.street}
+              onChangeText={(value) => {
+                handleInputChange('street', value);
+                // Update full address for display
+                const fullAddress = `${value}, ${profileData.city}, ${profileData.state} ${profileData.zipCode}, ${profileData.country}`.replace(/ , /g, ', ').replace(/^, /, '').replace(/, $/, '');
+                handleInputChange('address', fullAddress);
+              }}
+              placeholder="Enter street address"
+              textContentType="none" 
+              autoComplete="off"
+              autoCapitalize="words"
+              autoCorrect={false}
             />
+          </View>
+
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>City</Text>
+              <TextInput
+                style={styles.input}
+                value={profileData.city}
+                onChangeText={(value) => {
+                  handleInputChange('city', value);
+                  const fullAddress = `${profileData.street}, ${value}, ${profileData.state} ${profileData.zipCode}, ${profileData.country}`.replace(/ , /g, ', ').replace(/^, /, '').replace(/, $/, '');
+                  handleInputChange('address', fullAddress);
+                }}
+                placeholder="City"
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>State/Province</Text>
+              <TextInput
+                style={styles.input}
+                value={profileData.state}
+                onChangeText={(value) => {
+                  handleInputChange('state', value);
+                  const fullAddress = `${profileData.street}, ${profileData.city}, ${value} ${profileData.zipCode}, ${profileData.country}`.replace(/ , /g, ', ').replace(/^, /, '').replace(/, $/, '');
+                  handleInputChange('address', fullAddress);
+                }}
+                placeholder="State"
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
+
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>ZIP/Postal Code</Text>
+              <TextInput
+                style={styles.input}
+                value={profileData.zipCode}
+                onChangeText={(value) => {
+                  handleInputChange('zipCode', value);
+                  const fullAddress = `${profileData.street}, ${profileData.city}, ${profileData.state} ${value}, ${profileData.country}`.replace(/ , /g, ', ').replace(/^, /, '').replace(/, $/, '');
+                  handleInputChange('address', fullAddress);
+                }}
+                placeholder="ZIP Code"
+                autoCorrect={false}
+              />
+            </View>
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>Country</Text>
+              <TextInput
+                style={styles.input}
+                value={profileData.country}
+                onChangeText={(value) => {
+                  handleInputChange('country', value);
+                  const fullAddress = `${profileData.street}, ${profileData.city}, ${profileData.state} ${profileData.zipCode}, ${value}`.replace(/ , /g, ', ').replace(/^, /, '').replace(/, $/, '');
+                  handleInputChange('address', fullAddress);
+                }}
+                placeholder="Country"
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
           </View>
         </View>
 
@@ -434,10 +632,28 @@ export default function ProfileScreen() {
         </View>
 
         {/* Save Button */}
-        <TouchableOpacity style={styles.saveButton} onPress={saveProfile}>
-          <Text style={styles.saveButtonText}>Save Profile</Text>
+        <TouchableOpacity 
+          style={[styles.saveButton, loading && styles.saveButtonDisabled]} 
+          onPress={saveProfile}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.saveButtonText}>
+              {existingProfile ? 'Update Profile' : 'Save Profile'}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Loading Screen */}
+      {initialLoading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#e91e63" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      )}
 
       {/* Picture Viewer Modal */}
       <Modal visible={showPictureViewer} transparent animationType="fade">
@@ -488,6 +704,19 @@ export default function ProfileScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Profile Status Modal */}
+      <ProfileStatusModal
+        visible={showStatusModal}
+        status={profileStatus}
+        rejectionReason={rejectionReason}
+        onClose={() => {
+          setShowStatusModal(false);
+          if (profileStatus === 'approved') {
+            router.replace('/(tabs)');
+          }
+        }}
+      />
 
     </SafeAreaView>
   );
@@ -668,6 +897,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
   saveButtonText: {
     color: '#fff',
     fontSize: 16,
@@ -751,5 +998,11 @@ const styles = StyleSheet.create({
   },
   toggleButtonActive: {
     alignSelf: 'flex-end',
+  },
+  helpText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });

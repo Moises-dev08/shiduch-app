@@ -10,9 +10,11 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../lib/AuthContext';
 
 export default function SettingsScreen() {
   const [showFreezeModal, setShowFreezeModal] = useState(false);
+  const { signOut } = useAuth();
 
   const handleLogout = () => {
     Alert.alert(
@@ -23,9 +25,8 @@ export default function SettingsScreen() {
         { 
           text: 'Logout', 
           style: 'destructive',
-          onPress: () => {
-            // TODO: Implement logout logic
-            console.log('User logged out');
+          onPress: async () => {
+            await signOut();
             router.replace('/auth/login');
           }
         }
@@ -75,12 +76,11 @@ export default function SettingsScreen() {
         <Text style={styles.title}>Settings</Text>
         <View style={styles.placeholder} />
       </View>
-      
       <View style={styles.content}>
-        <TouchableOpacity style={styles.settingsItem} onPress={handleLogout}>
+        <TouchableOpacity style={styles.settingsItem} onPress={handleFreezeProfile}>
           <View style={styles.settingsItemLeft}>
-            <Ionicons name="log-out" size={24} color="#e91e63" />
-            <Text style={styles.settingsItemText}>Logout</Text>
+            <Ionicons name="snow" size={24} color="#2196f3" />
+            <Text style={styles.settingsItemText}>Freeze Profile</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>
@@ -92,11 +92,10 @@ export default function SettingsScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingsItem} onPress={handleFreezeProfile}>
+        <TouchableOpacity style={styles.settingsItem} onPress={handleLogout}>
           <View style={styles.settingsItemLeft}>
-            <Ionicons name="snow" size={24} color="#2196f3" />
-            <Text style={styles.settingsItemText}>Freeze Profile</Text>
+            <Ionicons name="log-out" size={24} color="#e91e63" />
+            <Text style={styles.settingsItemText}>Logout</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>

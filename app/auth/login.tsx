@@ -1,26 +1,93 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { adminService } from '../../lib/adminService';
+import { supabase } from '../../lib/supabase';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayPassword, setDisplayPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    if (!showPassword) {
+      setDisplayPassword('•'.repeat(text.length));
+    } else {
+      setDisplayPassword(text);
+    }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+    if (showPassword) {
+      setDisplayPassword('•'.repeat(password.length));
+    } else {
+      setDisplayPassword(password);
+    }
+  };
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
+
+    if (!validateEmail(email.trim())) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return;
+    }
     
-    // TODO: Implement actual authentication
-    console.log('Login attempt:', { email, password });
-    router.replace('/(tabs)');
+    setLoading(true);
+    try {
+      console.log('Logging in with email:', email.trim(), 'and password:', password);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+
+      if (error) {
+        Alert.alert('Login Failed', error.message);
+        return;
+      }
+
+      if (data.session) {
+        console.log('Login successful, checking if user is admin...');
+        
+        // Check if user is an admin
+        const isAdmin = await adminService.isAdmin();
+        console.log('Is admin:', isAdmin);
+        
+        if (isAdmin) {
+          console.log('Redirecting to admin dashboard...');
+          router.replace('/admin/dashboard');
+        } else {
+          console.log('Redirecting to main app...');
+          router.replace('/(tabs)');
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred');
+      console.error('Login error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignup = () => {
     router.push('/auth/signup');
+  };
+
+  const handleForgotPassword = () => {
+    router.push('/auth/forgot-password');
   };
 
   return (
@@ -51,19 +118,16 @@ export default function LoginScreen() {
           <View style={styles.inputContainer}>
             <Ionicons name="lock-closed" size={20} color="#666" style={styles.inputIcon} />
             <TextInput
-              style={styles.input}// For password fields
+              style={styles.input}
               placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
+              value={displayPassword}
+              onChangeText={handlePasswordChange}
+              autoCapitalize="none"
               autoCorrect={false}
-                spellCheck={false}
-                textContentType="none"
-                autoComplete="off"
-                editable
-
+              autoComplete="off"
             />
             <TouchableOpacity 
-              onPress={() => setShowPassword(!showPassword)}
+              onPress={togglePasswordVisibility}
               style={styles.eyeIcon}
             >
               <Ionicons 
@@ -74,11 +138,19 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>Sign In</Text>
+          <TouchableOpacity 
+            style={[styles.loginButton, loading && styles.loginButtonDisabled]} 
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.loginButtonText}>Sign In</Text>
+            )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.forgotPassword}>
+          <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
         </View>
@@ -149,6 +221,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
+  },
+  loginButtonDisabled: {
+    opacity: 0.6,
   },
   loginButtonText: {
     color: '#fff',

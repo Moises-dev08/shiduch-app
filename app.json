@@ -3,6 +3,11 @@
     "name": "shiduchim-app",
     "slug": "shiduchim-app",
     "version": "1.0.0",
+    "extra": {
+      "eas": {
+        "projectId": "0d2eaa2a-00cd-4328-8139-54909431ed11"
+      }
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "shiduchimapp",

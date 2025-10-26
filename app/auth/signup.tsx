@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import TermsModal from '../../components/TermsModal';
+import { supabase } from '../../lib/supabase';
 
 export default function SignupScreen() {
   const [formData, setFormData] = useState({
@@ -10,12 +11,56 @@ export default function SignupScreen() {
     password: '',
     confirmPassword: '',
   });
+  const [displayPassword, setDisplayPassword] = useState('');
+  const [displayConfirmPassword, setDisplayConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setFormData(prev => ({ ...prev, password: text }));
+    if (!showPassword) {
+      setDisplayPassword('•'.repeat(text.length));
+    } else {
+      setDisplayPassword(text);
+    }
+  };
+
+  const handleConfirmPasswordChange = (text: string) => {
+    setFormData(prev => ({ ...prev, confirmPassword: text }));
+    if (!showConfirmPassword) {
+      setDisplayConfirmPassword('•'.repeat(text.length));
+    } else {
+      setDisplayConfirmPassword(text);
+    }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+    if (showPassword) {
+      setDisplayPassword('•'.repeat(formData.password.length));
+    } else {
+      setDisplayPassword(formData.password);
+    }
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+    if (showConfirmPassword) {
+      setDisplayConfirmPassword('•'.repeat(formData.confirmPassword.length));
+    } else {
+      setDisplayConfirmPassword(formData.confirmPassword);
+    }
+  };
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   };
 
   const handleSignup = () => {
@@ -23,6 +68,11 @@ export default function SignupScreen() {
     
     if (!email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (!validateEmail(email.trim())) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
       return;
     }
 
@@ -40,11 +90,38 @@ export default function SignupScreen() {
     setShowTermsModal(true);
   };
 
-  const handleAcceptTerms = () => {
+  const handleAcceptTerms = async () => {
     setShowTermsModal(false);
-    // TODO: Implement actual signup logic
-    console.log('Signup with terms accepted:', formData);
-    router.replace('/(tabs)');
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email.trim(),
+        password: formData.password,
+      });
+
+      if (error) {
+        Alert.alert('Signup Failed', error.message);
+        return;
+      }
+
+      if (data.session) {
+        // User is logged in immediately - redirect to profile setup
+        router.replace('/(tabs)/profile');
+      } else if (data.user) {
+        // Email confirmation required
+        Alert.alert(
+          'Verify Your Email',
+          'Please check your email to verify your account before logging in.',
+          [{ text: 'OK', onPress: () => router.replace('/auth/login') }]
+        );
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred');
+      console.error('Signup error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogin = () => {
@@ -82,16 +159,14 @@ export default function SignupScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Password"
-                value={formData.password}
-                onChangeText={(value) => handleInputChange('password', value)}
+                value={displayPassword}
+                onChangeText={handlePasswordChange}
+                autoCapitalize="none"
                 autoCorrect={false}
-                spellCheck={false}
-                textContentType="none"
                 autoComplete="off"
-                editable
               />
               <TouchableOpacity 
-                onPress={() => setShowPassword(!showPassword)}
+                onPress={togglePasswordVisibility}
                 style={styles.eyeIcon}
               >
                 <Ionicons 
@@ -107,12 +182,14 @@ export default function SignupScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Confirm Password"
-                value={formData.confirmPassword}
-                onChangeText={(value) => handleInputChange('confirmPassword', value)}
-                secureTextEntry={!showConfirmPassword}
+                value={displayConfirmPassword}
+                onChangeText={handleConfirmPasswordChange}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="off"
               />
               <TouchableOpacity 
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                onPress={toggleConfirmPasswordVisibility}
                 style={styles.eyeIcon}
               >
                 <Ionicons 
@@ -123,8 +200,16 @@ export default function SignupScreen() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
-              <Text style={styles.signupButtonText}>Create Account</Text>
+            <TouchableOpacity 
+              style={[styles.signupButton, loading && styles.signupButtonDisabled]} 
+              onPress={handleSignup}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.signupButtonText}>Create Account</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -204,6 +289,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
+  },
+  signupButtonDisabled: {
+    opacity: 0.6,
   },
   signupButtonText: {
     color: '#fff',

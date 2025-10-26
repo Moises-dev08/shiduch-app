@@ -1,17 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import NoMatchmakerModal from '../../components/profile/NoMatchmakerModal';
+import ProfileActions from '../../components/profile/ProfileActions';
+import SuggestionConfirmModal from '../../components/profile/SuggestionConfirmModal';
+import { useSuggestions } from '../../hooks/useSuggestions';
+import { Profile as DBProfile, profileService } from '../../lib/profileService';
+import { supabase } from '../../lib/supabase';
 
 interface Profile {
   id: string;
@@ -31,180 +39,183 @@ interface Profile {
   occupation?: string;
 }
 
-// Mock data for profiles
-const mockProfiles: Profile[] = [
-  {
-    id: '1',
-    name: 'Sarah Cohen',
-    age: 25,
-    picture: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-    pictures: [
-      'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face'
-    ],
-    hashkafa: 'Modern Orthodox',
-    location: 'Brooklyn, NY',
-    bio: 'Looking for someone to share life\'s adventures with. Love hiking, cooking, and learning Torah.',
-    role: 'single',
-    gender: 'female',
-    school: 'Yeshiva University',
-    occupation: 'Teacher'
-  },
-  {
-    id: '2',
-    name: 'David Levy',
-    age: 28,
-    picture: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-    pictures: [
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face'
-    ],
-    hashkafa: 'Yeshivish',
-    location: 'Lakewood, NJ',
-    bio: 'Learning in kollel, looking for a partner to build a Torah home together.',
-    role: 'single',
-    gender: 'male',
-    occupation: 'Kollel Student'
-  },
-  {
-    id: '3',
-    name: 'Rachel Green',
-    age: 24,
-    picture: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-    pictures: [
-      'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop&crop=face'
-    ],
-    hashkafa: 'Chabad',
-    location: 'Crown Heights, NY',
-    bio: 'Passionate about helping others and spreading light. Love art and music.',
-    role: 'single',
-    gender: 'female',
-    school: 'Stern College',
-    occupation: 'Social Worker'
-  },
-  {
-    id: '4',
-    name: 'Moshe Schwartz',
-    age: 30,
-    picture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-    pictures: [
-      'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=crop&crop=face'
-    ],
-    hashkafa: 'Litvish',
-    location: 'Monsey, NY',
-    bio: 'Business professional seeking a meaningful relationship grounded in Torah values.',
-    role: 'single',
-    gender: 'male',
-    occupation: 'Finance'
-  },
-  {
-    id: '5',
-    name: 'Leah Rosenberg',
-    age: 26,
-    picture: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
-    pictures: [
-      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face'
-    ],
-    hashkafa: 'Sephardic',
-    location: 'Queens, NY',
-    bio: 'Family-oriented and traditional. Love cooking and hosting guests.',
-    role: 'single',
-    gender: 'female',
-    occupation: 'Nurse'
-  },
-  {
-    id: '6',
-    name: 'Yosef Friedman',
-    age: 32,
-    picture: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face',
-    pictures: [
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face'
-    ],
-    hashkafa: 'Chassidish',
-    location: 'Williamsburg, NY',
-    bio: 'Looking for a partner to share a life of Torah and chessed.',
-    role: 'single',
-    gender: 'male',
-    occupation: 'Business Owner'
-  },
-  {
-    id: '7',
-    name: 'Miriam Katz',
-    age: 23,
-    picture: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150&h=150&fit=crop&crop=face',
-    pictures: [
-      'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop&crop=face'
-    ],
-    hashkafa: 'Modern Orthodox',
-    location: 'Teaneck, NJ',
-    bio: 'Recent graduate looking for someone to grow with in Torah and life.',
-    role: 'single',
-    gender: 'female',
-    school: 'Stern College',
-    occupation: 'Marketing'
-  },
-  {
-    id: '8',
-    name: 'Avi Goldberg',
-    age: 29,
-    picture: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop&crop=face',
-    pictures: [
-      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face'
-    ],
-    hashkafa: 'Yeshivish',
-    location: 'Flatbush, NY',
-    bio: 'Learning and working. Seeking a partner for a Torah-centered life.',
-    role: 'single',
-    gender: 'male',
-    occupation: 'Software Engineer'
-  },
-  {
-    id: '9',
-    name: 'Chana Weiss',
-    age: 27,
-    picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face',
-    pictures: [
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
-      'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face'
-    ],
-    hashkafa: 'Chabad',
-    location: 'Borough Park, NY',
-    bio: 'Passionate about education and helping children. Love nature and books.',
-    role: 'single',
-    gender: 'female',
-    school: 'Touro College',
-    occupation: 'Special Education Teacher'
-  }
-];
 
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPictureViewer, setShowPictureViewer] = useState(false);
   const [selectedPictureIndex, setSelectedPictureIndex] = useState(0);
-  const [filteredProfiles, setFilteredProfiles] = useState(mockProfiles);
+  
+  // Real data states
+  const [currentUserProfile, setCurrentUserProfile] = useState<DBProfile | null>(null);
+  const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
+  const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Filter states
+  const [selectedAgeOption, setSelectedAgeOption] = useState<string | null>(null);
+  const [selectedHashkafa, setSelectedHashkafa] = useState<string[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<string[]>([]);
+  
+  // Use custom hook for suggestions logic
+  const {
+    showSetupConfirmModal,
+    setShowSetupConfirmModal,
+    showNoMatchmakerModal,
+    setShowNoMatchmakerModal,
+    isSubmittingSuggestion,
+    isSubmittingInfoRequest,
+    handleSetupPress,
+    handleConfirmSetup,
+    handleAskForInfo,
+  } = useSuggestions(currentUserProfile, selectedProfile);
+
+  const handleCloseFilterModal = () => {
+    setShowFilterModal(false);
+  };
+
+  // Load profiles on mount
+  const loadProfiles = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Get current user profile
+      const currentProfileResult = await profileService.getProfile();
+      console.log('Current user profile:', currentProfileResult);
+      
+      if (currentProfileResult.success && currentProfileResult.profile) {
+        setCurrentUserProfile(currentProfileResult.profile);
+        console.log('Current user role:', currentProfileResult.profile.role);
+        console.log('Current user gender:', currentProfileResult.profile.gender);
+      }
+
+      // Get all approved profiles from database
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('status', 'approved'); // Only show approved profiles
+
+      console.log('All approved profiles from DB:', data);
+
+      if (error) {
+        console.error('Error loading profiles:', error);
+        Alert.alert('Error', 'Failed to load profiles');
+        return;
+      }
+
+      if (data) {
+        console.log('Number of approved profiles:', data.length);
+        
+        // Convert database profiles to display format
+        const converted = data.map((dbProfile: DBProfile) => convertToDisplayProfile(dbProfile));
+        console.log('Converted profiles:', converted);
+        
+        // Filter based on current user's role and gender
+        const filtered = filterProfilesByUserType(converted, currentProfileResult.profile);
+        console.log('Filtered profiles after gender/role filter:', filtered);
+        console.log('Number of filtered profiles:', filtered.length);
+        
+        setAllProfiles(filtered);
+        setFilteredProfiles(filtered);
+      }
+    } catch (error) {
+      console.error('Error in loadProfiles:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
+
+  // Handle pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadProfiles();
+    setRefreshing(false);
+  }, [loadProfiles]);
+
+  // Convert database profile to display profile
+  const convertToDisplayProfile = (dbProfile: DBProfile): Profile => {
+    console.log(`Converting profile ${dbProfile.first_name}:`, {
+      hasPictures: !!dbProfile.pictures,
+      picturesLength: dbProfile.pictures?.length || 0,
+      pictures: dbProfile.pictures
+    });
+
+    const firstPicture = dbProfile.pictures && dbProfile.pictures.length > 0 
+      ? profileService.getImageUrl(dbProfile.pictures[0])
+      : 'https://via.placeholder.com/150';
+    
+    console.log('First picture URL:', firstPicture);
+    
+    const allPictures = dbProfile.pictures && dbProfile.pictures.length > 0
+      ? dbProfile.pictures.map(pic => profileService.getImageUrl(pic))
+      : ['https://via.placeholder.com/400'];
+
+    return {
+      id: dbProfile.id,
+      name: `${dbProfile.first_name} ${dbProfile.last_name}`,
+      age: dbProfile.age,
+      picture: firstPicture,
+      pictures: allPictures,
+      hashkafa: dbProfile.hashkafa,
+      location: dbProfile.address || `${dbProfile.city}, ${dbProfile.state}`,
+      bio: dbProfile.bio,
+      role: dbProfile.role as 'single' | 'matchmaker',
+      gender: dbProfile.gender as 'male' | 'female',
+      phone: dbProfile.phone,
+      email: dbProfile.email,
+      whatsapp: dbProfile.whatsapp,
+      school: dbProfile.school,
+      occupation: dbProfile.occupation,
+    };
+  };
+
+  // Filter profiles based on current user's role and gender
+  const filterProfilesByUserType = (profiles: Profile[], currentUser: DBProfile | undefined): Profile[] => {
+    console.log('=== FILTER FUNCTION ===');
+    console.log('Input profiles:', profiles.length);
+    console.log('Current user:', currentUser);
+    
+    if (!currentUser) {
+      console.log('No current user, returning all profiles');
+      return profiles;
+    }
+
+    // Always exclude current user's own profile
+    let filtered = profiles.filter(profile => profile.id !== currentUser.id);
+    console.log('After removing own profile:', filtered.length);
+
+    // If user is a matchmaker, show all profiles (except their own)
+    if (currentUser.role === 'matchmaker') {
+      console.log('User is matchmaker, showing all profiles');
+      return filtered;
+    }
+
+    // If user is single, only show opposite gender
+    if (currentUser.role === 'single') {
+      console.log('User is single with gender:', currentUser.gender);
+      console.log('Before gender filter:', filtered.map(p => ({ id: p.id, name: p.name, gender: p.gender })));
+      filtered = filtered.filter(profile => {
+        const keep = profile.gender !== currentUser.gender;
+        console.log(`Profile ${profile.name} (${profile.gender}) - keep: ${keep}`);
+        return keep;
+      });
+      console.log('After gender filter:', filtered.length);
+    }
+
+    return filtered;
+  };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    const filtered = mockProfiles.filter(profile =>
+    const filtered = allProfiles.filter(profile =>
       profile.name.toLowerCase().includes(query.toLowerCase()) ||
       profile.hashkafa.toLowerCase().includes(query.toLowerCase()) ||
       profile.location.toLowerCase().includes(query.toLowerCase())
@@ -213,21 +224,50 @@ export default function HomeScreen() {
   };
 
   const handleProfilePress = (profile: Profile) => {
+    // Reset states before opening new profile
+    setShowPictureViewer(false);
+    setSelectedPictureIndex(0);
     setSelectedProfile(profile);
     setShowProfileModal(true);
   };
 
-  const handleAskForInfo = () => {
-    Alert.alert(
-      'Request Sent',
-      'Your request for more information has been sent to this profile.',
-      [{ text: 'OK' }]
-    );
+  const handleCloseProfileModal = () => {
+    // Reset all states when closing the modal
+    setShowProfileModal(false);
+    setTimeout(() => {
+      setSelectedProfile(null);
+      setShowPictureViewer(false);
+      setSelectedPictureIndex(0);
+    }, 300); // Wait for animation to complete
   };
 
   const handlePicturePress = (index: number) => {
     setSelectedPictureIndex(index);
     setShowPictureViewer(true);
+  };
+
+  const handleClosePictureViewer = () => {
+    setShowPictureViewer(false);
+  };
+
+  const toggleAgeOption = (option: string) => {
+    setSelectedAgeOption(selectedAgeOption === option ? null : option);
+  };
+
+  const toggleHashkafa = (hashkafa: string) => {
+    setSelectedHashkafa(prev => 
+      prev.includes(hashkafa) 
+        ? prev.filter(h => h !== hashkafa)
+        : [...prev, hashkafa]
+    );
+  };
+
+  const toggleLocation = (location: string) => {
+    setSelectedLocation(prev => 
+      prev.includes(location) 
+        ? prev.filter(l => l !== location)
+        : [...prev, location]
+    );
   };
 
   return (
@@ -260,33 +300,77 @@ export default function HomeScreen() {
 
 
       {/* Profiles Grid */}
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.profilesGrid}>
-          {filteredProfiles.map((profile) => (
-            <TouchableOpacity
-              key={profile.id}
-              style={styles.profileCard}
-              onPress={() => handleProfilePress(profile)}
-            >
-              <View style={styles.profileImageContainer}>
-                <Image source={{ uri: profile.picture }} style={styles.profileImage} />
-              </View>
-              <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>{profile.name}</Text>
-                <Text style={styles.profileLocation}>{profile.location}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#e91e63']}
+            tintColor="#e91e63"
+          />
+        }
+      >
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#e91e63" />
+            <Text style={styles.loadingText}>Loading profiles...</Text>
+          </View>
+        ) : filteredProfiles.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="people-outline" size={80} color="#ccc" />
+            <Text style={styles.emptyText}>No profiles found</Text>
+            <Text style={styles.emptySubtext}>
+              {currentUserProfile?.role === 'single' 
+                ? `We're looking for ${currentUserProfile?.gender === 'male' ? 'female' : 'male'} profiles for you`
+                : 'Check back later for new profiles'}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.profilesGrid}>
+            {filteredProfiles.map((profile) => (
+              <TouchableOpacity
+                key={profile.id}
+                style={styles.profileCard}
+                onPress={() => handleProfilePress(profile)}
+              >
+                <View style={styles.profileImageContainer}>
+                  {profile.picture && profile.picture !== 'https://via.placeholder.com/150' ? (
+                    <Image 
+                      source={{ uri: profile.picture }} 
+                      style={styles.profileImage}
+                      defaultSource={require('../../assets/images/icon.png')}
+                      onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
+                    />
+                  ) : (
+                    <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
+                      <Ionicons name="person" size={60} color="#ccc" />
+                    </View>
+                  )}
+                </View>
+                <View style={styles.profileInfo}>
+                  <Text style={styles.profileName}>{profile.name}</Text>
+                  <Text style={styles.profileLocation}>{profile.location}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       {/* Profile Modal */}
-      <Modal visible={showProfileModal} animationType="slide" presentationStyle="pageSheet">
+      <Modal 
+        visible={showProfileModal} 
+        animationType="slide" 
+        presentationStyle="pageSheet"
+        onRequestClose={handleCloseProfileModal}
+      >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <View style={styles.placeholder} />
             <Text style={styles.modalTitle}>Profile</Text>
-            <TouchableOpacity onPress={() => setShowProfileModal(false)}>
+            <TouchableOpacity onPress={handleCloseProfileModal}>
               <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
           </View>
@@ -302,20 +386,27 @@ export default function HomeScreen() {
                 </View>
               </View>
 
-              <View style={styles.profileSection}>
-                <Text style={styles.sectionTitle}>Pictures</Text>
-                <View style={styles.picturesContainer}>
-                  {selectedProfile.pictures.map((picture, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={styles.pictureThumbnail}
-                      onPress={() => handlePicturePress(index)}
-                    >
-                      <Image source={{ uri: picture }} style={styles.thumbnailImage} />
-                    </TouchableOpacity>
-                  ))}
+              {selectedProfile.pictures && selectedProfile.pictures.length > 0 && (
+                <View style={styles.profileSection}>
+                  <Text style={styles.sectionTitle}>Pictures</Text>
+                  <View style={styles.picturesContainer}>
+                    {selectedProfile.pictures.map((picture, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.pictureThumbnail}
+                        onPress={() => handlePicturePress(index)}
+                        activeOpacity={0.7}
+                      >
+                        <Image 
+                          source={{ uri: picture }} 
+                          style={styles.thumbnailImage}
+                          resizeMode="cover"
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
-              </View>
+              )}
 
               <View style={styles.profileSection}>
                 <Text style={styles.sectionTitle}>About</Text>
@@ -349,23 +440,48 @@ export default function HomeScreen() {
                   </View>
                 )}
               </View>
-
-              <TouchableOpacity style={styles.askButton} onPress={handleAskForInfo}>
-                <Ionicons name="information-circle" size={20} color="#fff" />
-                <Text style={styles.askButtonText}>Ask for More Information</Text>
-              </TouchableOpacity>
             </ScrollView>
+          )}
+          
+          {selectedProfile && (
+            <ProfileActions
+              onSetupPress={handleSetupPress}
+              onAskForInfoPress={handleAskForInfo}
+              isSubmittingInfoRequest={isSubmittingInfoRequest}
+              showSetupButton={true}
+              showAskForInfoButton={true}
+            />
           )}
         </SafeAreaView>
       </Modal>
+      
+      {/* Suggestion Confirmation Modal */}
+      <SuggestionConfirmModal
+        visible={showSetupConfirmModal}
+        profileName={selectedProfile?.name || ''}
+        isLoading={isSubmittingSuggestion}
+        onConfirm={handleConfirmSetup}
+        onCancel={() => setShowSetupConfirmModal(false)}
+      />
+      
+      {/* No Matchmaker Modal */}
+      <NoMatchmakerModal
+        visible={showNoMatchmakerModal}
+        onClose={() => setShowNoMatchmakerModal(false)}
+      />
 
       {/* Filter Modal */}
-      <Modal visible={showFilterModal} animationType="slide" presentationStyle="pageSheet">
+      <Modal 
+        visible={showFilterModal} 
+        animationType="slide" 
+        presentationStyle="pageSheet"
+        onRequestClose={handleCloseFilterModal}
+      >
         <SafeAreaView style={styles.filterModalContainer}>
           <View style={styles.filterModalHeader}>
             <View style={styles.placeholder} />
             <Text style={styles.filterModalTitle}>Filters</Text>
-            <TouchableOpacity onPress={() => setShowFilterModal(false)}>
+            <TouchableOpacity onPress={handleCloseFilterModal}>
               <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
           </View>
@@ -376,17 +492,29 @@ export default function HomeScreen() {
               
               {/* Age Options */}
               <View style={styles.ageOptionsContainer}>
-                <TouchableOpacity style={styles.ageOptionChip}>
-                  <Text style={styles.ageOptionText}>18-25</Text>
+                <TouchableOpacity 
+                  style={[styles.ageOptionChip, selectedAgeOption === '18-25' && styles.ageOptionChipSelected]}
+                  onPress={() => toggleAgeOption('18-25')}
+                >
+                  <Text style={[styles.ageOptionText, selectedAgeOption === '18-25' && styles.ageOptionTextSelected]}>18-25</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.ageOptionChip}>
-                  <Text style={styles.ageOptionText}>26-30</Text>
+                <TouchableOpacity 
+                  style={[styles.ageOptionChip, selectedAgeOption === '26-30' && styles.ageOptionChipSelected]}
+                  onPress={() => toggleAgeOption('26-30')}
+                >
+                  <Text style={[styles.ageOptionText, selectedAgeOption === '26-30' && styles.ageOptionTextSelected]}>26-30</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.ageOptionChip}>
-                  <Text style={styles.ageOptionText}>31-35</Text>
+                <TouchableOpacity 
+                  style={[styles.ageOptionChip, selectedAgeOption === '31-35' && styles.ageOptionChipSelected]}
+                  onPress={() => toggleAgeOption('31-35')}
+                >
+                  <Text style={[styles.ageOptionText, selectedAgeOption === '31-35' && styles.ageOptionTextSelected]}>31-35</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.ageOptionChip}>
-                  <Text style={styles.ageOptionText}>36+</Text>
+                <TouchableOpacity 
+                  style={[styles.ageOptionChip, selectedAgeOption === '36+' && styles.ageOptionChipSelected]}
+                  onPress={() => toggleAgeOption('36+')}
+                >
+                  <Text style={[styles.ageOptionText, selectedAgeOption === '36+' && styles.ageOptionTextSelected]}>36+</Text>
                 </TouchableOpacity>
               </View>
 
@@ -430,23 +558,41 @@ export default function HomeScreen() {
             <View style={styles.filterSection}>
               <Text style={styles.filterSectionTitle}>Hashkafa</Text>
               <View style={styles.filterRow}>
-                <TouchableOpacity style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>Modern Orthodox</Text>
+                <TouchableOpacity 
+                  style={[styles.filterChip, selectedHashkafa.includes('Modern Orthodox') && styles.filterChipSelected]}
+                  onPress={() => toggleHashkafa('Modern Orthodox')}
+                >
+                  <Text style={[styles.filterChipText, selectedHashkafa.includes('Modern Orthodox') && styles.filterChipTextSelected]}>Modern Orthodox</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>Yeshivish</Text>
+                <TouchableOpacity 
+                  style={[styles.filterChip, selectedHashkafa.includes('Yeshivish') && styles.filterChipSelected]}
+                  onPress={() => toggleHashkafa('Yeshivish')}
+                >
+                  <Text style={[styles.filterChipText, selectedHashkafa.includes('Yeshivish') && styles.filterChipTextSelected]}>Yeshivish</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>Chabad</Text>
+                <TouchableOpacity 
+                  style={[styles.filterChip, selectedHashkafa.includes('Chabad') && styles.filterChipSelected]}
+                  onPress={() => toggleHashkafa('Chabad')}
+                >
+                  <Text style={[styles.filterChipText, selectedHashkafa.includes('Chabad') && styles.filterChipTextSelected]}>Chabad</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>Litvish</Text>
+                <TouchableOpacity 
+                  style={[styles.filterChip, selectedHashkafa.includes('Litvish') && styles.filterChipSelected]}
+                  onPress={() => toggleHashkafa('Litvish')}
+                >
+                  <Text style={[styles.filterChipText, selectedHashkafa.includes('Litvish') && styles.filterChipTextSelected]}>Litvish</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>Sephardic</Text>
+                <TouchableOpacity 
+                  style={[styles.filterChip, selectedHashkafa.includes('Sephardic') && styles.filterChipSelected]}
+                  onPress={() => toggleHashkafa('Sephardic')}
+                >
+                  <Text style={[styles.filterChipText, selectedHashkafa.includes('Sephardic') && styles.filterChipTextSelected]}>Sephardic</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>Chassidish</Text>
+                <TouchableOpacity 
+                  style={[styles.filterChip, selectedHashkafa.includes('Chassidish') && styles.filterChipSelected]}
+                  onPress={() => toggleHashkafa('Chassidish')}
+                >
+                  <Text style={[styles.filterChipText, selectedHashkafa.includes('Chassidish') && styles.filterChipTextSelected]}>Chassidish</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -468,23 +614,41 @@ export default function HomeScreen() {
               <View style={styles.popularLocationsContainer}>
                 <Text style={styles.popularLocationsLabel}>Popular Locations:</Text>
                 <View style={styles.filterRow}>
-                  <TouchableOpacity style={styles.filterChip}>
-                    <Text style={styles.filterChipText}>Brooklyn, NY</Text>
+                  <TouchableOpacity 
+                    style={[styles.filterChip, selectedLocation.includes('Brooklyn, NY') && styles.filterChipSelected]}
+                    onPress={() => toggleLocation('Brooklyn, NY')}
+                  >
+                    <Text style={[styles.filterChipText, selectedLocation.includes('Brooklyn, NY') && styles.filterChipTextSelected]}>Brooklyn, NY</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.filterChip}>
-                    <Text style={styles.filterChipText}>Queens, NY</Text>
+                  <TouchableOpacity 
+                    style={[styles.filterChip, selectedLocation.includes('Queens, NY') && styles.filterChipSelected]}
+                    onPress={() => toggleLocation('Queens, NY')}
+                  >
+                    <Text style={[styles.filterChipText, selectedLocation.includes('Queens, NY') && styles.filterChipTextSelected]}>Queens, NY</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.filterChip}>
-                    <Text style={styles.filterChipText}>Manhattan, NY</Text>
+                  <TouchableOpacity 
+                    style={[styles.filterChip, selectedLocation.includes('Manhattan, NY') && styles.filterChipSelected]}
+                    onPress={() => toggleLocation('Manhattan, NY')}
+                  >
+                    <Text style={[styles.filterChipText, selectedLocation.includes('Manhattan, NY') && styles.filterChipTextSelected]}>Manhattan, NY</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.filterChip}>
-                    <Text style={styles.filterChipText}>Lakewood, NJ</Text>
+                  <TouchableOpacity 
+                    style={[styles.filterChip, selectedLocation.includes('Lakewood, NJ') && styles.filterChipSelected]}
+                    onPress={() => toggleLocation('Lakewood, NJ')}
+                  >
+                    <Text style={[styles.filterChipText, selectedLocation.includes('Lakewood, NJ') && styles.filterChipTextSelected]}>Lakewood, NJ</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.filterChip}>
-                    <Text style={styles.filterChipText}>Monsey, NY</Text>
+                  <TouchableOpacity 
+                    style={[styles.filterChip, selectedLocation.includes('Monsey, NY') && styles.filterChipSelected]}
+                    onPress={() => toggleLocation('Monsey, NY')}
+                  >
+                    <Text style={[styles.filterChipText, selectedLocation.includes('Monsey, NY') && styles.filterChipTextSelected]}>Monsey, NY</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.filterChip}>
-                    <Text style={styles.filterChipText}>Teaneck, NJ</Text>
+                  <TouchableOpacity 
+                    style={[styles.filterChip, selectedLocation.includes('Teaneck, NJ') && styles.filterChipSelected]}
+                    onPress={() => toggleLocation('Teaneck, NJ')}
+                  >
+                    <Text style={[styles.filterChipText, selectedLocation.includes('Teaneck, NJ') && styles.filterChipTextSelected]}>Teaneck, NJ</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -494,14 +658,14 @@ export default function HomeScreen() {
           <View style={styles.filterActions}>
             <TouchableOpacity 
               style={styles.clearFiltersButton}
-              onPress={() => setShowFilterModal(false)}
+              onPress={handleCloseFilterModal}
             >
               <Text style={styles.clearFiltersText}>Clear All</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
               style={styles.applyFiltersButton}
-              onPress={() => setShowFilterModal(false)}
+              onPress={handleCloseFilterModal}
             >
               <Text style={styles.applyFiltersText}>Apply Filters</Text>
             </TouchableOpacity>
@@ -510,15 +674,21 @@ export default function HomeScreen() {
       </Modal>
 
       {/* Picture Viewer Modal */}
-      <Modal visible={showPictureViewer} transparent animationType="fade">
+      <Modal 
+        visible={showPictureViewer} 
+        transparent 
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={handleClosePictureViewer}
+      >
         <View style={styles.pictureViewerOverlay}>
           <TouchableOpacity 
             style={styles.closePictureViewer}
-            onPress={() => setShowPictureViewer(false)}
+            onPress={handleClosePictureViewer}
           >
             <Ionicons name="close" size={30} color="#fff" />
           </TouchableOpacity>
-          {selectedProfile && (
+          {selectedProfile && selectedProfile.pictures && selectedProfile.pictures[selectedPictureIndex] && (
             <Image 
               source={{ uri: selectedProfile.pictures[selectedPictureIndex] }} 
               style={styles.fullScreenPicture}
@@ -632,6 +802,13 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '600',
   },
+  filterChipSelected: {
+    backgroundColor: '#e91e63',
+    borderColor: '#e91e63',
+  },
+  filterChipTextSelected: {
+    color: '#fff',
+  },
   filterActions: {
     flexDirection: 'row',
     padding: 20,
@@ -698,6 +875,11 @@ const styles = StyleSheet.create({
     height: 100,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
+  },
+  profileImagePlaceholder: {
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profileInfo: {
     padding: 12,
@@ -823,21 +1005,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
   },
-  askButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#e91e63',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 20,
-  },
-  askButtonText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
   // Picture Styles
   picturesContainer: {
     flexDirection: 'row',
@@ -859,16 +1026,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   closePictureViewer: {
     position: 'absolute',
-    top: 50,
+    top: 60,
     left: 20,
-    zIndex: 1,
+    zIndex: 10,
+    padding: 10,
   },
   fullScreenPicture: {
-    width: '90%',
-    height: '70%',
+    width: '100%',
+    height: '80%',
   },
   // Age Input Styles
   ageInputContainer: {
@@ -911,6 +1080,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     fontWeight: '600',
+  },
+  ageOptionChipSelected: {
+    backgroundColor: '#e91e63',
+    borderColor: '#e91e63',
+  },
+  ageOptionTextSelected: {
+    color: '#fff',
   },
   // Age Range Styles
   ageRangeContainer: {
@@ -969,5 +1145,37 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 8,
     fontWeight: '600',
+  },
+  // Loading and Empty States
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    minHeight: 300,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    minHeight: 300,
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
