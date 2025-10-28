@@ -11,6 +11,8 @@ export interface Suggestion {
   suggested_continuation_choice?: 'by_themselves' | 'with_middle_person';
   suggester_matchmaker_id?: string;
   suggested_matchmaker_id?: string;
+  paired_suggestion_id?: string;
+  created_by_matchmaker_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +39,12 @@ export interface SuggestionWithDetails {
   suggested_continuation_choice?: 'by_themselves' | 'with_middle_person';
   suggester_matchmaker_id?: string;
   suggested_matchmaker_id?: string;
+  paired_suggestion_id?: string;
+  created_by_matchmaker_id?: string;
+  paired_suggestion?: {
+    id: string;
+    status: 'pending' | 'accepted' | 'rejected' | 'completed';
+  };
   suggested_profile?: {
     id: string;
     first_name: string;
@@ -182,9 +190,6 @@ class SuggestionService {
         .single();
 
       if (error) {
-        if (error.code === '23505') { // Unique constraint violation
-          return { success: false, error: 'You have already suggested this profile' };
-        }
         return { success: false, error: error.message };
       }
 
@@ -197,21 +202,24 @@ class SuggestionService {
 
   /**
    * Create a matchmaker-initiated suggestion between two profiles
-   * Both profiles will receive the suggestion and their matchmakers will be notified
+   * The matchmaker is facilitating the introduction but doesn't necessarily become the middle person
+   * Each profile keeps their own existing matchmaker (or none if they don't have one)
+   * Both profiles will receive the suggestion
    */
   async createMatchmakerSuggestion(
     profile1Id: string,
     profile2Id: string,
-    matchmakerId: string
+    matchmakerId: string // The matchmaker creating the setup (used for permissions, not assigned as middle person)
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Get both profiles to find their matchmakers
+      // Get both profiles to find their matchmakers (for logging/validation)
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, matchmaker_id')
         .in('id', [profile1Id, profile2Id]);
 
       if (profilesError || !profiles || profiles.length !== 2) {
+        console.error('Error fetching profiles:', profilesError);
         return { success: false, error: 'Could not find both profiles' };
       }
 
@@ -222,46 +230,35 @@ class SuggestionService {
         return { success: false, error: 'Invalid profile IDs' };
       }
 
-      // Create suggestion from profile1 to profile2
-      const { data: suggestion1, error: error1 } = await supabase
-        .from('suggestions')
-        .insert({
-          suggester_id: profile1.id,
-          suggested_profile_id: profile2.id,
-          suggester_matchmaker_id: profile1.matchmaker_id || matchmakerId,
-          suggested_matchmaker_id: profile2.matchmaker_id,
-          status: 'pending',
-          notes: `Suggested by matchmaker`,
-        })
-        .select()
-        .single();
+      console.log('Creating matchmaker suggestion:', {
+        profile1: profile1.first_name,
+        profile2: profile2.first_name,
+        matchmakerId,
+        profile1MatchmakerId: profile1.matchmaker_id,
+        profile2MatchmakerId: profile2.matchmaker_id,
+      });
 
-      if (error1) {
-        console.error('Error creating first suggestion:', error1);
-        return { success: false, error: 'Failed to create suggestion' };
+      // Call the database function to create both suggestions
+      // This bypasses RLS using SECURITY DEFINER
+      const { data, error } = await supabase
+        .rpc('create_matchmaker_suggestion', {
+          profile1_id: profile1Id,
+          profile2_id: profile2Id,
+          matchmaker_profile_id: matchmakerId,
+        });
+
+      if (error) {
+        console.error('Error calling create_matchmaker_suggestion:', error);
+        return { success: false, error: `Failed to create suggestions: ${error.message}` };
       }
 
-      // Create reverse suggestion from profile2 to profile1
-      const { data: suggestion2, error: error2 } = await supabase
-        .from('suggestions')
-        .insert({
-          suggester_id: profile2.id,
-          suggested_profile_id: profile1.id,
-          suggester_matchmaker_id: profile2.matchmaker_id,
-          suggested_matchmaker_id: profile1.matchmaker_id || matchmakerId,
-          status: 'pending',
-          notes: `Suggested by matchmaker`,
-        })
-        .select()
-        .single();
-
-      if (error2) {
-        console.error('Error creating second suggestion:', error2);
-        // Try to rollback first suggestion
-        await supabase.from('suggestions').delete().eq('id', suggestion1.id);
-        return { success: false, error: 'Failed to create suggestion' };
+      // Check the result from the function
+      if (!data || !data.success) {
+        console.error('Function returned error:', data?.error);
+        return { success: false, error: data?.error || 'Failed to create suggestions' };
       }
 
+      console.log('Both suggestions created successfully:', data);
       return { success: true };
     } catch (error) {
       console.error('Error in createMatchmakerSuggestion:', error);
@@ -351,6 +348,8 @@ class SuggestionService {
           updated_at,
           suggester_continuation_choice,
           suggested_continuation_choice,
+          paired_suggestion_id,
+          created_by_matchmaker_id,
           suggested_profile:profiles!suggestions_suggested_profile_id_fkey(
             id,
             first_name,
@@ -364,6 +363,7 @@ class SuggestionService {
           )
         `)
         .eq('suggester_id', userProfile.id)
+        .is('created_by_matchmaker_id', null) // Only show user-initiated suggestions
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -371,8 +371,28 @@ class SuggestionService {
         return { success: false, error: error.message };
       }
 
-      console.log('Fetched suggestions:', data?.length || 0);
-      return { success: true, suggestions: data as any };
+      // Fetch paired suggestion statuses separately for self-referencing joins
+      const suggestionsWithPaired = await Promise.all(
+        (data || []).map(async (suggestion) => {
+          if (suggestion.paired_suggestion_id) {
+            const { data: pairedData } = await supabase
+              .from('suggestions')
+              .select('id, status')
+              .eq('id', suggestion.paired_suggestion_id)
+              .single();
+            
+            return {
+              ...suggestion,
+              paired_suggestion: pairedData || undefined
+            };
+          }
+          return suggestion;
+        })
+      );
+
+      console.log('Fetched suggestions:', suggestionsWithPaired?.length || 0);
+      return { success: true, suggestions: suggestionsWithPaired as any };
+
     } catch (error) {
       console.error('Error fetching suggestions with details:', error);
       return { success: false, error: 'An unexpected error occurred' };
@@ -479,9 +499,6 @@ class SuggestionService {
         .single();
 
       if (error) {
-        if (error.code === '23505') { // Unique constraint violation
-          return { success: false, error: 'You have already requested info from this profile' };
-        }
         return { success: false, error: error.message };
       }
 
@@ -744,6 +761,8 @@ class SuggestionService {
           updated_at,
           suggester_continuation_choice,
           suggested_continuation_choice,
+          paired_suggestion_id,
+          created_by_matchmaker_id,
           suggester_profile:profiles!suggestions_suggester_id_fkey(
             id,
             first_name,
@@ -759,8 +778,27 @@ class SuggestionService {
         return { success: false, error: error.message };
       }
 
-      console.log('Fetched received suggestions:', data?.length || 0);
-      return { success: true, suggestions: data as any };
+      // Fetch paired suggestion statuses separately for self-referencing joins
+      const suggestionsWithPaired = await Promise.all(
+        (data || []).map(async (suggestion) => {
+          if (suggestion.paired_suggestion_id) {
+            const { data: pairedData } = await supabase
+              .from('suggestions')
+              .select('id, status')
+              .eq('id', suggestion.paired_suggestion_id)
+              .single();
+            
+            return {
+              ...suggestion,
+              paired_suggestion: pairedData || undefined
+            };
+          }
+          return suggestion;
+        })
+      );
+
+      console.log('Fetched received suggestions:', suggestionsWithPaired?.length || 0);
+      return { success: true, suggestions: suggestionsWithPaired as any };
     } catch (error) {
       console.error('Error fetching received suggestions:', error);
       return { success: false, error: 'An unexpected error occurred' };

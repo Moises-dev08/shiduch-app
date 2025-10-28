@@ -73,7 +73,7 @@ export default function MatchmakerSuggestionItem({
 
   const getChoiceText = (choice: 'by_themselves' | 'with_middle_person' | null | undefined) => {
     if (!choice) return 'Deciding...';
-    return choice === 'by_themselves' ? 'By themselves' : 'With middle person';
+    return choice === 'by_themselves' ? 'By themselve' : 'With middle person';
   };
 
   const getChoiceIcon = (choice: 'by_themselves' | 'with_middle_person' | null | undefined) => {

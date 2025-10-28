@@ -15,6 +15,8 @@ interface SuggestionHistoryItemProps {
   createdAt: string;
   matchmakerName?: string;
   suggesterContinuationChoice?: 'by_themselves' | 'with_middle_person';
+  pairedSuggestionId?: string;
+  pairedSuggestionStatus?: 'pending' | 'accepted' | 'rejected' | 'completed';
   onRefresh?: () => void;
 }
 
@@ -54,12 +56,19 @@ export default function SuggestionHistoryItem({
   createdAt,
   matchmakerName,
   suggesterContinuationChoice,
+  pairedSuggestionId,
+  pairedSuggestionStatus,
   onRefresh,
 }: SuggestionHistoryItemProps) {
   const router = useRouter();
   const [showContinuationModal, setShowContinuationModal] = useState(false);
   const [showContactInfo, setShowContactInfo] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // For matchmaker-initiated suggestions (paired), need to wait for both to accept
+  const isPaired = !!pairedSuggestionId;
+  const bothAccepted = isPaired ? (status === 'accepted' && pairedSuggestionStatus === 'accepted') : status === 'accepted';
+  const showWaitingForOther = status === 'accepted' && !suggesterContinuationChoice && isPaired && !bothAccepted;
   
   const config = statusConfig[status];
   const formattedDate = new Date(createdAt).toLocaleDateString('en-US', {
@@ -114,7 +123,7 @@ export default function SuggestionHistoryItem({
     );
   };
 
-  const showChoiceButton = status === 'accepted' && !suggesterContinuationChoice;
+  const showChoiceButton = bothAccepted && !suggesterContinuationChoice;
 
   return (
     <>
@@ -153,7 +162,14 @@ export default function SuggestionHistoryItem({
               <Text style={styles.deleteButtonText}>Delete suggestion</Text>
             </TouchableOpacity>
           )}
-          {showChoiceButton ? (
+          {showWaitingForOther ? (
+            <View style={[styles.statusBadge, { backgroundColor: '#FFF3E0' }]}>
+              <Ionicons name="hourglass-outline" size={16} color="#FF9800" />
+              <Text style={[styles.statusText, { color: '#FF9800' }]}>
+                Waiting for other
+              </Text>
+            </View>
+          ) : showChoiceButton ? (
             <TouchableOpacity
               style={styles.choiceButton}
               onPress={handleMakeChoice}

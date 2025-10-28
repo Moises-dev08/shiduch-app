@@ -1,17 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ProfileCard from '../components/home/ProfileCard';
@@ -36,15 +36,6 @@ export default function MatchmakerSetupScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
 
-  useEffect(() => {
-    loadCurrentUser();
-    loadProfiles();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [profiles, searchQuery]);
-
   const loadCurrentUser = async () => {
     const result = await profileService.getProfile();
     if (result.success && result.profile) {
@@ -52,7 +43,7 @@ export default function MatchmakerSetupScreen() {
     }
   };
 
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -101,9 +92,9 @@ export default function MatchmakerSetupScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [sourceProfileId, sourceGender]);
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...profiles];
 
     // Search filter
@@ -118,7 +109,16 @@ export default function MatchmakerSetupScreen() {
     }
 
     setFilteredProfiles(filtered);
-  };
+  }, [profiles, searchQuery]);
+
+  useEffect(() => {
+    loadCurrentUser();
+    loadProfiles();
+  }, [loadProfiles]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -221,12 +221,19 @@ export default function MatchmakerSetupScreen() {
       {/* Profiles Grid */}
       <ScrollView
         style={styles.content}
-        contentContainerStyle={styles.profilesContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={handleRefresh}
+            colors={['#007AFF']}
+            tintColor="#007AFF"
+          />
+        }
       >
         {filteredProfiles.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={64} color="#ccc" />
+            <Ionicons name="people-outline" size={80} color="#ccc" />
             <Text style={styles.emptyTitle}>No Profiles Found</Text>
             <Text style={styles.emptyText}>
               {searchQuery
@@ -237,19 +244,21 @@ export default function MatchmakerSetupScreen() {
         ) : (
           <View style={styles.profilesGrid}>
             {filteredProfiles.map(profile => (
-              <View key={profile.id} style={styles.profileCardWrapper}>
-                <ProfileCard
-                  profile={profile}
-                  onPress={() => handleProfilePress(profile)}
-                />
-                <TouchableOpacity
-                  style={styles.selectButton}
-                  onPress={() => handleSelectProfile(profile)}
-                >
-                  <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                  <Text style={styles.selectButtonText}>Select</Text>
-                </TouchableOpacity>
-              </View>
+              <ProfileCard
+                key={profile.id}
+                profile={profile}
+                onPress={() => handleProfilePress(profile)}
+                renderAction={
+                  <TouchableOpacity
+                    style={styles.selectButton}
+                    onPress={() => handleSelectProfile(profile)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                    <Text style={styles.selectButtonText}>Select</Text>
+                  </TouchableOpacity>
+                }
+              />
             ))}
           </View>
         )}
@@ -298,7 +307,7 @@ export default function MatchmakerSetupScreen() {
                 ) : (
                   <>
                     <Ionicons name="checkmark" size={20} color="#fff" />
-                    <Text style={styles.confirmButtonText}>Yes, Create Setup</Text>
+                    <Text style={styles.confirmButtonText}>Yes</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -374,17 +383,11 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  profilesContainer: {
-    padding: 16,
-  },
   profilesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-  },
-  profileCardWrapper: {
-    width: '31%',
-    marginBottom: 16,
+    padding: 16,
   },
   selectButton: {
     flexDirection: 'row',
@@ -394,32 +397,32 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    marginTop: 8,
     gap: 4,
   },
   selectButtonText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingVertical: 80,
+    paddingHorizontal: 32,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
-    color: '#999',
+    color: '#666',
     marginTop: 16,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#bbb',
+    fontSize: 15,
+    color: '#999',
     marginTop: 8,
     textAlign: 'center',
-    paddingHorizontal: 32,
+    lineHeight: 22,
   },
   modalOverlay: {
     flex: 1,

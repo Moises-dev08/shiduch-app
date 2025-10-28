@@ -14,6 +14,8 @@ interface ReceivedSuggestionItemProps {
   createdAt: string;
   notes?: string;
   suggestedContinuationChoice?: 'by_themselves' | 'with_middle_person';
+  pairedSuggestionId?: string;
+  pairedSuggestionStatus?: 'pending' | 'accepted' | 'rejected' | 'completed';
   onStatusChange?: () => void;
 }
 
@@ -53,12 +55,15 @@ export default function ReceivedSuggestionItem({
   createdAt,
   notes,
   suggestedContinuationChoice,
+  pairedSuggestionId,
+  pairedSuggestionStatus,
   onStatusChange,
 }: ReceivedSuggestionItemProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [currentStatus, setCurrentStatus] = useState(status);
   const [currentChoice, setCurrentChoice] = useState(suggestedContinuationChoice);
+  const [currentPairedStatus, setCurrentPairedStatus] = useState(pairedSuggestionStatus);
   const [showContinuationModal, setShowContinuationModal] = useState(false);
   const [showContactInfo, setShowContactInfo] = useState(false);
 
@@ -66,9 +71,14 @@ export default function ReceivedSuggestionItem({
   useEffect(() => {
     setCurrentStatus(status);
     setCurrentChoice(suggestedContinuationChoice);
-  }, [status, suggestedContinuationChoice]);
+    setCurrentPairedStatus(pairedSuggestionStatus);
+  }, [status, suggestedContinuationChoice, pairedSuggestionStatus]);
 
-  const showChoiceButton = currentStatus === 'accepted' && !currentChoice;
+  // For matchmaker-initiated suggestions (paired), both must accept before showing choice
+  const isPaired = !!pairedSuggestionId;
+  const bothAccepted = isPaired ? (currentStatus === 'accepted' && currentPairedStatus === 'accepted') : true;
+  const showChoiceButton = currentStatus === 'accepted' && !currentChoice && bothAccepted;
+  const showWaitingForOther = currentStatus === 'accepted' && !currentChoice && isPaired && !bothAccepted;
   
   const config = statusConfig[currentStatus];
   const formattedDate = new Date(createdAt).toLocaleDateString('en-US', {
@@ -135,7 +145,11 @@ export default function ReceivedSuggestionItem({
                 
                 if (result.success) {
                   setCurrentStatus('accepted');
-                  Alert.alert('Success', 'Suggestion accepted! Click "Choose" to decide how to continue.');
+                  if (isPaired && currentPairedStatus !== 'accepted') {
+                    Alert.alert('Success', 'Suggestion accepted! Waiting for the other person to accept as well.');
+                  } else {
+                    Alert.alert('Success', 'Suggestion accepted! Click "Choose" to decide how to continue.');
+                  }
                   onStatusChange?.();
                 } else {
                   Alert.alert('Error', result.error || 'Failed to accept suggestion');
@@ -207,6 +221,13 @@ export default function ReceivedSuggestionItem({
                 </TouchableOpacity>
               </>
             )}
+          </View>
+        ) : showWaitingForOther ? (
+          <View style={[styles.statusBadge, { backgroundColor: '#FFF3E0' }]}>
+            <Ionicons name="hourglass-outline" size={16} color="#FF9800" />
+            <Text style={[styles.statusText, { color: '#FF9800' }]}>
+              Waiting for other
+            </Text>
           </View>
         ) : showChoiceButton ? (
           <TouchableOpacity

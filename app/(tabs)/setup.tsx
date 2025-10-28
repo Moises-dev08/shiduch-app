@@ -202,6 +202,8 @@ export default function SetupScreen() {
                       : undefined
                   }
                   suggesterContinuationChoice={suggestion.suggester_continuation_choice}
+                  pairedSuggestionId={suggestion.paired_suggestion_id}
+                  pairedSuggestionStatus={suggestion.paired_suggestion?.status}
                   onRefresh={refresh}
                 />
               ))
@@ -231,6 +233,8 @@ export default function SetupScreen() {
                   createdAt={suggestion.created_at}
                   notes={suggestion.notes}
                   suggestedContinuationChoice={suggestion.suggested_continuation_choice}
+                  pairedSuggestionId={suggestion.paired_suggestion_id}
+                  pairedSuggestionStatus={suggestion.paired_suggestion?.status}
                   onStatusChange={refresh}
                 />
               ))

@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Profile } from '../../types/homeTypes';
 
 interface ProfileCardProps {
   profile: Profile;
   onPress: (profile: Profile) => void;
+  renderAction?: ReactNode;
 }
 
-export default function ProfileCard({ profile, onPress }: ProfileCardProps) {
+export default function ProfileCard({ profile, onPress, renderAction }: ProfileCardProps) {
   const [imageError, setImageError] = useState(false);
   const showImage = !imageError && profile.picture && profile.picturePrivacy === 'always';
 
@@ -73,6 +74,7 @@ export default function ProfileCard({ profile, onPress }: ProfileCardProps) {
           <Text style={styles.profileDetail} numberOfLines={1}>Tap to view</Text>
         )}
       </View>
+      {renderAction && <View style={styles.actionContainer}>{renderAction}</View>}
     </TouchableOpacity>
   );
 }
@@ -130,6 +132,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#666',
     marginBottom: 2,
+  },
+  actionContainer: {
+    paddingHorizontal: 8,
+    paddingBottom: 8,
   },
 });
 
