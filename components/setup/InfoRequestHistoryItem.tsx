@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface InfoRequestHistoryItemProps {
+  profileId: string;
   profileName: string;
   profilePicture?: string;
   status: 'pending' | 'approved' | 'rejected';
@@ -12,7 +14,7 @@ interface InfoRequestHistoryItemProps {
 
 const statusConfig = {
   pending: {
-    label: 'Pending',
+    label: 'Pending response',
     icon: 'time-outline' as const,
     color: '#FF9800',
     backgroundColor: '#FFF3E0',
@@ -32,6 +34,7 @@ const statusConfig = {
 };
 
 export default function InfoRequestHistoryItem({
+  profileId,
   profileName,
   profilePicture,
   status,
@@ -45,6 +48,51 @@ export default function InfoRequestHistoryItem({
     year: 'numeric',
   });
 
+  const handleViewProfile = () => {
+    if (!profileId) {
+      Alert.alert('Error', 'Unable to view profile');
+      return;
+    }
+
+    router.push({
+      pathname: '/profile-details',
+      params: { profileId, hideActions: 'false' }, // Show actions since they have access
+    });
+  };
+
+  // If approved, show as a clickable card with "See Profile" button
+  if (status === 'approved') {
+    return (
+      <TouchableOpacity 
+        style={[styles.container, styles.approvedContainer]} 
+        onPress={handleViewProfile}
+        activeOpacity={0.7}
+      >
+        <View style={styles.profileSection}>
+          {profilePicture ? (
+            <Image source={{ uri: profilePicture }} style={styles.profileImage} />
+          ) : (
+            <View style={[styles.profileImage, styles.placeholderImage]}>
+              <Ionicons name="person" size={24} color="#999" />
+            </View>
+          )}
+          
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>{profileName}</Text>
+            <Text style={styles.dateText}>{formattedDate}</Text>
+            <Text style={styles.approvedText}>Request approved - Tap to view full profile</Text>
+          </View>
+        </View>
+        
+        <View style={styles.seeProfileButton}>
+          <Text style={styles.seeProfileText}>See Profile</Text>
+          <Ionicons name="arrow-forward" size={20} color="#007AFF" />
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  // For pending and rejected, show normal card
   return (
     <View style={styles.container}>
       <View style={styles.profileSection}>
@@ -88,6 +136,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  approvedContainer: {
+    borderWidth: 2,
+    borderColor: '#E3F2FD',
+    backgroundColor: '#F8FBFF',
+  },
   profileSection: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -123,6 +176,12 @@ const styles = StyleSheet.create({
     color: '#999',
     fontStyle: 'italic',
   },
+  approvedText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: '500',
+    marginTop: 2,
+  },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -134,6 +193,20 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  seeProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 6,
+  },
+  seeProfileText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007AFF',
   },
 });
 

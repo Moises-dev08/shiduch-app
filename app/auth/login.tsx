@@ -8,25 +8,18 @@ import { supabase } from '../../lib/supabase';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [displayPassword, setDisplayPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handlePasswordChange = (text: string) => {
     setPassword(text);
-    if (!showPassword) {
-      setDisplayPassword('•'.repeat(text.length));
-    } else {
-      setDisplayPassword(text);
-    }
   };
 
   const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
     if (showPassword) {
-      setDisplayPassword('•'.repeat(password.length));
+      setShowPassword(false);
     } else {
-      setDisplayPassword(password);
+      setShowPassword(true);
     }
   };
 
@@ -99,7 +92,7 @@ export default function LoginScreen() {
         <View style={styles.header}>
           <Ionicons name="heart" size={60} color="#e91e63" />
           <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to your account</Text>
+          <Text style={styles.subtitle}>Login to your account</Text>
         </View>
 
         <View style={styles.form}>
@@ -112,6 +105,7 @@ export default function LoginScreen() {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+
             />
           </View>
 
@@ -120,11 +114,14 @@ export default function LoginScreen() {
             <TextInput
               style={styles.input}
               placeholder="Password"
-              value={displayPassword}
+              value={password}
               onChangeText={handlePasswordChange}
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="off"
+              secureTextEntry={!showPassword}
+              textContentType="oneTimeCode"
+
             />
             <TouchableOpacity 
               onPress={togglePasswordVisibility}
@@ -146,7 +143,7 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.loginButtonText}>Sign In</Text>
+              <Text style={styles.loginButtonText}>Login</Text>
             )}
           </TouchableOpacity>
 

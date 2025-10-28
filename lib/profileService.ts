@@ -1,14 +1,14 @@
 import { decode } from 'base64-arraybuffer';
 import { readAsStringAsync } from 'expo-file-system/legacy';
 // import { notificationService } from './notificationService';
-import { supabase } from './supabase';
+import { supabase, supabaseUrl } from './supabase';
 
 export interface ProfileData {
   firstName: string;
   lastName: string;
   age: string;
   hashkafa: string;
-  role: 'single' | 'matchmaker';
+  role: 'single' | 'matchmaker' | 'both';
   gender: 'male' | 'female';
   address: string;
   street: string;
@@ -23,14 +23,16 @@ export interface ProfileData {
   email: string;
   whatsapp: string;
   pictures: string[];
-  picturePrivacy: 'none' | 'one-time' | 'always' | 'private';
+  mainPictureIndex?: number; // Index of the main picture (0-2)
+  picturePrivacy: 'none' | 'always' | 'private';
+  height?: string;
+  hasChildren?: boolean;
   matchmakerEmail?: string; // Email of the matchmaker to associate
 }
 
 export interface PrivacySettings {
-  phone: boolean;
-  email: boolean;
-  whatsapp: boolean;
+  height: boolean;
+  hasChildren: boolean;
   address: boolean;
   school: boolean;
   occupation: boolean;
@@ -62,6 +64,8 @@ export interface Profile {
   rejection_reason?: string;
   pictures: string[];
   privacy_settings: PrivacySettings;
+  height?: string;
+  has_children?: boolean;
   created_at: string;
   updated_at: string;
   approved_at?: string;
@@ -78,6 +82,24 @@ class ProfileService {
            uri.startsWith('ph://') || // iOS Photo Library
            uri.startsWith('assets-library://') || // iOS Assets
            !uri.includes('/'); // Relative path
+  }
+
+  /**
+   * Extract storage path from public URL
+   * Converts: https://xxx.supabase.co/storage/v1/object/public/profile-pictures/user-id/image-0.jpg
+   * To: user-id/image-0.jpg
+   */
+  private extractStoragePath(url: string): string {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      // Extract the path after '/profile-pictures/'
+      const bucketPath = '/profile-pictures/';
+      const index = url.indexOf(bucketPath);
+      if (index !== -1) {
+        return url.substring(index + bucketPath.length);
+      }
+    }
+    // If not a URL, return as is (already a storage path)
+    return url;
   }
 
   /**
@@ -280,6 +302,8 @@ class ProfileService {
           picture_privacy: profileData.picturePrivacy,
           pictures: picturePaths,
           privacy_settings: privacySettings,
+          height: profileData.height,
+          has_children: profileData.hasChildren,
           status: 'pending',
           matchmaker_id: matchmakerId,
         })
@@ -374,9 +398,11 @@ class ProfileService {
             console.error('Failed to upload:', picture);
           }
         } else {
-          // This is already a storage path
-          console.log('Keeping existing storage path:', picture);
-          picturePaths.push(picture);
+          // This might be a public URL or already a storage path
+          // Convert public URL to storage path if needed
+          const storagePath = this.extractStoragePath(picture);
+          console.log('Converting URL to storage path:', picture, '->', storagePath);
+          picturePaths.push(storagePath);
         }
       }
 
@@ -416,6 +442,8 @@ class ProfileService {
           picture_privacy: profileData.picturePrivacy,
           pictures: picturePaths,
           privacy_settings: privacySettings,
+          height: profileData.height,
+          has_children: profileData.hasChildren,
           matchmaker_id: matchmakerId,
         })
         .eq('user_id', user.id)
@@ -483,6 +511,40 @@ class ProfileService {
       .getPublicUrl(path);
     
     return data.publicUrl;
+  }
+
+  /**
+   * Delete user account permanently
+   */
+  async deleteAccount(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      // Call the delete-account edge function
+      const response = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Error deleting account:', result);
+        return { success: false, error: result.error || 'Failed to delete account' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error in deleteAccount:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
   }
 }
 

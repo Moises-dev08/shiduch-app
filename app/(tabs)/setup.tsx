@@ -32,8 +32,16 @@ export default function SetupScreen() {
     error, 
     refresh 
   } = useSetupHistory();
-  const [activeTab, setActiveTab] = useState<TabType>('sentSuggestions');
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
+  const role = currentUserProfile?.role;
+  const isMatchmaker = role === 'matchmaker';
+  const isSingle = role === 'single';
+  const isBoth = role === 'both';
+  const canSendSuggestions = isSingle || isBoth; // Can send suggestions if single or both
+  const canViewMatchmakerSetups = isMatchmaker || isBoth; // Can view matchmaker setups if matchmaker or both
+  
+  // Set default tab based on user role
+  const [activeTab, setActiveTab] = useState<TabType>('sentSuggestions');
 
   // Get current user profile to check role
   useEffect(() => {
@@ -44,10 +52,14 @@ export default function SetupScreen() {
     const result = await profileService.getProfile();
     if (result.success && result.profile) {
       setCurrentUserProfile(result.profile);
+      // Update active tab based on role
+      if (result.profile.role === 'matchmaker') {
+        setActiveTab('matchmakerSuggestions');
+      } else if (result.profile.role === 'both') {
+        setActiveTab('sentSuggestions'); // Start with sent suggestions for 'both'
+      }
     }
   };
-
-  const isMatchmaker = currentUserProfile?.role === 'matchmaker';
 
   const getImageUrl = (pictures: any): string | undefined => {
     if (!pictures || !Array.isArray(pictures) || pictures.length === 0) {
@@ -104,28 +116,33 @@ export default function SetupScreen() {
         style={styles.tabScrollView}
         contentContainerStyle={styles.tabContainer}
       >
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'sentSuggestions' && styles.activeTab]}
-          onPress={() => setActiveTab('sentSuggestions')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="paper-plane" size={16} color={activeTab === 'sentSuggestions' ? '#007AFF' : '#999'} />
-          <Text style={[styles.tabText, activeTab === 'sentSuggestions' && styles.activeTabText]}>Sent</Text>
-          {hasSentSuggestions && <View style={styles.badge}><Text style={styles.badgeText}>{suggestions.length}</Text></View>}
-        </TouchableOpacity>
+        {/* Show for single and both users */}
+        {canSendSuggestions && (
+          <>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'sentSuggestions' && styles.activeTab]}
+              onPress={() => setActiveTab('sentSuggestions')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="paper-plane" size={16} color={activeTab === 'sentSuggestions' ? '#007AFF' : '#999'} />
+              <Text style={[styles.tabText, activeTab === 'sentSuggestions' && styles.activeTabText]}>Sent</Text>
+              {hasSentSuggestions && <View style={styles.badge}><Text style={styles.badgeText}>{suggestions.length}</Text></View>}
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'receivedSuggestions' && styles.activeTab]}
-          onPress={() => setActiveTab('receivedSuggestions')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="heart-circle" size={16} color={activeTab === 'receivedSuggestions' ? '#007AFF' : '#999'} />
-          <Text style={[styles.tabText, activeTab === 'receivedSuggestions' && styles.activeTabText]}>Received</Text>
-          {hasReceivedSuggestions && <View style={styles.badge}><Text style={styles.badgeText}>{receivedSuggestions.length}</Text></View>}
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'receivedSuggestions' && styles.activeTab]}
+              onPress={() => setActiveTab('receivedSuggestions')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="heart-circle" size={16} color={activeTab === 'receivedSuggestions' ? '#007AFF' : '#999'} />
+              <Text style={[styles.tabText, activeTab === 'receivedSuggestions' && styles.activeTabText]}>Received</Text>
+              {hasReceivedSuggestions && <View style={styles.badge}><Text style={styles.badgeText}>{receivedSuggestions.length}</Text></View>}
+            </TouchableOpacity>
+          </>
+        )}
 
-        {/* Only show for matchmakers */}
-        {isMatchmaker && (
+        {/* Show for matchmakers and both users */}
+        {canViewMatchmakerSetups && (
           <TouchableOpacity
             style={[styles.tab, activeTab === 'matchmakerSuggestions' && styles.activeTab]}
             onPress={() => setActiveTab('matchmakerSuggestions')}
@@ -137,23 +154,25 @@ export default function SetupScreen() {
           </TouchableOpacity>
         )}
 
+        {/* Show for all users */}
         <TouchableOpacity
           style={[styles.tab, activeTab === 'sentRequests' && styles.activeTab]}
           onPress={() => setActiveTab('sentRequests')}
           activeOpacity={0.7}
         >
           <Ionicons name="information" size={16} color={activeTab === 'sentRequests' ? '#007AFF' : '#999'} />
-          <Text style={[styles.tabText, activeTab === 'sentRequests' && styles.activeTabText]}>Info Sent</Text>
+          <Text style={[styles.tabText, activeTab === 'sentRequests' && styles.activeTabText]}>Profile info requests</Text>
           {hasSentRequests && <View style={styles.badge}><Text style={styles.badgeText}>{infoRequests.length}</Text></View>}
         </TouchableOpacity>
 
+        {/* Info Received - Show for all users */}
         <TouchableOpacity
           style={[styles.tab, activeTab === 'receivedRequests' && styles.activeTab]}
           onPress={() => setActiveTab('receivedRequests')}
           activeOpacity={0.7}
         >
           <Ionicons name="mail" size={16} color={activeTab === 'receivedRequests' ? '#007AFF' : '#999'} />
-          <Text style={[styles.tabText, activeTab === 'receivedRequests' && styles.activeTabText]}>Info Received</Text>
+          <Text style={[styles.tabText, activeTab === 'receivedRequests' && styles.activeTabText]}>Requests received</Text>
           {hasReceivedRequests && <View style={styles.badge}><Text style={styles.badgeText}>{receivedInfoRequests.length}</Text></View>}
         </TouchableOpacity>
       </ScrollView>
@@ -171,8 +190,10 @@ export default function SetupScreen() {
               suggestions.map((suggestion) => (
                 <SuggestionHistoryItem
                   key={suggestion.id}
-                  profileName={`${suggestion.suggested_profile.first_name} ${suggestion.suggested_profile.last_name}`}
-                  profilePicture={getImageUrl(suggestion.suggested_profile.pictures)}
+                  suggestionId={suggestion.id}
+                  profileId={suggestion.suggested_profile?.id || ''}
+                  profileName={`${suggestion.suggested_profile?.first_name || 'Unknown'} ${suggestion.suggested_profile?.last_name || 'User'}`}
+                  profilePicture={getImageUrl(suggestion.suggested_profile?.pictures)}
                   status={suggestion.status}
                   createdAt={suggestion.created_at}
                   matchmakerName={
@@ -180,6 +201,8 @@ export default function SetupScreen() {
                       ? `${suggestion.matchmaker.first_name} ${suggestion.matchmaker.last_name}`
                       : undefined
                   }
+                  suggesterContinuationChoice={suggestion.suggester_continuation_choice}
+                  onRefresh={refresh}
                 />
               ))
             ) : (
@@ -200,11 +223,15 @@ export default function SetupScreen() {
               receivedSuggestions.map((suggestion) => (
                 <ReceivedSuggestionItem
                   key={suggestion.id}
-                  suggesterName={`${suggestion.suggested_profile.first_name} ${suggestion.suggested_profile.last_name}`}
-                  suggesterPicture={getImageUrl(suggestion.suggested_profile.pictures)}
+                  suggestionId={suggestion.id}
+                  suggesterProfileId={suggestion.suggester_profile?.id || ''}
+                  suggesterName={`${suggestion.suggester_profile?.first_name || 'Unknown'} ${suggestion.suggester_profile?.last_name || 'User'}`}
+                  suggesterPicture={getImageUrl(suggestion.suggester_profile?.pictures)}
                   status={suggestion.status}
                   createdAt={suggestion.created_at}
                   notes={suggestion.notes}
+                  suggestedContinuationChoice={suggestion.suggested_continuation_choice}
+                  onStatusChange={refresh}
                 />
               ))
             ) : (
@@ -222,24 +249,72 @@ export default function SetupScreen() {
         {activeTab === 'matchmakerSuggestions' && (
           <>
             {hasMatchmakerSuggestions ? (
-              matchmakerSuggestions.map((suggestion) => (
-                <MatchmakerSuggestionItem
-                  key={suggestion.id}
-                  suggesterName={`${suggestion.suggester_profile?.first_name} ${suggestion.suggester_profile?.last_name}`}
-                  suggesterPicture={getImageUrl(suggestion.suggester_profile?.pictures)}
-                  suggestedName={`${suggestion.suggested_profile.first_name} ${suggestion.suggested_profile.last_name}`}
-                  suggestedPicture={getImageUrl(suggestion.suggested_profile.pictures)}
-                  status={suggestion.status}
-                  createdAt={suggestion.created_at}
-                  notes={suggestion.notes}
-                />
-              ))
+              matchmakerSuggestions.map((suggestion) => {
+                // Determine which side the matchmaker is on
+                const matchmakerSide = suggestion.suggester_matchmaker_id === currentUserProfile?.id ? 'suggester' : 'suggested';
+                
+                // Filter suggester pictures based on privacy settings
+                const suggesterPictures = suggestion.suggester_profile?.picture_privacy === 'always' 
+                  ? getImageUrl(suggestion.suggester_profile?.pictures)
+                  : undefined;
+                
+                // Filter suggested pictures based on privacy settings
+                const suggestedPictures = suggestion.suggested_profile?.picture_privacy === 'always'
+                  ? getImageUrl(suggestion.suggested_profile?.pictures)
+                  : undefined;
+                
+                return (
+                  <MatchmakerSuggestionItem
+                    key={suggestion.id}
+                    suggesterName={`${suggestion.suggester_profile?.first_name || 'Unknown'} ${suggestion.suggester_profile?.last_name || 'User'}`}
+                    suggesterPicture={suggesterPictures}
+                    suggestedName={`${suggestion.suggested_profile?.first_name || 'Unknown'} ${suggestion.suggested_profile?.last_name || 'User'}`}
+                    suggestedPicture={suggestedPictures}
+                    status={suggestion.status}
+                    createdAt={suggestion.created_at}
+                    notes={suggestion.notes}
+                    suggesterContinuationChoice={suggestion.suggester_continuation_choice}
+                    suggestedContinuationChoice={suggestion.suggested_continuation_choice}
+                    matchmakerSide={matchmakerSide}
+                    suggesterContact={{
+                      email: suggestion.suggester_profile?.email,
+                      phone: suggestion.suggester_profile?.phone,
+                      whatsapp: suggestion.suggester_profile?.whatsapp,
+                    }}
+                    suggestedContact={{
+                      email: suggestion.suggested_profile?.email,
+                      phone: suggestion.suggested_profile?.phone,
+                      whatsapp: suggestion.suggested_profile?.whatsapp,
+                    }}
+                    suggesterMatchmakerContact={
+                      suggestion.suggester_matchmaker && suggestion.suggester_continuation_choice === 'with_middle_person'
+                        ? {
+                            name: `${suggestion.suggester_matchmaker.first_name} ${suggestion.suggester_matchmaker.last_name}`,
+                            email: suggestion.suggester_matchmaker.email,
+                            phone: suggestion.suggester_matchmaker.phone,
+                            whatsapp: suggestion.suggester_matchmaker.whatsapp,
+                          }
+                        : undefined
+                    }
+                    suggestedMatchmakerContact={
+                      suggestion.suggested_matchmaker && suggestion.suggested_continuation_choice === 'with_middle_person'
+                        ? {
+                            name: `${suggestion.suggested_matchmaker.first_name} ${suggestion.suggested_matchmaker.last_name}`,
+                            email: suggestion.suggested_matchmaker.email,
+                            phone: suggestion.suggested_matchmaker.phone,
+                            whatsapp: suggestion.suggested_matchmaker.whatsapp,
+                          }
+                        : undefined
+                    }
+                  />
+                );
+              })
             ) : (
               <View style={styles.emptyContainer}>
                 <Ionicons name="people-outline" size={64} color="#ccc" />
-                <Text style={styles.emptyTitle}>No Client Suggestions</Text>
+                <Text style={styles.emptyTitle}>No Friend&apos;s Suggestions</Text>
                 <Text style={styles.emptyText}>
-                  Suggestions from your clients will appear here.
+                  Suggestions from your single profiles associated with you as a matchmaker will appear here.
                 </Text>
               </View>
             )}
@@ -249,16 +324,20 @@ export default function SetupScreen() {
         {activeTab === 'sentRequests' && (
           <>
             {hasSentRequests ? (
-              infoRequests.map((request) => (
+            <View>
+            <Text style={styles.sectionTitle}>See your profile info requests</Text>
+              {infoRequests.map((request) => (
                 <InfoRequestHistoryItem
                   key={request.id}
+                  profileId={request.requested_profile.id}
                   profileName={`${request.requested_profile.first_name} ${request.requested_profile.last_name}`}
                   profilePicture={getImageUrl(request.requested_profile.pictures)}
                   status={request.status}
                   createdAt={request.created_at}
                   message={request.message}
-                />
-              ))
+                  />
+              ))}
+              </View>
             ) : (
               <View style={styles.emptyContainer}>
                 <Ionicons name="arrow-forward-circle-outline" size={64} color="#ccc" />
@@ -274,7 +353,10 @@ export default function SetupScreen() {
         {activeTab === 'receivedRequests' && (
           <>
             {hasReceivedRequests ? (
-              receivedInfoRequests.map((request) => (
+
+              <View>
+                <Text style={styles.sectionTitle}>Check who requested to see more information from your profile</Text>
+              {receivedInfoRequests.map((request) => (
                 <ReceivedInfoRequestItem
                   key={request.id}
                   requestId={request.id}
@@ -285,7 +367,8 @@ export default function SetupScreen() {
                   message={request.message}
                   onStatusUpdate={refresh}
                 />
-              ))
+              ))}
+              </View>
             ) : (
               <View style={styles.emptyContainer}>
                 <Ionicons name="arrow-down-circle-outline" size={64} color="#ccc" />
@@ -303,6 +386,14 @@ export default function SetupScreen() {
 }
 
 const styles = StyleSheet.create({
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#666',
+    marginTop: 8,
+    marginBottom: 12,
+
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
@@ -320,9 +411,12 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   tabScrollView: {
+    display: 'flex',
     backgroundColor: '#fff',
     borderBottomWidth: 1,    borderBottomColor: '#e0e0e0',
-    height: 50
+   maxHeight: 50,
+
+
   },
   tabContainer: {
     flexDirection: 'row',

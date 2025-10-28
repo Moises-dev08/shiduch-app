@@ -1,19 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Modal,
+  ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import HowItWorksCarousel from '../../components/HowItWorksCarousel';
 import { useAuth } from '../../lib/AuthContext';
+import { profileService } from '../../lib/profileService';
 
 export default function SettingsScreen() {
   const [showFreezeModal, setShowFreezeModal] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const { signOut } = useAuth();
 
   const handleLogout = () => {
@@ -64,6 +72,121 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleInviteFriend = async () => {
+    try {
+      const inviteLink = 'https://shiduchim.app/invite'; // TODO: Update with actual app link
+      const message = `Join Shiduchim App! A modern matchmaking platform to find your perfect match. Download here: ${inviteLink}`;
+      
+      await Share.share({
+        message: message,
+        title: 'Invite Friends to Shiduchim App',
+      });
+    } catch (error: any) {
+      if (error.message !== 'User did not share') {
+        console.error('Error sharing invite:', error);
+        Alert.alert('Error', 'Unable to share invite link');
+      }
+    }
+  };
+
+  const handleHowItWorks = () => {
+    setShowHowItWorks(true);
+  };
+
+  const handlePrivacyPolicy = () => {
+    Alert.alert(
+      'Privacy Policy',
+      'Opening Privacy Policy...',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open',
+          onPress: () => {
+            // TODO: Update with actual privacy policy URL
+            Linking.openURL('https://shiduchim.app/privacy');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleTermsOfService = () => {
+    Alert.alert(
+      'Terms of Service',
+      'Opening Terms of Service...',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open',
+          onPress: () => {
+            // TODO: Update with actual terms URL
+            Linking.openURL('https://shiduchim.app/terms');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be permanently removed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Final Confirmation',
+              'This is your last chance. Are you absolutely sure you want to delete your account?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete Forever',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setDeletingAccount(true);
+                    
+                    try {
+                      const result = await profileService.deleteAccount();
+                      
+                      if (result.success) {
+                        Alert.alert(
+                          'Account Deleted',
+                          'Your account has been permanently deleted.',
+                          [
+                            {
+                              text: 'OK',
+                              onPress: async () => {
+                                await signOut();
+                                router.replace('/auth/login');
+                              }
+                            }
+                          ]
+                        );
+                      } else {
+                        setDeletingAccount(false);
+                        Alert.alert(
+                          'Error',
+                          result.error || 'Failed to delete account. Please try again or contact support.'
+                        );
+                      }
+                    } catch (error) {
+                      setDeletingAccount(false);
+                      console.error('Error deleting account:', error);
+                      Alert.alert('Error', 'An unexpected error occurred while deleting your account.');
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -76,7 +199,27 @@ export default function SettingsScreen() {
         <Text style={styles.title}>Settings</Text>
         <View style={styles.placeholder} />
       </View>
+      <ScrollView  showsVerticalScrollIndicator={false}>
       <View style={styles.content}>
+        {/* General Section */}
+        <Text style={styles.sectionTitle}>General</Text>
+        
+        <TouchableOpacity style={styles.settingsItem} onPress={handleHowItWorks}>
+          <View style={styles.settingsItemLeft}>
+            <Ionicons name="information-circle" size={24} color="#4CAF50" />
+            <Text style={styles.settingsItemText}>How It Works</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#666" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingsItem} onPress={handleInviteFriend}>
+          <View style={styles.settingsItemLeft}>
+            <Ionicons name="person-add" size={24} color="#9C27B0" />
+            <Text style={styles.settingsItemText}>Invite a Friend</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#666" />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.settingsItem} onPress={handleFreezeProfile}>
           <View style={styles.settingsItemLeft}>
             <Ionicons name="snow" size={24} color="#2196f3" />
@@ -85,6 +228,9 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>
 
+        {/* Support Section */}
+        <Text style={styles.sectionTitle}>Support</Text>
+
         <TouchableOpacity style={styles.settingsItem} onPress={handleReportProblem}>
           <View style={styles.settingsItemLeft}>
             <Ionicons name="flag" size={24} color="#ff6b35" />
@@ -92,14 +238,52 @@ export default function SettingsScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>
+
+        {/* Legal Section */}
+        <Text style={styles.sectionTitle}>Legal</Text>
+
+        <TouchableOpacity style={styles.settingsItem} onPress={handlePrivacyPolicy}>
+          <View style={styles.settingsItemLeft}>
+            <Ionicons name="shield-checkmark" size={24} color="#673AB7" />
+            <Text style={styles.settingsItemText}>Privacy Policy</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#666" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingsItem} onPress={handleTermsOfService}>
+          <View style={styles.settingsItemLeft}>
+            <Ionicons name="document-text" size={24} color="#3F51B5" />
+            <Text style={styles.settingsItemText}>Terms of Service</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#666" />
+        </TouchableOpacity>
+
+        {/* Account Section */}
+        <Text style={styles.sectionTitle}>Account</Text>
+
         <TouchableOpacity style={styles.settingsItem} onPress={handleLogout}>
           <View style={styles.settingsItemLeft}>
-            <Ionicons name="log-out" size={24} color="#e91e63" />
+            <Ionicons name="log-out" size={24} color="#FF9800" />
             <Text style={styles.settingsItemText}>Logout</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingsItem} onPress={handleDeleteAccount}>
+          <View style={styles.settingsItemLeft}>
+            <Ionicons name="trash" size={24} color="#F44336" />
+            <Text style={styles.settingsItemText}>Delete Account</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#666" />
+        </TouchableOpacity>
       </View>
+      </ScrollView>
+
+      {/* How It Works Modal */}
+      <HowItWorksCarousel
+        visible={showHowItWorks}
+        onClose={() => setShowHowItWorks(false)}
+      />
 
       {/* Freeze Profile Confirmation Modal */}
       <Modal visible={showFreezeModal} transparent animationType="fade" statusBarTranslucent>
@@ -138,6 +322,19 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Deleting Account Loading Modal */}
+      {deletingAccount && (
+        <Modal visible={true} transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#007AFF" />
+              <Text style={styles.loadingText}>Deleting your account...</Text>
+              <Text style={styles.loadingSubtext}>Please wait, this may take a moment.</Text>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -170,6 +367,16 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 20,
+    marginBottom: 12,
+    marginLeft: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   settingsItem: {
     flexDirection: 'row',
@@ -277,6 +484,33 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     alignItems: 'center',
+    textAlign: 'center',
+  },
+  // Loading Overlay Styles
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    minWidth: 250,
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
     textAlign: 'center',
   },
 });

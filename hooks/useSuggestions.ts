@@ -11,7 +11,8 @@ interface Profile {
 
 export function useSuggestions(
   currentUserProfile: DBProfile | null,
-  selectedProfile: Profile | null
+  selectedProfile: Profile | null,
+  onInfoRequestSuccess?: () => void
 ) {
   const [showSetupConfirmModal, setShowSetupConfirmModal] = useState(false);
   const [showNoMatchmakerModal, setShowNoMatchmakerModal] = useState(false);
@@ -29,9 +30,9 @@ export function useSuggestions(
       return;
     }
     
-    // Check if user is single
-    if (currentUserProfile.role !== 'single') {
-      console.log('User is not single, role:', currentUserProfile.role);
+    // Check if user is single or both
+    if (currentUserProfile.role !== 'single' && currentUserProfile.role !== 'both') {
+      console.log('User cannot create suggestions, role:', currentUserProfile.role);
       Alert.alert('Not Available', 'Only single users can create setup suggestions.');
       return;
     }
@@ -84,6 +85,11 @@ export function useSuggestions(
     setIsSubmittingInfoRequest(false);
     
     if (result.success) {
+      // Call success callback to refresh info request status
+      if (onInfoRequestSuccess) {
+        onInfoRequestSuccess();
+      }
+      
       Alert.alert(
         'Request Sent',
         'Your request for more information has been sent to this profile.',

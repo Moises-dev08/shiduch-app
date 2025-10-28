@@ -17,7 +17,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ProfileStatusModal from '../../components/ProfileStatusModal';
+import { useProfileShare } from '../../hooks/useProfileShare';
 import { Profile, profileService } from '../../lib/profileService';
+import { supabase } from '../../lib/supabase';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -26,7 +28,7 @@ interface ProfileData {
   lastName: string;
   age: string;
   hashkafa: string;
-  role: 'single' | 'matchmaker';
+  role: 'single' | 'matchmaker' | 'both';
   gender: 'male' | 'female';
   address: string;
   street: string;
@@ -41,18 +43,30 @@ interface ProfileData {
   email: string;
   whatsapp: string;
   pictures: string[];
-  picturePrivacy: 'none' | 'one-time' | 'always' | 'private';
+  mainPictureIndex: number;
+  picturePrivacy: 'none' | 'always' | 'private';
+  height: string;
+  hasChildren: 'yes' | 'no' | '';
   matchmakerEmail?: string;
 }
 
 interface PrivacySettings {
-  phone: boolean;
-  email: boolean;
-  whatsapp: boolean;
+  height: boolean;
+  hasChildren: boolean;
   address: boolean;
   school: boolean;
   occupation: boolean;
 }
+
+const COUNTRIES = [
+  'United States', 'Canada', 'United Kingdom', 'Israel', 'Australia',
+  'France', 'Germany', 'Spain', 'Italy', 'Netherlands',
+  'Belgium', 'Switzerland', 'Austria', 'Sweden', 'Denmark',
+  'Norway', 'Finland', 'Poland', 'Czech Republic', 'Hungary',
+  'Portugal', 'Greece', 'Ireland', 'New Zealand', 'South Africa',
+  'Mexico', 'Brazil', 'Argentina', 'Chile', 'Colombia',
+  'Other'
+].sort();
 
 export default function ProfileScreen() {
   const [profileData, setProfileData] = useState<ProfileData>({
@@ -75,18 +89,24 @@ export default function ProfileScreen() {
     email: '',
     whatsapp: '',
     pictures: [],
+    mainPictureIndex: 0,
     picturePrivacy: 'none',
+    height: '',
+    hasChildren: '',
     matchmakerEmail: ''
   });
 
   const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
-    phone: false,
-    email: false,
-    whatsapp: false,
+    height: false,
+    hasChildren: false,
     address: false,
     school: false,
     occupation: false
   });
+
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [matchmakerInfo, setMatchmakerInfo] = useState<{name: string; email: string} | null>(null);
+  const [showMatchmakerInput, setShowMatchmakerInput] = useState(false);
 
   const [showPictureViewer, setShowPictureViewer] = useState(false);
   const [selectedPictureIndex, setSelectedPictureIndex] = useState(0);
@@ -97,6 +117,7 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [existingProfile, setExistingProfile] = useState<Profile | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const { isSharing, shareProfile } = useProfileShare();
 
   // Load existing profile on mount
   useEffect(() => {
@@ -111,6 +132,19 @@ export default function ProfileScreen() {
         setExistingProfile(profile);
         setProfileStatus(profile.status);
         setRejectionReason(profile.rejection_reason);
+
+        // Convert storage paths to public URLs for displaying
+        const pictureUrls = (profile.pictures || []).map((path: string) => {
+          // If it's already a full URL, keep it
+          if (path.startsWith('http://') || path.startsWith('https://')) {
+            return path;
+          }
+          // If it's a storage path, convert to public URL
+          return profileService.getImageUrl(path);
+        });
+
+        console.log('Loaded pictures from DB:', profile.pictures);
+        console.log('Converted to URLs:', pictureUrls);
 
         // Populate form with existing data
         setProfileData({
@@ -132,11 +166,46 @@ export default function ProfileScreen() {
           phone: profile.phone,
           email: profile.email,
           whatsapp: profile.whatsapp,
-          pictures: profile.pictures,
+          pictures: pictureUrls,
+          mainPictureIndex: 0,
           picturePrivacy: profile.picture_privacy as any,
+          height: profile.height || '',
+          hasChildren: profile.has_children !== undefined 
+            ? (profile.has_children ? 'yes' : 'no')
+            : '',
         });
 
-        setPrivacySettings(profile.privacy_settings);
+        setPrivacySettings(profile.privacy_settings || {
+          height: false,
+          hasChildren: false,
+          address: false,
+          school: false,
+          occupation: false
+        });
+
+        // Load matchmaker info if exists
+        if (profile.matchmaker_id) {
+          try {
+            const { data: matchmakerData } = await supabase
+              .from('profiles')
+              .select('first_name, last_name, email')
+              .eq('id', profile.matchmaker_id)
+              .single();
+            
+            if (matchmakerData) {
+              setMatchmakerInfo({
+                name: `${matchmakerData.first_name} ${matchmakerData.last_name}`,
+                email: matchmakerData.email
+              });
+              setShowMatchmakerInput(false);
+            }
+          } catch (err) {
+            console.error('Error loading matchmaker info:', err);
+          }
+        } else {
+          setMatchmakerInfo(null);
+          setShowMatchmakerInput(false);
+        }
 
         // Show status modal if pending or rejected (not approved)
         if (profile.status === 'pending' || profile.status === 'rejected') {
@@ -156,6 +225,39 @@ export default function ProfileScreen() {
 
   const handlePrivacyChange = (field: keyof PrivacySettings, value: boolean) => {
     setPrivacySettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleShareProfile = async () => {
+    try {
+      if (!existingProfile || profileStatus !== 'approved') {
+        Alert.alert('Cannot Share', 'Please complete and get your profile approved before sharing.');
+        return;
+      }
+
+      // Build location string
+      const locationParts = [profileData.city, profileData.state, profileData.country].filter(Boolean);
+      const location = locationParts.length > 0 ? locationParts.join(', ') : undefined;
+
+      // Share profile as PDF with current form data
+      await shareProfile(existingProfile, {
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        age: profileData.age,
+        bio: profileData.bio,
+        height: profileData.height,
+        hasChildren: profileData.hasChildren === 'yes',
+        school: profileData.school,
+        occupation: profileData.occupation,
+        location,
+        phone: profileData.phone,
+        email: profileData.email,
+        whatsapp: profileData.whatsapp,
+        pictures: profileData.pictures, // Include the pictures from form data
+      });
+    } catch (error) {
+      console.error('Error sharing profile:', error);
+      Alert.alert('Error', 'Unable to share profile');
+    }
   };
 
   const pickImage = async () => {
@@ -180,10 +282,27 @@ export default function ProfileScreen() {
   };
 
   const removePicture = (index: number) => {
-    setProfileData(prev => ({
-      ...prev,
-      pictures: prev.pictures.filter((_, i) => i !== index)
-    }));
+    const isPrimary = index === 0;
+    Alert.alert(
+      'Delete Photo',
+      `Are you sure you want to delete this ${isPrimary ? 'main ' : ''}photo? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            setProfileData(prev => ({
+              ...prev,
+              pictures: prev.pictures.filter((_, i) => i !== index)
+            }));
+          }
+        }
+      ]
+    );
   };
 
   const openPictureViewer = (index: number) => {
@@ -202,19 +321,28 @@ export default function ProfileScreen() {
 
     setLoading(true);
     try {
+      // Convert hasChildren to boolean before saving
+      const dataToSave = {
+        ...profileData,
+        hasChildren: profileData.hasChildren === 'yes' ? true : profileData.hasChildren === 'no' ? false : undefined
+      };
+
       let result;
       if (existingProfile) {
         // Update existing profile
-        result = await profileService.updateProfile(profileData, privacySettings);
+        result = await profileService.updateProfile(dataToSave, privacySettings);
       } else {
         // Create new profile
-        result = await profileService.createProfile(profileData, privacySettings);
+        result = await profileService.createProfile(dataToSave, privacySettings);
       }
 
       if (result.success && result.profile) {
         setExistingProfile(result.profile);
         setProfileStatus(result.profile.status);
         setRejectionReason(result.profile.rejection_reason);
+        
+        // Reload profile to get the converted public URLs for images
+        await loadProfile();
         
         // Only show status modal for pending/rejected profiles
         const shouldShowStatusModal = result.profile.status !== 'approved';
@@ -257,12 +385,27 @@ export default function ProfileScreen() {
               <Text style={styles.title}>Profile Setup</Text>
               <Text style={styles.subtitle}>Tell us about yourself</Text>
             </View>
-            <TouchableOpacity 
-              style={styles.settingsButton}
-              onPress={() => router.push('/(tabs)/settings')}
-            >
-              <Ionicons name="settings" size={24} color="#666" />
-            </TouchableOpacity>
+            <View style={styles.headerButtons}>
+              {existingProfile && profileStatus === 'approved' && (
+                <TouchableOpacity 
+                  style={[styles.shareButton, isSharing && styles.shareButtonDisabled]}
+                  onPress={handleShareProfile}
+                  disabled={isSharing}
+                >
+                  {isSharing ? (
+                    <ActivityIndicator size="small" color="#007AFF" />
+                  ) : (
+                    <Ionicons name="share-social" size={24} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity 
+                style={styles.settingsButton}
+                onPress={() => router.push('/(tabs)/settings')}
+              >
+                <Ionicons name="settings" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -271,19 +414,14 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Pictures</Text>
           
           <View style={styles.picturePrivacy}>
-            <Text style={styles.label}>Picture Privacy</Text>
+            <Text style={styles.label}>Picture Privacy *</Text>
+            <Text style={styles.helpText}>Choose how you want to share your pictures</Text>
             <View style={styles.radioGroup}>
               <TouchableOpacity
                 style={[styles.radioOption, profileData.picturePrivacy === 'none' && styles.radioSelected]}
                 onPress={() => handleInputChange('picturePrivacy', 'none')}
               >
                 <Text style={[styles.radioText, profileData.picturePrivacy === 'none' && styles.radioTextSelected]}>No Picture</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.radioOption, profileData.picturePrivacy === 'one-time' && styles.radioSelected]}
-                onPress={() => handleInputChange('picturePrivacy', 'one-time')}
-              >
-                <Text style={[styles.radioText, profileData.picturePrivacy === 'one-time' && styles.radioTextSelected]}>One Time</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.radioOption, profileData.picturePrivacy === 'always' && styles.radioSelected]}
@@ -298,30 +436,60 @@ export default function ProfileScreen() {
                 <Text style={[styles.radioText, profileData.picturePrivacy === 'private' && styles.radioTextSelected]}>Private Share</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.privacyHelpText}>
+              {profileData.picturePrivacy === 'none' && '• Your profile will not show any pictures'}
+              {profileData.picturePrivacy === 'always' && '• Your pictures will be visible to everyone'}
+              {profileData.picturePrivacy === 'private' && '• Pictures shown only when you approve info requests'}
+            </Text>
           </View>
 
-          <View style={styles.picturesContainer}>
-            {profileData.pictures.map((picture, index) => (
-              <View key={index} style={styles.pictureWrapper}>
-                <TouchableOpacity onPress={() => openPictureViewer(index)}>
-                  <Image source={{ uri: picture }} style={styles.picture} />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.removePicture}
-                  onPress={() => removePicture(index)}
-                >
-                  <Ionicons name="close" size={16} color="#fff" />
-                </TouchableOpacity>
+          {profileData.picturePrivacy !== 'none' && (
+            <>
+              <Text style={styles.pictureGuide}>
+                {profileData.pictures.length === 0 && 'Add up to 3 photos. The first will be your main photo.'}
+                {profileData.pictures.length > 0 && profileData.pictures.length < 3 && `You can add ${3 - profileData.pictures.length} more photo${3 - profileData.pictures.length > 1 ? 's' : ''}.`}
+                {profileData.pictures.length === 3 && 'You have added the maximum number of photos.'}
+              </Text>
+              <View style={styles.picturesContainer}>
+                {profileData.pictures.map((picture, index) => {
+                  console.log(`Rendering image ${index}:`, picture);
+                  return (
+                    <View key={index} style={styles.pictureWrapper}>
+                      <TouchableOpacity onPress={() => openPictureViewer(index)}>
+                        <Image 
+                          source={{ uri: picture }} 
+                          style={styles.picture}
+                          onLoad={() => console.log(`Image ${index} loaded successfully`)}
+                          onError={(error) => {
+                            console.log(`Image ${index} load error:`, error.nativeEvent.error);
+                            console.log(`Failed URI:`, picture);
+                          }}
+                        />
+                      </TouchableOpacity>
+                      {index === 0 && (
+                        <View style={styles.mainBadge}>
+                          <Text style={styles.mainBadgeText}>MAIN</Text>
+                        </View>
+                      )}
+                      <TouchableOpacity 
+                        style={styles.removePicture}
+                        onPress={() => removePicture(index)}
+                      >
+                        <Ionicons name="close" size={16} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+                
+                {profileData.pictures.length < 3 && (
+                  <TouchableOpacity style={styles.addPicture} onPress={pickImage}>
+                    <Ionicons name="camera" size={24} color="#666" />
+                    <Text style={styles.addPictureText}>Add Photo</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            ))}
-            
-            {profileData.pictures.length < 3 && (
-              <TouchableOpacity style={styles.addPicture} onPress={pickImage}>
-                <Ionicons name="camera" size={24} color="#666" />
-                <Text style={styles.addPictureText}>Add Photo</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+            </>
+          )}
         </View>
 
         {/* Bio */}
@@ -423,6 +591,36 @@ export default function ProfileScreen() {
             />
           </View>
 
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>Height</Text>
+              <TextInput
+                style={styles.input}
+                value={profileData.height}
+                onChangeText={(value) => handleInputChange('height', value)}
+                placeholder="e.g., 5'8 or 175cm"
+                autoCorrect={false}
+              />
+            </View>
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>Do you have any children?</Text>
+              <View style={styles.radioGroup}>
+                <TouchableOpacity
+                  style={[styles.radioOption, profileData.hasChildren === 'yes' && styles.radioSelected]}
+                  onPress={() => handleInputChange('hasChildren', 'yes')}
+                >
+                  <Text style={[styles.radioText, profileData.hasChildren === 'yes' && styles.radioTextSelected]}>Yes</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.radioOption, profileData.hasChildren === 'no' && styles.radioSelected]}
+                  onPress={() => handleInputChange('hasChildren', 'no')}
+                >
+                  <Text style={[styles.radioText, profileData.hasChildren === 'no' && styles.radioTextSelected]}>No</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Role *</Text>
             <View style={styles.radioGroup}>
@@ -438,9 +636,103 @@ export default function ProfileScreen() {
               >
                 <Text style={[styles.radioText, profileData.role === 'matchmaker' && styles.radioTextSelected]}>Matchmaker</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.radioOption, profileData.role === 'both' && styles.radioSelected]}
+                onPress={() => handleInputChange('role', 'both')}
+              >
+                <Text style={[styles.radioText, profileData.role === 'both' && styles.radioTextSelected]}>Both</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
+
+        {/* Matchmaker Association - Only for Singles and Both */}
+        {(profileData.role === 'single' || profileData.role === 'both') && (
+          <View style={[styles.section, styles.matchmakerSection]}>
+            <View style={styles.matchmakerHeader}>
+              <Ionicons name="people" size={24} color="#e91e63" />
+              <Text style={styles.matchmakerTitle}>Matchmaker Association</Text>
+            </View>
+            <Text style={styles.matchmakerDescription}>
+              Connect with your matchmaker for better matches and guidance
+            </Text>
+
+            {matchmakerInfo && !showMatchmakerInput ? (
+              <View style={styles.currentMatchmakerContainer}>
+                <View style={styles.matchmakerInfoCard}>
+                  <View style={styles.matchmakerInfoHeader}>
+                    <Ionicons name="person-circle" size={40} color="#e91e63" />
+                    <View style={styles.matchmakerDetails}>
+                      <Text style={styles.matchmakerName}>{matchmakerInfo.name}</Text>
+                      <Text style={styles.matchmakerEmail}>{matchmakerInfo.email}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.matchmakerActions}>
+                    <TouchableOpacity
+                      style={styles.changeMatchmakerButton}
+                      onPress={() => {
+                        setShowMatchmakerInput(true);
+                        handleInputChange('matchmakerEmail', '');
+                      }}
+                    >
+                      <Ionicons name="create-outline" size={18} color="#666" />
+                      <Text style={styles.changeMatchmakerText}>Change</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.removeMatchmakerButton}
+                      onPress={() => {
+                        Alert.alert(
+                          'Remove Matchmaker',
+                          'Are you sure you want to remove your matchmaker?',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Remove',
+                              style: 'destructive',
+                              onPress: () => {
+                                setMatchmakerInfo(null);
+                                setShowMatchmakerInput(false);
+                                handleInputChange('matchmakerEmail', '');
+                              }
+                            }
+                          ]
+                        );
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#F44336" />
+                      <Text style={styles.removeMatchmakerText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Matchmaker&apos;s Email (Optional)</Text>
+                <TextInput
+                  style={[styles.input, styles.matchmakerInput]}
+                  value={profileData.matchmakerEmail}
+                  onChangeText={(value) => handleInputChange('matchmakerEmail', value)}
+                  placeholder="Enter matchmaker's signup email"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="emailAddress"
+                />
+                <Text style={styles.helpText}>
+                  📧 Enter the email your matchmaker used to sign up. They must have an approved matchmaker account.
+                </Text>
+                {matchmakerInfo && (
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => setShowMatchmakerInput(false)}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Contact Information */}
         <View style={styles.section}>
@@ -482,26 +774,6 @@ export default function ProfileScreen() {
               autoCorrect={false}
             />
           </View>
-
-          {/* Matchmaker Email - Only for Singles */}
-          {profileData.role === 'single' && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Matchmaker Email (Optional)</Text>
-              <TextInput
-                style={styles.input}
-                value={profileData.matchmakerEmail}
-                onChangeText={(value) => handleInputChange('matchmakerEmail', value)}
-                placeholder="Enter matchmaker's signup email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType="emailAddress"
-              />
-              <Text style={styles.helpText}>
-                Enter the email your matchmaker used to sign up (not their profile contact email). They must have an approved matchmaker account.
-              </Text>
-            </View>
-          )}
         </View>
 
         {/* Location */}
@@ -577,18 +849,15 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.halfInput}>
               <Text style={styles.label}>Country</Text>
-              <TextInput
-                style={styles.input}
-                value={profileData.country}
-                onChangeText={(value) => {
-                  handleInputChange('country', value);
-                  const fullAddress = `${profileData.street}, ${profileData.city}, ${profileData.state} ${profileData.zipCode}, ${value}`.replace(/ , /g, ', ').replace(/^, /, '').replace(/, $/, '');
-                  handleInputChange('address', fullAddress);
-                }}
-                placeholder="Country"
-                autoCapitalize="words"
-                autoCorrect={false}
-              />
+              <TouchableOpacity
+                style={styles.dropdownButton}
+                onPress={() => setShowCountryDropdown(true)}
+              >
+                <Text style={profileData.country ? styles.dropdownText : styles.dropdownPlaceholder}>
+                  {profileData.country || 'Select country'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color="#666" />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -672,6 +941,44 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
+      {/* Country Dropdown Modal */}
+      <Modal visible={showCountryDropdown} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowCountryDropdown(false)}>
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Select Country</Text>
+            <View style={styles.placeholder} />
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            {COUNTRIES.map((country) => (
+              <TouchableOpacity
+                key={country}
+                style={styles.countryOption}
+                onPress={() => {
+                  handleInputChange('country', country);
+                  const fullAddress = `${profileData.street}, ${profileData.city}, ${profileData.state} ${profileData.zipCode}, ${country}`.replace(/ , /g, ', ').replace(/^, /, '').replace(/, $/, '');
+                  handleInputChange('address', fullAddress);
+                  setShowCountryDropdown(false);
+                }}
+              >
+                <Text style={[
+                  styles.countryText,
+                  profileData.country === country && styles.countryTextSelected
+                ]}>
+                  {country}
+                </Text>
+                {profileData.country === country && (
+                  <Ionicons name="checkmark" size={24} color="#e91e63" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
       {/* Privacy Settings Modal */}
       <Modal visible={showPrivacyModal} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.privacyModal}>
@@ -685,22 +992,58 @@ export default function ProfileScreen() {
           
           <ScrollView style={styles.privacyContent}>
             <Text style={styles.privacyDescription}>
-              Choose which information you want to keep private. Other users can request to see hidden information.
+              Choose which information you want to hide from public view. Users can request to see hidden information.
             </Text>
             
-            {Object.entries(privacySettings).map(([key, value]) => (
-              <View key={key} style={styles.privacyItem}>
-                <Text style={styles.privacyLabel}>
-                  {key.charAt(0).toUpperCase() + key.slice(1)}
-                </Text>
-                <TouchableOpacity
-                  style={[styles.toggle, value && styles.toggleActive]}
-                  onPress={() => handlePrivacyChange(key as keyof PrivacySettings, !value)}
-                >
-                  <View style={[styles.toggleButton, value && styles.toggleButtonActive]} />
-                </TouchableOpacity>
-              </View>
-            ))}
+            <View style={styles.privacyItem}>
+              <Text style={styles.privacyLabel}>Height</Text>
+              <TouchableOpacity
+                style={[styles.toggle, privacySettings.height && styles.toggleActive]}
+                onPress={() => handlePrivacyChange('height', !privacySettings.height)}
+              >
+                <View style={[styles.toggleButton, privacySettings.height && styles.toggleButtonActive]} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.privacyItem}>
+              <Text style={styles.privacyLabel}>Children Status</Text>
+              <TouchableOpacity
+                style={[styles.toggle, privacySettings.hasChildren && styles.toggleActive]}
+                onPress={() => handlePrivacyChange('hasChildren', !privacySettings.hasChildren)}
+              >
+                <View style={[styles.toggleButton, privacySettings.hasChildren && styles.toggleButtonActive]} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.privacyItem}>
+              <Text style={styles.privacyLabel}>School</Text>
+              <TouchableOpacity
+                style={[styles.toggle, privacySettings.school && styles.toggleActive]}
+                onPress={() => handlePrivacyChange('school', !privacySettings.school)}
+              >
+                <View style={[styles.toggleButton, privacySettings.school && styles.toggleButtonActive]} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.privacyItem}>
+              <Text style={styles.privacyLabel}>Address</Text>
+              <TouchableOpacity
+                style={[styles.toggle, privacySettings.address && styles.toggleActive]}
+                onPress={() => handlePrivacyChange('address', !privacySettings.address)}
+              >
+                <View style={[styles.toggleButton, privacySettings.address && styles.toggleButtonActive]} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.privacyItem}>
+              <Text style={styles.privacyLabel}>Occupation</Text>
+              <TouchableOpacity
+                style={[styles.toggle, privacySettings.occupation && styles.toggleActive]}
+                onPress={() => handlePrivacyChange('occupation', !privacySettings.occupation)}
+              >
+                <View style={[styles.toggleButton, privacySettings.occupation && styles.toggleButtonActive]} />
+              </TouchableOpacity>
+            </View>
           </ScrollView>
         </View>
       </Modal>
@@ -746,6 +1089,19 @@ const styles = StyleSheet.create({
   },
   headerText: {
     flex: 1,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  shareButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#E3F2FD',
+  },
+  shareButtonDisabled: {
+    opacity: 0.5,
   },
   settingsButton: {
     padding: 8,
@@ -1002,7 +1358,195 @@ const styles = StyleSheet.create({
   helpText: {
     fontSize: 12,
     color: '#666',
-    marginTop: 4,
+    marginVertical: 8,
+    fontStyle: 'italic',
+  },
+  matchmakerSection: {
+    backgroundColor: '#fff9fc',
+    borderLeftWidth: 4,
+    borderLeftColor: '#e91e63',
+  },
+  matchmakerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  matchmakerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#e91e63',
+  },
+  matchmakerDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  matchmakerInput: {
+    borderColor: '#e91e63',
+    borderWidth: 2,
+  },
+  currentMatchmakerContainer: {
+    marginTop: 8,
+  },
+  matchmakerInfoCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#e91e63',
+  },
+  matchmakerInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  matchmakerDetails: {
+    flex: 1,
+  },
+  matchmakerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  matchmakerEmail: {
+    fontSize: 14,
+    color: '#666',
+  },
+  matchmakerActions: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  changeMatchmakerButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  changeMatchmakerText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  removeMatchmakerButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFEBEE',
+    borderRadius: 8,
+  },
+  removeMatchmakerText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F44336',
+  },
+  cancelButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  dropdownPlaceholder: {
+    fontSize: 16,
+    color: '#999',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalContent: {
+    flex: 1,
+  },
+  countryOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  countryText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  countryTextSelected: {
+    fontWeight: 'bold',
+    color: '#e91e63',
+  },
+  pictureGuide: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  mainBadge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: '#e91e63',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  mainBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  privacyHelpText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
     fontStyle: 'italic',
   },
 });

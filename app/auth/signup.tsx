@@ -11,8 +11,6 @@ export default function SignupScreen() {
     password: '',
     confirmPassword: '',
   });
-  const [displayPassword, setDisplayPassword] = useState('');
-  const [displayConfirmPassword, setDisplayConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -24,37 +22,27 @@ export default function SignupScreen() {
 
   const handlePasswordChange = (text: string) => {
     setFormData(prev => ({ ...prev, password: text }));
-    if (!showPassword) {
-      setDisplayPassword('•'.repeat(text.length));
-    } else {
-      setDisplayPassword(text);
-    }
+  
   };
 
   const handleConfirmPasswordChange = (text: string) => {
     setFormData(prev => ({ ...prev, confirmPassword: text }));
-    if (!showConfirmPassword) {
-      setDisplayConfirmPassword('•'.repeat(text.length));
-    } else {
-      setDisplayConfirmPassword(text);
-    }
+   
   };
 
   const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
     if (showPassword) {
-      setDisplayPassword('•'.repeat(formData.password.length));
+      setShowPassword(false);
     } else {
-      setDisplayPassword(formData.password);
+      setShowPassword(true);
     }
   };
 
   const toggleConfirmPasswordVisibility = () => {
-    setShowConfirmPassword(!showConfirmPassword);
     if (showConfirmPassword) {
-      setDisplayConfirmPassword('•'.repeat(formData.confirmPassword.length));
+      setShowConfirmPassword(false);
     } else {
-      setDisplayConfirmPassword(formData.confirmPassword);
+      setShowConfirmPassword(true);
     }
   };
 
@@ -159,11 +147,13 @@ export default function SignupScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Password"
-                value={displayPassword}
+                value={formData.password}
                 onChangeText={handlePasswordChange}
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoComplete="off"
+                secureTextEntry={!showPassword}
+                textContentType="oneTimeCode"
               />
               <TouchableOpacity 
                 onPress={togglePasswordVisibility}
@@ -182,11 +172,14 @@ export default function SignupScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Confirm Password"
-                value={displayConfirmPassword}
+                value={formData.confirmPassword}
                 onChangeText={handleConfirmPasswordChange}
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoComplete="off"
+                secureTextEntry={!showConfirmPassword}
+                textContentType="oneTimeCode"
+
               />
               <TouchableOpacity 
                 onPress={toggleConfirmPasswordVisibility}
@@ -216,7 +209,7 @@ export default function SignupScreen() {
           <View style={styles.footer}>
             <Text style={styles.footerText}>Already have an account? </Text>
             <TouchableOpacity onPress={handleLogin}>
-              <Text style={styles.loginLink}>Sign In</Text>
+              <Text style={styles.loginLink}>Login Here</Text>
             </TouchableOpacity>
           </View>
         </View>

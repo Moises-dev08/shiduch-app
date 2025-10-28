@@ -7,6 +7,10 @@ export interface Suggestion {
   matchmaker_id?: string;
   status: 'pending' | 'accepted' | 'rejected' | 'completed';
   notes?: string;
+  suggester_continuation_choice?: 'by_themselves' | 'with_middle_person';
+  suggested_continuation_choice?: 'by_themselves' | 'with_middle_person';
+  suggester_matchmaker_id?: string;
+  suggested_matchmaker_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -27,11 +31,22 @@ export interface SuggestionWithDetails {
   notes?: string;
   created_at: string;
   updated_at: string;
-  suggested_profile: {
+  suggester_id: string;
+  suggested_profile_id: string;
+  suggester_continuation_choice?: 'by_themselves' | 'with_middle_person';
+  suggested_continuation_choice?: 'by_themselves' | 'with_middle_person';
+  suggester_matchmaker_id?: string;
+  suggested_matchmaker_id?: string;
+  suggested_profile?: {
     id: string;
     first_name: string;
     last_name: string;
     pictures?: any;
+    picture_privacy?: 'none' | 'always' | 'private';
+    privacy_settings?: any;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
   };
   matchmaker?: {
     id: string;
@@ -43,6 +58,27 @@ export interface SuggestionWithDetails {
     first_name: string;
     last_name: string;
     pictures?: any;
+    picture_privacy?: 'none' | 'always' | 'private';
+    privacy_settings?: any;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
+  };
+  suggester_matchmaker?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
+  };
+  suggested_matchmaker?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
   };
 }
 
@@ -61,6 +97,34 @@ export interface InfoRequestWithDetails {
 }
 
 class SuggestionService {
+  /**
+   * Check if there's an active suggestion between two profiles
+   */
+  async hasActiveSuggestion(
+    suggesterId: string,
+    suggestedProfileId: string
+  ): Promise<{ exists: boolean; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('suggestions')
+        .select('id, status')
+        .eq('suggester_id', suggesterId)
+        .eq('suggested_profile_id', suggestedProfileId)
+        .in('status', ['pending', 'accepted', 'completed'])
+        .limit(1);
+
+      if (error) {
+        console.error('Error checking active suggestion:', error);
+        return { exists: false, error: error.message };
+      }
+
+      return { exists: data && data.length > 0 };
+    } catch (error) {
+      console.error('Error checking active suggestion:', error);
+      return { exists: false, error: 'An unexpected error occurred' };
+    }
+  }
+
   /**
    * Create a shidduch suggestion
    */
@@ -88,6 +152,23 @@ class SuggestionService {
         return { success: false, error: 'User profile not found' };
       }
 
+      // Check if there's already an active suggestion
+      const { exists, error: checkError } = await this.hasActiveSuggestion(
+        userProfile.id,
+        suggestedProfileId
+      );
+
+      if (checkError) {
+        return { success: false, error: 'Failed to check existing suggestions' };
+      }
+
+      if (exists) {
+        return { 
+          success: false, 
+          error: 'You already have an active suggestion with this person. Please wait for a response or delete the existing suggestion.' 
+        };
+      }
+
       const { data, error } = await supabase
         .from('suggestions')
         .insert({
@@ -110,6 +191,80 @@ class SuggestionService {
       return { success: true, suggestion: data };
     } catch (error) {
       console.error('Error creating suggestion:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Create a matchmaker-initiated suggestion between two profiles
+   * Both profiles will receive the suggestion and their matchmakers will be notified
+   */
+  async createMatchmakerSuggestion(
+    profile1Id: string,
+    profile2Id: string,
+    matchmakerId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Get both profiles to find their matchmakers
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, matchmaker_id')
+        .in('id', [profile1Id, profile2Id]);
+
+      if (profilesError || !profiles || profiles.length !== 2) {
+        return { success: false, error: 'Could not find both profiles' };
+      }
+
+      const profile1 = profiles.find(p => p.id === profile1Id);
+      const profile2 = profiles.find(p => p.id === profile2Id);
+
+      if (!profile1 || !profile2) {
+        return { success: false, error: 'Invalid profile IDs' };
+      }
+
+      // Create suggestion from profile1 to profile2
+      const { data: suggestion1, error: error1 } = await supabase
+        .from('suggestions')
+        .insert({
+          suggester_id: profile1.id,
+          suggested_profile_id: profile2.id,
+          suggester_matchmaker_id: profile1.matchmaker_id || matchmakerId,
+          suggested_matchmaker_id: profile2.matchmaker_id,
+          status: 'pending',
+          notes: `Suggested by matchmaker`,
+        })
+        .select()
+        .single();
+
+      if (error1) {
+        console.error('Error creating first suggestion:', error1);
+        return { success: false, error: 'Failed to create suggestion' };
+      }
+
+      // Create reverse suggestion from profile2 to profile1
+      const { data: suggestion2, error: error2 } = await supabase
+        .from('suggestions')
+        .insert({
+          suggester_id: profile2.id,
+          suggested_profile_id: profile1.id,
+          suggester_matchmaker_id: profile2.matchmaker_id,
+          suggested_matchmaker_id: profile1.matchmaker_id || matchmakerId,
+          status: 'pending',
+          notes: `Suggested by matchmaker`,
+        })
+        .select()
+        .single();
+
+      if (error2) {
+        console.error('Error creating second suggestion:', error2);
+        // Try to rollback first suggestion
+        await supabase.from('suggestions').delete().eq('id', suggestion1.id);
+        return { success: false, error: 'Failed to create suggestion' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error in createMatchmakerSuggestion:', error);
       return { success: false, error: 'An unexpected error occurred' };
     }
   }
@@ -188,10 +343,14 @@ class SuggestionService {
         .from('suggestions')
         .select(`
           id,
+          suggester_id,
+          suggested_profile_id,
           status,
           notes,
           created_at,
           updated_at,
+          suggester_continuation_choice,
+          suggested_continuation_choice,
           suggested_profile:profiles!suggestions_suggested_profile_id_fkey(
             id,
             first_name,
@@ -221,6 +380,58 @@ class SuggestionService {
   }
 
   /**
+   * Check if user already has an active info request to this profile
+   */
+  async hasActiveInfoRequest(requestedProfileId: string): Promise<{ 
+    success: boolean; 
+    hasActive: boolean;
+    existingRequest?: InfoRequest;
+    error?: string 
+  }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { success: false, hasActive: false, error: 'User not authenticated' };
+      }
+
+      // Get current user's profile
+      const { data: userProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileError || !userProfile) {
+        return { success: false, hasActive: false, error: 'User profile not found' };
+      }
+
+      // Check for any active (pending or approved) info request
+      const { data, error } = await supabase
+        .from('info_requests')
+        .select('*')
+        .eq('requester_id', userProfile.id)
+        .eq('requested_profile_id', requestedProfileId)
+        .in('status', ['pending', 'approved'])
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error checking for active info request:', error);
+        return { success: false, hasActive: false, error: error.message };
+      }
+
+      return { 
+        success: true, 
+        hasActive: !!data,
+        existingRequest: data || undefined
+      };
+    } catch (error) {
+      console.error('Error in hasActiveInfoRequest:', error);
+      return { success: false, hasActive: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
    * Create an info request
    */
   async createInfoRequest(
@@ -243,6 +454,17 @@ class SuggestionService {
 
       if (profileError || !userProfile) {
         return { success: false, error: 'User profile not found' };
+      }
+
+      // Check if an active request already exists
+      const checkResult = await this.hasActiveInfoRequest(requestedProfileId);
+      if (checkResult.hasActive) {
+        const status = checkResult.existingRequest?.status;
+        if (status === 'pending') {
+          return { success: false, error: 'You already have a pending info request for this profile' };
+        } else if (status === 'approved') {
+          return { success: false, error: 'Your info request has already been approved. You can view the full profile.' };
+        }
       }
 
       const { data, error } = await supabase
@@ -514,11 +736,15 @@ class SuggestionService {
         .from('suggestions')
         .select(`
           id,
+          suggester_id,
+          suggested_profile_id,
           status,
           notes,
           created_at,
           updated_at,
-          suggested_profile:profiles!suggestions_suggester_id_fkey(
+          suggester_continuation_choice,
+          suggested_continuation_choice,
+          suggester_profile:profiles!suggestions_suggester_id_fkey(
             id,
             first_name,
             last_name,
@@ -572,6 +798,8 @@ class SuggestionService {
 
       console.log('Fetching matchmaker suggestions for profile:', userProfile.id);
 
+      // Query for suggestions where current user is the matchmaker for either party
+      // and the suggestion is accepted or completed
       const { data, error } = await supabase
         .from('suggestions')
         .select(`
@@ -580,20 +808,53 @@ class SuggestionService {
           notes,
           created_at,
           updated_at,
+          suggester_id,
+          suggested_profile_id,
+          suggester_continuation_choice,
+          suggested_continuation_choice,
+          suggester_matchmaker_id,
+          suggested_matchmaker_id,
           suggester_profile:profiles!suggestions_suggester_id_fkey(
             id,
             first_name,
             last_name,
-            pictures
+            pictures,
+            picture_privacy,
+            privacy_settings,
+            email,
+            phone,
+            whatsapp
           ),
           suggested_profile:profiles!suggestions_suggested_profile_id_fkey(
             id,
             first_name,
             last_name,
-            pictures
+            pictures,
+            picture_privacy,
+            privacy_settings,
+            email,
+            phone,
+            whatsapp
+          ),
+          suggester_matchmaker:profiles!suggestions_suggester_matchmaker_id_fkey(
+            id,
+            first_name,
+            last_name,
+            email,
+            phone,
+            whatsapp
+          ),
+          suggested_matchmaker:profiles!suggestions_suggested_matchmaker_id_fkey(
+            id,
+            first_name,
+            last_name,
+            email,
+            phone,
+            whatsapp
           )
         `)
-        .eq('matchmaker_id', userProfile.id)
+        .or(`suggester_matchmaker_id.eq.${userProfile.id},suggested_matchmaker_id.eq.${userProfile.id}`)
+        .in('status', ['accepted', 'completed'])
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -603,20 +864,240 @@ class SuggestionService {
 
       console.log('Fetched matchmaker suggestions:', data?.length || 0);
       
-      // Transform to include both profiles
-      const transformedData = data?.map(item => ({
-        id: item.id,
-        status: item.status,
-        notes: item.notes,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        suggester_profile: item.suggester_profile,
-        suggested_profile: item.suggested_profile,
-      }));
-
-      return { success: true, suggestions: transformedData as any };
+      return { success: true, suggestions: data as any };
     } catch (error) {
       console.error('Error fetching matchmaker suggestions:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Update suggestion status (accept/reject)
+   */
+  async updateSuggestionStatus(
+    suggestionId: string,
+    status: 'accepted' | 'rejected'
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase
+        .from('suggestions')
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', suggestionId);
+
+      if (error) {
+        console.error('Error updating suggestion status:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('Successfully updated suggestion status to:', status);
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating suggestion status:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Update continuation choice for a user (suggester or suggested)
+   */
+  async updateContinuationChoice(
+    suggestionId: string,
+    userType: 'suggester' | 'suggested',
+    choice: 'by_themselves' | 'with_middle_person',
+    matchmakerId?: string
+  ): Promise<{ success: boolean; error?: string; suggestion?: Suggestion }> {
+    try {
+      console.log('Updating continuation choice:', { suggestionId, userType, choice, matchmakerId });
+
+      // First, verify the suggestion exists and user has access
+      const { data: existingSuggestion, error: checkError } = await supabase
+        .from('suggestions')
+        .select('*')
+        .eq('id', suggestionId)
+        .single();
+
+      if (checkError || !existingSuggestion) {
+        console.error('Suggestion not found or no access:', checkError);
+        return { 
+          success: false, 
+          error: 'Suggestion not found or you do not have permission to update it' 
+        };
+      }
+
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (userType === 'suggester') {
+        updateData.suggester_continuation_choice = choice;
+        if (choice === 'with_middle_person' && matchmakerId) {
+          updateData.suggester_matchmaker_id = matchmakerId;
+        }
+      } else {
+        updateData.suggested_continuation_choice = choice;
+        if (choice === 'with_middle_person' && matchmakerId) {
+          updateData.suggested_matchmaker_id = matchmakerId;
+        }
+      }
+
+      console.log('Applying update:', updateData);
+
+      const { data, error } = await supabase
+        .from('suggestions')
+        .update(updateData)
+        .eq('id', suggestionId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating continuation choice:', error);
+        return { success: false, error: error.message };
+      }
+
+      if (!data) {
+        console.error('Update succeeded but no data returned');
+        return { success: false, error: 'Update failed - no data returned' };
+      }
+
+      console.log('Update successful, checking if both choices made:', data);
+
+      // Check if both parties have made their choice, then mark as completed
+      if (data.suggester_continuation_choice && data.suggested_continuation_choice) {
+        console.log('Both parties have chosen, marking as completed');
+        await this.updateSuggestionStatus(suggestionId, 'completed' as any);
+      }
+
+      console.log('Successfully updated continuation choice');
+      return { success: true, suggestion: data };
+    } catch (error) {
+      console.error('Error updating continuation choice:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Get suggestion with full details including contact information
+   */
+  async getSuggestionWithContactInfo(suggestionId: string): Promise<{
+    success: boolean;
+    suggestion?: SuggestionWithDetails;
+    error?: string;
+  }> {
+    try {
+      const { data, error } = await supabase
+        .from('suggestions')
+        .select(`
+          *,
+          suggester_profile:profiles!suggestions_suggester_id_fkey(
+            id,
+            first_name,
+            last_name,
+            pictures,
+            email,
+            phone,
+            whatsapp
+          ),
+          suggested_profile:profiles!suggestions_suggested_profile_id_fkey(
+            id,
+            first_name,
+            last_name,
+            pictures,
+            email,
+            phone,
+            whatsapp
+          ),
+          suggester_matchmaker:profiles!suggestions_suggester_matchmaker_id_fkey(
+            id,
+            first_name,
+            last_name,
+            email,
+            phone,
+            whatsapp
+          ),
+          suggested_matchmaker:profiles!suggestions_suggested_matchmaker_id_fkey(
+            id,
+            first_name,
+            last_name,
+            email,
+            phone,
+            whatsapp
+          )
+        `)
+        .eq('id', suggestionId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching suggestion with contact info:', error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, suggestion: data as any };
+    } catch (error) {
+      console.error('Error fetching suggestion with contact info:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Delete a suggestion (only if user is the suggester and status is pending)
+   */
+  async deleteSuggestion(suggestionId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Get current user's profile
+      const { data: userProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileError || !userProfile) {
+        console.error('User profile not found', profileError);  
+        return { success: false, error: 'User profile not found' };
+      }
+
+      // First check if the suggestion exists and belongs to the user
+      const { data: suggestion, error: fetchError } = await supabase
+        .from('suggestions')
+        .select('suggester_id, status')
+        .eq('id', suggestionId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching suggestion:', fetchError);
+        return { success: false, error: 'Suggestion not found' };
+      }
+
+      if (suggestion.suggester_id !== userProfile.id) {
+        return { success: false, error: 'You can only delete suggestions you created' };
+      }
+
+      if (suggestion.status !== 'pending') {
+        return { success: false, error: 'Only pending suggestions can be deleted' };
+      }
+
+      // Delete the suggestion
+      const { error: deleteError } = await supabase
+        .from('suggestions')
+        .delete()
+        .eq('id', suggestionId);
+
+      if (deleteError) {
+        console.error('Error deleting suggestion:', deleteError);
+        return { success: false, error: deleteError.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting suggestion:', error);
       return { success: false, error: 'An unexpected error occurred' };
     }
   }

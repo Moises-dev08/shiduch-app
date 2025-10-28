@@ -19,19 +19,28 @@ export function useHomeProfiles() {
 
   // Transform database profile to display profile
   const transformProfile = (dbProfile: any): Profile => {
+    const privacySettings = dbProfile.privacy_settings || {};
+    
     console.log(`Converting profile ${dbProfile.first_name}:`, {
       hasPictures: !!dbProfile.pictures,
       picturesLength: dbProfile.pictures?.length || 0,
+      picturePrivacy: dbProfile.picture_privacy,
+      privacySettings: privacySettings,
+      occupation: dbProfile.occupation,
+      willShowOccupation: !privacySettings.occupation && !!dbProfile.occupation,
     });
 
-    // Get images using profileService.getImageUrl
-    const firstPicture = dbProfile.pictures && dbProfile.pictures.length > 0 
+    const picturePrivacy = dbProfile.picture_privacy || 'none';
+    const showPictures = picturePrivacy === 'always';
+
+    // Get images using profileService.getImageUrl - only if not private
+    const firstPicture = showPictures && dbProfile.pictures && dbProfile.pictures.length > 0 
       ? profileService.getImageUrl(dbProfile.pictures[0])
-      : 'https://via.placeholder.com/150';
+      : '';
     
-    const allPictures = dbProfile.pictures && dbProfile.pictures.length > 0
+    const allPictures = showPictures && dbProfile.pictures && dbProfile.pictures.length > 0
       ? dbProfile.pictures.map((pic: string) => profileService.getImageUrl(pic))
-      : ['https://via.placeholder.com/400'];
+      : [];
 
     // Build location string
     const location = dbProfile.address || 
@@ -47,15 +56,19 @@ export function useHomeProfiles() {
       picture: firstPicture,
       pictures: allPictures,
       hashkafa: dbProfile.hashkafa || 'Not specified',
-      location,
+      location: privacySettings.address ? 'Hidden' : location,
       bio: dbProfile.bio || 'No bio available',
       role: dbProfile.role,
       gender: dbProfile.gender,
       phone: dbProfile.phone || undefined,
       email: dbProfile.email || undefined,
       whatsapp: dbProfile.whatsapp || undefined,
-      school: dbProfile.school || undefined,
-      occupation: dbProfile.occupation || undefined,
+      school: privacySettings.school ? undefined : (dbProfile.school || undefined),
+      occupation: privacySettings.occupation ? undefined : (dbProfile.occupation || undefined),
+      height: privacySettings.height ? undefined : (dbProfile.height || undefined),
+      hasChildren: privacySettings.hasChildren ? undefined : dbProfile.has_children,
+      picturePrivacy,
+      privacySettings,
     };
   };
 
@@ -74,11 +87,12 @@ export function useHomeProfiles() {
     console.log('After role filter (only singles):', filtered.length);
 
     // If user is single, show opposite gender only
-    if (userProfile.role === 'single') {
+    if (userProfile.role === 'single' || userProfile.role === 'both') {
+      // Single and both users see opposite gender profiles
       filtered = filtered.filter(p => p.gender !== userProfile.gender);
-      console.log(`Single ${userProfile.gender} user, showing opposite gender:`, filtered.length);
+      console.log(`${userProfile.role} ${userProfile.gender} user, showing opposite gender:`, filtered.length);
     }
-    // If user is matchmaker, show all singles
+    // If user is matchmaker only, show all singles
     else if (userProfile.role === 'matchmaker') {
       console.log('Matchmaker user, showing all singles:', filtered.length);
     }
@@ -125,7 +139,7 @@ export function useHomeProfiles() {
       setAllProfiles(transformedProfiles);
 
       // Apply filters
-      const filtered = filterProfilesByUserType(transformedProfiles, currentProfileResult.profile);
+      const filtered = filterProfilesByUserType(transformedProfiles, currentProfileResult.profile || null);
       setFilteredProfiles(filtered);
     } catch (error) {
       console.error('Error loading profiles:', error);

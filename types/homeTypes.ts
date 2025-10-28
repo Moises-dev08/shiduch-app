@@ -7,13 +7,23 @@ export interface Profile {
   hashkafa: string;
   location: string;
   bio: string;
-  role: 'single' | 'matchmaker';
+  role: 'single' | 'matchmaker' | 'both';
   gender: 'male' | 'female';
   phone?: string;
   email?: string;
   whatsapp?: string;
   school?: string;
   occupation?: string;
+  height?: string;
+  hasChildren?: boolean;
+  picturePrivacy: 'none' | 'always' | 'private';
+  privacySettings: {
+    height?: boolean;
+    hasChildren?: boolean;
+    address?: boolean;
+    school?: boolean;
+    occupation?: boolean;
+  };
 }
 
 export interface FilterState {

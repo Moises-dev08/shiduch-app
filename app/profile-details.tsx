@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PictureViewerModal from '../components/home/PictureViewerModal';
 import NoMatchmakerModal from '../components/profile/NoMatchmakerModal';
 import ProfileActions from '../components/profile/ProfileActions';
 import SuggestionConfirmModal from '../components/profile/SuggestionConfirmModal';
+import { useInfoRequestStatus } from '../hooks/useInfoRequestStatus';
 import { useSuggestions } from '../hooks/useSuggestions';
 import { Profile as DBProfile, profileService } from '../lib/profileService';
 import { supabase } from '../lib/supabase';
@@ -14,7 +15,8 @@ import { Profile } from '../types/homeTypes';
 
 export default function ProfileDetailsScreen() {
   const params = useLocalSearchParams();
-  const profileId = params.id as string;
+  const profileId = (params.profileId || params.id) as string;
+  const hideActions = params.hideActions === 'true'; // Hide actions when viewing from suggestions
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<DBProfile | null>(null);
@@ -22,6 +24,9 @@ export default function ProfileDetailsScreen() {
   const [imageError, setImageError] = useState(false);
   const [showPictureViewer, setShowPictureViewer] = useState(false);
   const [selectedPictureIndex, setSelectedPictureIndex] = useState(0);
+
+  // Check info request status
+  const { existingRequest, checkStatus } = useInfoRequestStatus(profileId);
 
   // Suggestion logic
   const {
@@ -34,16 +39,18 @@ export default function ProfileDetailsScreen() {
     handleSetupPress,
     handleConfirmSetup,
     handleAskForInfo,
-  } = useSuggestions(currentUserProfile, profile);
+  } = useSuggestions(currentUserProfile, profile, checkStatus);
 
-  // Load profile data
-  useEffect(() => {
-    loadProfileData();
-  }, [profileId]);
-
-  const loadProfileData = async () => {
+  const loadProfileData = useCallback(async () => {
     try {
       setLoading(true);
+
+      // Validate profileId
+      if (!profileId || profileId === 'undefined' || profileId === '') {
+        console.error('Invalid profile ID:', profileId);
+        router.back();
+        return;
+      }
 
       // Get current user profile
       const currentProfileResult = await profileService.getProfile();
@@ -64,14 +71,19 @@ export default function ProfileDetailsScreen() {
         return;
       }
 
-      // Transform to display profile
-      const firstPicture = data.pictures && data.pictures.length > 0 
+      // Transform to display profile - RESPECTING PRIVACY SETTINGS
+      const privacySettings = data.privacy_settings || {};
+      const picturePrivacy = data.picture_privacy || 'none';
+      const showPictures = picturePrivacy === 'always';
+
+      // Only show pictures if privacy allows
+      const firstPicture = showPictures && data.pictures && data.pictures.length > 0 
         ? profileService.getImageUrl(data.pictures[0])
-        : 'https://via.placeholder.com/150';
+        : '';
       
-      const allPictures = data.pictures && data.pictures.length > 0
+      const allPictures = showPictures && data.pictures && data.pictures.length > 0
         ? data.pictures.map((pic: string) => profileService.getImageUrl(pic))
-        : ['https://via.placeholder.com/400'];
+        : [];
 
       const location = data.address || 
         (data.city && data.state ? `${data.city}, ${data.state}` : 
@@ -86,15 +98,19 @@ export default function ProfileDetailsScreen() {
         picture: firstPicture,
         pictures: allPictures,
         hashkafa: data.hashkafa || 'Not specified',
-        location,
+        location: privacySettings.address ? 'Hidden' : location,
         bio: data.bio || 'No bio available',
         role: data.role,
         gender: data.gender,
         phone: data.phone || undefined,
         email: data.email || undefined,
         whatsapp: data.whatsapp || undefined,
-        school: data.school || undefined,
-        occupation: data.occupation || undefined,
+        school: privacySettings.school ? undefined : (data.school || undefined),
+        occupation: privacySettings.occupation ? undefined : (data.occupation || undefined),
+        height: privacySettings.height ? undefined : (data.height || undefined),
+        hasChildren: privacySettings.hasChildren ? undefined : data.has_children,
+        picturePrivacy,
+        privacySettings,
       };
 
       setProfile(displayProfile);
@@ -104,7 +120,12 @@ export default function ProfileDetailsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profileId]);
+
+  // Load profile data
+  useEffect(() => {
+    loadProfileData();
+  }, [loadProfileData]);
 
   const handlePicturePress = (index: number) => {
     setSelectedPictureIndex(index);
@@ -227,17 +248,29 @@ export default function ProfileDetailsScreen() {
         </View>
 
         {/* Bottom padding for action buttons */}
-        <View style={{ height: 100 }} />
+        <View style={{ height: hideActions ? 20 : 100 }} />
       </ScrollView>
       
-      {/* Action Buttons */}
-      <ProfileActions
-        onSetupPress={handleSetupPress}
-        onAskForInfoPress={handleAskForInfo}
-        isSubmittingInfoRequest={isSubmittingInfoRequest}
-        showSetupButton={true}
-        showAskForInfoButton={true}
-      />
+      {/* Action Buttons - Hidden when viewing from suggestions */}
+      {!hideActions && profile && currentUserProfile && (
+        <ProfileActions
+          profileId={profile.id}
+          profileName={profile.name}
+          profileGender={profile.gender as 'male' | 'female'}
+          currentUserRole={currentUserProfile.role as 'single' | 'matchmaker' | 'both'}
+          currentUserGender={currentUserProfile.gender as 'male' | 'female'}
+          onSetupPress={handleSetupPress}
+          onAskForInfoPress={handleAskForInfo}
+          isSubmittingInfoRequest={isSubmittingInfoRequest}
+          showSetupButton={true}
+          showAskForInfoButton={true}
+          infoRequestStatus={
+            existingRequest?.status === 'pending' || existingRequest?.status === 'approved' 
+              ? existingRequest.status 
+              : null
+          }
+        />
+      )}
 
       {/* Picture Viewer Modal */}
       {showPictureViewer && (
