@@ -143,8 +143,6 @@ export default function ProfileScreen() {
           return profileService.getImageUrl(path);
         });
 
-        console.log('Loaded pictures from DB:', profile.pictures);
-        console.log('Converted to URLs:', pictureUrls);
 
         // Populate form with existing data
         setProfileData({
@@ -327,7 +325,8 @@ export default function ProfileScreen() {
         hasChildren: profileData.hasChildren === 'yes' ? true : profileData.hasChildren === 'no' ? false : undefined
       };
 
-      let result;
+      let result: { success: boolean; error?: string; profile?: Profile; wasResubmitted?: boolean };
+      
       if (existingProfile) {
         // Update existing profile
         result = await profileService.updateProfile(dataToSave, privacySettings);
@@ -339,15 +338,22 @@ export default function ProfileScreen() {
       if (result.success && result.profile) {
         setExistingProfile(result.profile);
         setProfileStatus(result.profile.status);
-        setRejectionReason(result.profile.rejection_reason);
+        if (result?.profile?.rejection_reason !== '') setRejectionReason(result?.profile?.rejection_reason);
         
         // Reload profile to get the converted public URLs for images
         await loadProfile();
         
-        // Only show status modal for pending/rejected profiles
+        // Determine if we should show the status modal
+        // Show it for pending/rejected, and ESPECIALLY if it was just resubmitted
+        // When resubmitted, status is now 'pending' so it shows "Under Review" modal
         const shouldShowStatusModal = result.profile.status !== 'approved';
         
-        Alert.alert('Success', 'Profile saved successfully!', [
+        // Show appropriate message based on whether profile was resubmitted
+        const successMessage = result.wasResubmitted 
+          ? 'Profile updated and resubmitted for admin review!' 
+          : 'Profile saved successfully!';
+        
+        Alert.alert('Success', successMessage, [
           { 
             text: 'OK', 
             onPress: () => {
@@ -452,7 +458,6 @@ export default function ProfileScreen() {
               </Text>
               <View style={styles.picturesContainer}>
                 {profileData.pictures.map((picture, index) => {
-                  console.log(`Rendering image ${index}:`, picture);
                   return (
                     <View key={index} style={styles.pictureWrapper}>
                       <TouchableOpacity onPress={() => openPictureViewer(index)}>
@@ -462,7 +467,6 @@ export default function ProfileScreen() {
                           onLoad={() => console.log(`Image ${index} loaded successfully`)}
                           onError={(error) => {
                             console.log(`Image ${index} load error:`, error.nativeEvent.error);
-                            console.log(`Failed URI:`, picture);
                           }}
                         />
                       </TouchableOpacity>
@@ -845,6 +849,7 @@ export default function ProfileScreen() {
                 }}
                 placeholder="ZIP Code"
                 autoCorrect={false}
+                keyboardType="numeric"
               />
             </View>
             <View style={styles.halfInput}>
@@ -1057,6 +1062,26 @@ export default function ProfileScreen() {
           setShowStatusModal(false);
           if (profileStatus === 'approved') {
             router.replace('/(tabs)');
+          }
+        }}
+        onStatusChange={(newStatus) => {
+          setProfileStatus(newStatus);
+          // If status changed to approved, refresh and allow tab access
+          if (newStatus === 'approved') {
+            setRejectionReason('');
+            Alert.alert(
+              'Profile Approved!',
+              'Your profile has been approved! You now have access to all features.',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    setShowStatusModal(false);
+                    router.replace('/(tabs)');
+                  }
+                }
+              ]
+            );
           }
         }}
       />

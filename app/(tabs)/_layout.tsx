@@ -1,38 +1,115 @@
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
-import { useEffect, useState } from "react";
-import { Alert } from "react-native";
+import { Tabs, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, AppState } from "react-native";
 import { profileService } from "../../lib/profileService";
 
 export default function TabLayout() {
   const [profileStatus, setProfileStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
+  const [hasProfile, setHasProfile] = useState<boolean>(false);
 
-  useEffect(() => {
-    checkProfileStatus();
-  }, []);
-
-  const checkProfileStatus = async () => {
+  const checkProfileStatus = useCallback(async () => {
     try {
       const result = await profileService.getProfileStatus();
       if (result.success) {
-        setProfileStatus(result.status || null);
+        if (result.status) {
+          setHasProfile(true);
+          setProfileStatus((prevStatus) => {
+            // If status changed from pending/rejected to approved, show success message
+            if (prevStatus && prevStatus !== 'approved' && result.status === 'approved') {
+              Alert.alert(
+                '🎉 Profile Approved!',
+                'Your profile has been approved! You now have access to all features.',
+                [{ text: 'Great!' }]
+              );
+            }
+            return result.status!;
+          });
+        } else {
+          // No profile found
+          setHasProfile(false);
+          setProfileStatus(null);
+        }
       }
     } catch (error) {
       console.error('Error checking profile status:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    checkProfileStatus();
+
+    // Listen for app state changes (foreground/background)
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        // App came to foreground, refresh status
+        checkProfileStatus();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [checkProfileStatus]);
+
+  // Poll for status updates when profile is not approved
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    // If profile is pending or rejected, poll every 5 seconds
+    if (profileStatus === 'pending' || profileStatus === 'rejected' || !hasProfile) {
+      intervalId = setInterval(() => {
+        console.log('Polling for profile status update...');
+        checkProfileStatus();
+      }, 5000); // Check every 5 seconds
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [profileStatus, hasProfile, checkProfileStatus]);
+
+  // Refresh status when navigating to tabs
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Tab focused, checking profile status...');
+      checkProfileStatus();
+    }, [checkProfileStatus])
+  );
 
   const handleTabPress = (tabName: string) => {
-    if (profileStatus === 'pending' && tabName !== 'profile') {
+    // Block all tabs except Profile if no profile exists
+    if (!hasProfile && tabName !== 'profile') {
       Alert.alert(
-        'Profile Under Review',
-        'Your profile is currently under review. You can only access the Profile tab until your profile is approved.',
+        'Create Your Profile',
+        'Please create your profile first before accessing other features.',
+        [{ text: 'OK' }]
+      );
+      return false;
+    }
+
+    // Block all tabs except Profile for non-approved profiles
+    if (profileStatus !== 'approved' && tabName !== 'profile') {
+      const message = profileStatus === 'pending' 
+        ? 'Your profile is currently under review. You can only access the Profile tab until your profile is approved.'
+        : profileStatus === 'rejected'
+        ? 'Your profile needs attention. Please update your profile in the Profile tab.'
+        : 'Please complete your profile setup first.';
+      
+      Alert.alert(
+        profileStatus === 'pending' ? 'Profile Under Review' : 'Profile Incomplete',
+        message,
         [{ text: 'OK' }]
       );
       return false;
     }
     return true;
   };
+
+  // Determine if tabs should be disabled
+  const isTabDisabled = !hasProfile || profileStatus !== 'approved';
 
   return (
     <Tabs
@@ -52,8 +129,13 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Ionicons 
+              name="home" 
+              size={size} 
+              color={isTabDisabled ? "#ccc" : color} 
+            />
           ),
+          tabBarLabelStyle: isTabDisabled ? { color: "#ccc" } : {},
         }}
         listeners={{
           tabPress: (e) => {
@@ -69,8 +151,13 @@ export default function TabLayout() {
         options={{
           title: "Set up",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart" size={size} color={color} />
+            <Ionicons 
+              name="heart" 
+              size={size} 
+              color={isTabDisabled ? "#ccc" : color} 
+            />
           ),
+          tabBarLabelStyle: isTabDisabled ? { color: "#ccc" } : {},
         }}
         listeners={{
           tabPress: (e) => {
@@ -94,9 +181,13 @@ export default function TabLayout() {
         options={{
           title: "Donations",
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome5 name="donate" size={size} color={color} />
-
+            <FontAwesome5 
+              name="donate" 
+              size={size} 
+              color={isTabDisabled ? "#ccc" : color} 
+            />
           ),
+          tabBarLabelStyle: isTabDisabled ? { color: "#ccc" } : {},
         }}
         listeners={{
           tabPress: (e) => {

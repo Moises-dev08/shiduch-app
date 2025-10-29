@@ -2,17 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Modal,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { adminService } from '../../lib/adminService';
@@ -27,7 +27,8 @@ export default function AdminDashboard() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [processing, setProcessing] = useState(false);
+  const [processingApprove, setProcessingApprove] = useState(false);
+  const [processingReject, setProcessingReject] = useState(false);
 
   useEffect(() => {
     loadProfiles();
@@ -64,9 +65,9 @@ export default function AdminDashboard() {
         {
           text: 'Approve',
           onPress: async () => {
-            setProcessing(true);
+            setProcessingApprove(true);
             const result = await adminService.approveProfile(profileId);
-            setProcessing(false);
+            setProcessingApprove(false);
             
             if (result.success) {
               Alert.alert('Success', 'Profile approved successfully');
@@ -95,9 +96,9 @@ export default function AdminDashboard() {
       return;
     }
 
-    setProcessing(true);
+    setProcessingReject(true);
     const result = await adminService.rejectProfile(selectedProfile.id, rejectionReason);
-    setProcessing(false);
+    setProcessingReject(false);
 
     if (result.success) {
       Alert.alert('Success', 'Profile rejected successfully');
@@ -279,9 +280,9 @@ export default function AdminDashboard() {
               <TouchableOpacity
                 style={[styles.actionButton, styles.rejectButton]}
                 onPress={() => handleReject(selectedProfile)}
-                disabled={processing}
+                disabled={processingApprove || processingReject}
               >
-                {processing ? (
+                {processingReject ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
@@ -293,9 +294,9 @@ export default function AdminDashboard() {
               <TouchableOpacity
                 style={[styles.actionButton, styles.approveButton]}
                 onPress={() => handleApprove(selectedProfile.id)}
-                disabled={processing}
+                disabled={processingApprove || processingReject}
               >
-                {processing ? (
+                {processingApprove ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
@@ -335,16 +336,16 @@ export default function AdminDashboard() {
               <TouchableOpacity
                 style={[styles.rejectModalButton, styles.rejectModalCancel]}
                 onPress={() => setShowRejectModal(false)}
-                disabled={processing}
+                disabled={processingReject}
               >
                 <Text style={styles.rejectModalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.rejectModalButton, styles.rejectModalConfirm]}
                 onPress={confirmReject}
-                disabled={processing}
+                disabled={processingReject}
               >
-                {processing ? (
+                {processingReject ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.rejectModalConfirmText}>Reject</Text>

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,7 +22,26 @@ export default function SettingsScreen() {
   const [showFreezeModal, setShowFreezeModal] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [isProfileActive, setIsProfileActive] = useState(true);
+  const [loadingProfileStatus, setLoadingProfileStatus] = useState(true);
+  const [processingFreeze, setProcessingFreeze] = useState(false);
   const { signOut } = useAuth();
+
+  // Fetch profile status when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      const fetchProfileStatus = async () => {
+        setLoadingProfileStatus(true);
+        const result = await profileService.getProfile();
+        if (result.success && result.profile) {
+          setIsProfileActive(result.profile.is_active);
+        }
+        setLoadingProfileStatus(false);
+      };
+
+      fetchProfileStatus();
+    }, [])
+  );
 
   const handleLogout = () => {
     Alert.alert(
@@ -60,16 +79,57 @@ export default function SettingsScreen() {
   };
 
   const handleFreezeProfile = () => {
-    setShowFreezeModal(true);
+    if (isProfileActive) {
+      setShowFreezeModal(true);
+    } else {
+      // Unfreeze directly without modal
+      handleUnfreezeProfile();
+    }
   };
 
-  const confirmFreezeProfile = () => {
+  const confirmFreezeProfile = async () => {
     setShowFreezeModal(false);
-    Alert.alert(
-      'Profile Frozen',
-      'Your profile has been frozen and will not be visible to other users.',
-      [{ text: 'OK' }]
-    );
+    setProcessingFreeze(true);
+
+    const result = await profileService.freezeProfile();
+    setProcessingFreeze(false);
+
+    if (result.success) {
+      setIsProfileActive(false);
+      Alert.alert(
+        'Profile Frozen',
+        'Your profile has been frozen and will not be visible to other users.',
+        [{ text: 'OK' }]
+      );
+    } else {
+      Alert.alert(
+        'Error',
+        result.error || 'Failed to freeze profile. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handleUnfreezeProfile = async () => {
+    setProcessingFreeze(true);
+
+    const result = await profileService.unfreezeProfile();
+    setProcessingFreeze(false);
+
+    if (result.success) {
+      setIsProfileActive(true);
+      Alert.alert(
+        'Profile Unfrozen',
+        'Your profile is now active and visible to other users.',
+        [{ text: 'OK' }]
+      );
+    } else {
+      Alert.alert(
+        'Error',
+        result.error || 'Failed to unfreeze profile. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleInviteFriend = async () => {
@@ -220,10 +280,24 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.settingsItem} onPress={handleFreezeProfile}>
+        <TouchableOpacity 
+          style={styles.settingsItem} 
+          onPress={handleFreezeProfile}
+          disabled={loadingProfileStatus || processingFreeze}
+        >
           <View style={styles.settingsItemLeft}>
-            <Ionicons name="snow" size={24} color="#2196f3" />
-            <Text style={styles.settingsItemText}>Freeze Profile</Text>
+            {processingFreeze ? (
+              <ActivityIndicator size="small" color="#2196f3" />
+            ) : (
+              <Ionicons 
+                name={isProfileActive ? "snow" : "sunny"} 
+                size={24} 
+                color={isProfileActive ? "#2196f3" : "#4CAF50"} 
+              />
+            )}
+            <Text style={[styles.settingsItemText, (loadingProfileStatus || processingFreeze) && styles.disabledText]}>
+              {loadingProfileStatus ? 'Loading...' : isProfileActive ? 'Freeze Profile' : 'Unfreeze Profile'}
+            </Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>
@@ -405,6 +479,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     marginLeft: 12,
+  },
+  disabledText: {
+    opacity: 0.5,
   },
   // Freeze Modal Styles
   freezeModalOverlay: {

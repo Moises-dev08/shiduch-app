@@ -1,7 +1,7 @@
 import { decode } from 'base64-arraybuffer';
 import { readAsStringAsync } from 'expo-file-system/legacy';
 // import { notificationService } from './notificationService';
-import { supabase, supabaseUrl } from './supabase';
+import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 
 export interface ProfileData {
   firstName: string;
@@ -70,6 +70,7 @@ export interface Profile {
   updated_at: string;
   approved_at?: string;
   matchmaker_id?: string; // ID of associated matchmaker
+  is_active: boolean; // Whether the profile is active (true) or frozen (false)
 }
 
 class ProfileService {
@@ -247,13 +248,9 @@ class ProfileService {
       // Upload images if any
       let picturePaths: string[] = [];
       if (profileData.pictures.length > 0) {
-        console.log('Starting image upload for', profileData.pictures.length, 'images');
-        console.log('Image URIs:', profileData.pictures);
-        
+
         picturePaths = await this.uploadImages(profileData.pictures, user.id);
-        
-        console.log('Upload complete. Successful uploads:', picturePaths.length, 'out of', profileData.pictures.length);
-        console.log('Uploaded paths:', picturePaths);
+      
         
         if (picturePaths.length !== profileData.pictures.length) {
           console.warn(`Warning: ${profileData.pictures.length - picturePaths.length} images failed to upload`);
@@ -376,7 +373,7 @@ class ProfileService {
   async updateProfile(
     profileData: ProfileData,
     privacySettings: PrivacySettings
-  ): Promise<{ success: boolean; error?: string; profile?: Profile }> {
+  ): Promise<{ success: boolean; error?: string; profile?: Profile; wasResubmitted?: boolean }> {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
@@ -401,7 +398,6 @@ class ProfileService {
           // This might be a public URL or already a storage path
           // Convert public URL to storage path if needed
           const storagePath = this.extractStoragePath(picture);
-          console.log('Converting URL to storage path:', picture, '->', storagePath);
           picturePaths.push(storagePath);
         }
       }
@@ -418,34 +414,52 @@ class ProfileService {
         }
       }
 
+      // Check current profile status
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('status')
+        .eq('user_id', user.id)
+        .single();
+
+      // If profile was rejected, reset to pending for re-review
+      const shouldResetStatus = currentProfile?.status === 'rejected';
+
+      const updateData: any = {
+        first_name: profileData.firstName,
+        last_name: profileData.lastName,
+        age: parseInt(profileData.age),
+        hashkafa: profileData.hashkafa,
+        role: profileData.role,
+        gender: profileData.gender,
+        address: profileData.address,
+        street: profileData.street,
+        city: profileData.city,
+        state: profileData.state,
+        zip_code: profileData.zipCode,
+        country: profileData.country,
+        school: profileData.school,
+        occupation: profileData.occupation,
+        bio: profileData.bio,
+        phone: profileData.phone,
+        email: profileData.email,
+        whatsapp: profileData.whatsapp,
+        picture_privacy: profileData.picturePrivacy,
+        pictures: picturePaths,
+        privacy_settings: privacySettings,
+        height: profileData.height,
+        has_children: profileData.hasChildren,
+        matchmaker_id: matchmakerId,
+      };
+
+      // Reset status to pending if it was rejected
+      if (shouldResetStatus) {
+        updateData.status = 'pending';
+        updateData.rejection_reason = null;
+      }
+
       const { data, error } = await supabase
         .from('profiles')
-        .update({
-          first_name: profileData.firstName,
-          last_name: profileData.lastName,
-          age: parseInt(profileData.age),
-          hashkafa: profileData.hashkafa,
-          role: profileData.role,
-          gender: profileData.gender,
-          address: profileData.address,
-          street: profileData.street,
-          city: profileData.city,
-          state: profileData.state,
-          zip_code: profileData.zipCode,
-          country: profileData.country,
-          school: profileData.school,
-          occupation: profileData.occupation,
-          bio: profileData.bio,
-          phone: profileData.phone,
-          email: profileData.email,
-          whatsapp: profileData.whatsapp,
-          picture_privacy: profileData.picturePrivacy,
-          pictures: picturePaths,
-          privacy_settings: privacySettings,
-          height: profileData.height,
-          has_children: profileData.hasChildren,
-          matchmaker_id: matchmakerId,
-        })
+        .update(updateData)
         .eq('user_id', user.id)
         .select()
         .single();
@@ -454,7 +468,12 @@ class ProfileService {
         return { success: false, error: error.message };
       }
 
-      return { success: true, profile: data };
+      // Add a flag if profile was resubmitted
+      if (shouldResetStatus) {
+        console.log('Profile was rejected and has been resubmitted for review');
+      }
+
+      return { success: true, profile: data, wasResubmitted: shouldResetStatus };
     } catch (error) {
       console.error('Error updating profile:', error);
       return { success: false, error: 'An unexpected error occurred' };
@@ -514,21 +533,80 @@ class ProfileService {
   }
 
   /**
+   * Freeze user profile (make it invisible to others)
+   */
+  async freezeProfile(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_active: false })
+        .eq('user_id', user.id);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error freezing profile:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Unfreeze user profile (make it visible to others)
+   */
+  async unfreezeProfile(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_active: true })
+        .eq('user_id', user.id);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error unfreezing profile:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
    * Delete user account permanently
    */
   async deleteAccount(): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Refresh session to get a fresh token
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
       
-      if (!session) {
-        return { success: false, error: 'Not authenticated' };
+      if (sessionError || !session) {
+        console.error('Session error:', sessionError);
+        return { success: false, error: 'Not authenticated. Please log in again.' };
       }
+
+      console.log('Calling delete-account function with token');
 
       // Call the delete-account edge function
       const response = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
+          'apikey': supabaseAnonKey,
           'Content-Type': 'application/json',
         },
       });

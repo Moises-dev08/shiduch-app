@@ -82,9 +82,9 @@ export function useHomeProfiles() {
       return [];
     }
 
-    // Only show single profiles on home page
-    let filtered = profiles.filter(p => p.role === 'single');
-    console.log('After role filter (only singles):', filtered.length);
+    // Show single and both profiles on home page (exclude matchmaker-only profiles)
+    let filtered = profiles.filter(p => p.role === 'single' || p.role === 'both');
+    console.log('After role filter (singles and both):', filtered.length);
 
     // If user is single, show opposite gender only
     if (userProfile.role === 'single' || userProfile.role === 'both') {
@@ -119,12 +119,13 @@ export function useHomeProfiles() {
         console.log('Current user gender:', currentProfileResult.profile.gender);
       }
 
-      // Get all approved single profiles from database
+      // Get all approved single and both profiles from database (exclude matchmaker-only and frozen)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('status', 'approved')
-        .eq('role', 'single'); // Only show single profiles
+        .eq('is_active', true) // Only show active (not frozen) profiles
+        .in('role', ['single', 'both']); // Show single and both profiles
 
       if (error) {
         console.error('Error fetching profiles:', error);

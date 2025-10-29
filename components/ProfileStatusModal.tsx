@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { profileService } from '../lib/profileService';
 
@@ -15,6 +15,7 @@ interface ProfileStatusModalProps {
   status: 'pending' | 'approved' | 'rejected';
   rejectionReason?: string;
   onClose?: () => void;
+  onStatusChange?: (newStatus: 'pending' | 'approved' | 'rejected') => void;
 }
 
 export default function ProfileStatusModal({
@@ -22,18 +23,64 @@ export default function ProfileStatusModal({
   status: initialStatus,
   rejectionReason: initialRejectionReason,
   onClose,
+  onStatusChange,
 }: ProfileStatusModalProps) {
   const [status, setStatus] = useState(initialStatus);
   const [rejectionReason, setRejectionReason] = useState(initialRejectionReason);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  // Fetch latest profile data when modal becomes visible
+  useEffect(() => {
+    if (visible) {
+      setInitialLoading(true);
+      const fetchProfileData = async () => {
+        try {
+          const result = await profileService.getProfile();
+          if (result.success && result.profile) {
+            console.log('ProfileStatusModal: Fetched profile data', {
+              status: result.profile.status,
+              rejectionReason: result.profile.rejection_reason
+            });
+            setStatus(result.profile.status);
+            setRejectionReason(result.profile.rejection_reason);
+          }
+        } finally {
+          setInitialLoading(false);
+        }
+      };
+      fetchProfileData();
+    } else {
+      setInitialLoading(true);
+    }
+  }, [visible]);
 
   const checkStatus = async () => {
     setLoading(true);
     try {
-      const result = await profileService.getProfileStatus();
-      if (result.success && result.status) {
-        setStatus(result.status);
-        setRejectionReason(result.rejectionReason);
+      const result = await profileService.getProfile();
+      console.log('ProfileStatusModal: Check status result:', {
+        success: result.success,
+        status: result.profile?.status,
+        rejectionReason: result.profile?.rejection_reason
+      });
+      
+      if (result.success && result.profile) {
+        const newStatus = result.profile.status;
+        const newRejectionReason = result.profile.rejection_reason;
+        
+        setStatus(newStatus);
+        setRejectionReason(newRejectionReason);
+        
+        console.log('ProfileStatusModal: Updated state', {
+          newStatus,
+          newRejectionReason
+        });
+        
+        // Notify parent of status change
+        if (onStatusChange && newStatus !== status) {
+          onStatusChange(newStatus);
+        }
       }
     } catch (error) {
       console.error('Error checking status:', error);
@@ -71,7 +118,7 @@ export default function ProfileStatusModal({
       case 'approved':
         return 'Congratulations! Your profile has been approved and is now visible to other users. You can now access all features of the app.';
       case 'rejected':
-        return rejectionReason || 'Your profile needs some adjustments. Please review the feedback and update your profile accordingly.';
+        return rejectionReason || 'Your profile needs some updates. Please review and update your profile information to meet our guidelines.';
     }
   };
 
@@ -90,13 +137,20 @@ export default function ProfileStatusModal({
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
       <View style={styles.overlay}>
         <View style={styles.modal}>
-          <View style={styles.iconContainer}>
-            {getStatusIcon()}
-          </View>
+          {initialLoading ? (
+            <>
+              <ActivityIndicator size="large" color="#e91e63" style={{ marginVertical: 40 }} />
+              <Text style={styles.message}>Loading profile status...</Text>
+            </>
+          ) : (
+            <>
+              <View style={styles.iconContainer}>
+                {getStatusIcon()}
+              </View>
 
-          <Text style={styles.title}>{getStatusTitle()}</Text>
-          
-          <Text style={styles.message}>{getStatusMessage()}</Text>
+              <Text style={styles.title}>{getStatusTitle()}</Text>
+              
+              <Text style={styles.message}>{getStatusMessage()}</Text>
 
           {status === 'pending' && (
             <View style={styles.infoBox}>
@@ -148,6 +202,8 @@ export default function ProfileStatusModal({
             <Text style={styles.footer}>
               In the meanwhile, you can only access the Profile tab.
             </Text>
+          )}
+            </>
           )}
         </View>
       </View>
