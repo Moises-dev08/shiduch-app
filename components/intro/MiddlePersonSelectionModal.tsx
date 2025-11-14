@@ -84,7 +84,7 @@ export default function MiddlePersonSelectionModal({
     } finally {
       setLoading(false);
     }
-  }, [excludedProfileId, requestedProfileId]);
+   }, [excludedProfileId, requestedProfileId]);
 
   const applyFilters = useCallback(() => {
     let filtered = [...profiles];
