@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FilterModal from '../../components/home/FilterModal';
@@ -43,7 +43,22 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Discover</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.headerTitle}>Discover</Text>
+          <TouchableOpacity 
+            style={styles.notificationButton}
+            onPress={() => {
+              // TODO: Navigate to notifications screen
+              console.log('Notifications pressed');
+            }}
+          >
+            <Ionicons name="notifications-outline" size={24} color="#333" />
+            {/* Badge for future use */}
+            {/* <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>3</Text>
+            </View> */}
+          </TouchableOpacity>
+        </View>
         <View style={styles.searchRow}>
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
@@ -130,11 +145,37 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12,
+  },
+  notificationButton: {
+    padding: 8,
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: '#e91e63',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   searchRow: {
     flexDirection: 'row',

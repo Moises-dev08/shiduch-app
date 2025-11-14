@@ -2,11 +2,15 @@ import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { Tabs, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, AppState } from "react-native";
+import { useRealtimeIntroRequests } from "../../hooks/useRealtimeIntroRequests";
+import { introService } from "../../lib/introService";
 import { profileService } from "../../lib/profileService";
 
 export default function TabLayout() {
   const [profileStatus, setProfileStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
   const [hasProfile, setHasProfile] = useState<boolean>(false);
+  const [connectBadgeCount, setConnectBadgeCount] = useState<number>(0);
+  const [currentProfileId, setCurrentProfileId] = useState<string | undefined>(undefined);
 
   const checkProfileStatus = useCallback(async () => {
     try {
@@ -25,10 +29,17 @@ export default function TabLayout() {
             }
             return result.status!;
           });
+
+          // Get profile ID for real-time subscriptions
+          const profileResult = await profileService.getProfile();
+          if (profileResult.success && profileResult.profile) {
+            setCurrentProfileId(profileResult.profile.id);
+          }
         } else {
           // No profile found
           setHasProfile(false);
           setProfileStatus(null);
+          setCurrentProfileId(undefined);
         }
       }
     } catch (error) {
@@ -36,21 +47,51 @@ export default function TabLayout() {
     }
   }, []);
 
+  const checkConnectNotifications = useCallback(async () => {
+    try {
+      const result = await introService.getMyIntroRequests();
+      if (result.success) {
+        const received = result.receivedRequests || [];
+        const sent = result.sentRequests || [];
+        
+        // Count items needing action
+        const actionCount = 
+          received.filter(r => 
+            r.status === 'pending' || 
+            (r.status === 'accepted' && (!r.requested_continuation_choice || !r.requester_continuation_choice))
+          ).length +
+          sent.filter(r => 
+            r.status === 'accepted' && 
+            (!r.requester_continuation_choice || !r.requested_continuation_choice)
+          ).length;
+        
+        setConnectBadgeCount(actionCount);
+      }
+    } catch (error) {
+      console.error('Error checking connect notifications:', error);
+    }
+  }, []);
+
+  // Set up real-time subscription for intro requests (for badge count)
+  useRealtimeIntroRequests(checkConnectNotifications, currentProfileId);
+
   useEffect(() => {
     checkProfileStatus();
+    checkConnectNotifications();
 
     // Listen for app state changes (foreground/background)
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
         // App came to foreground, refresh status
         checkProfileStatus();
+        checkConnectNotifications();
       }
     });
 
     return () => {
       subscription.remove();
     };
-  }, [checkProfileStatus]);
+  }, [checkProfileStatus, checkConnectNotifications]);
 
   // Poll for status updates when profile is not approved
   useEffect(() => {
@@ -76,10 +117,16 @@ export default function TabLayout() {
     useCallback(() => {
       console.log('Tab focused, checking profile status...');
       checkProfileStatus();
-    }, [checkProfileStatus])
+      checkConnectNotifications();
+    }, [checkProfileStatus, checkConnectNotifications])
   );
 
   const handleTabPress = (tabName: string) => {
+    // Clear badge when Connect tab is pressed
+    if (tabName === 'connect') {
+      setConnectBadgeCount(0);
+    }
+
     // Block all tabs except Profile if no profile exists
     if (!hasProfile && tabName !== 'profile') {
       Alert.alert(
@@ -145,11 +192,11 @@ export default function TabLayout() {
           },
         }}
       />
-     
+      
       <Tabs.Screen
-        name="setup"
+        name="connect"
         options={{
-          title: "Set up",
+          title: "Connect",
           tabBarIcon: ({ color, size }) => (
             <Ionicons 
               name="heart" 
@@ -158,15 +205,17 @@ export default function TabLayout() {
             />
           ),
           tabBarLabelStyle: isTabDisabled ? { color: "#ccc" } : {},
+          tabBarBadge: connectBadgeCount > 0 ? connectBadgeCount : undefined,
         }}
         listeners={{
           tabPress: (e) => {
-            if (!handleTabPress('setup')) {
+            if (!handleTabPress('connect')) {
               e.preventDefault();
             }
           },
         }}
       />
+      
        <Tabs.Screen
         name="profile"
         options={{

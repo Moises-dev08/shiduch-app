@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Profile as DBProfile, profileService } from '../lib/profileService';
 import { supabase } from '../lib/supabase';
 import { FilterState, Profile } from '../types/homeTypes';
+import { useRealtimeProfiles } from './useRealtimeProfiles';
 
 export function useHomeProfiles() {
   const [currentUserProfile, setCurrentUserProfile] = useState<DBProfile | null>(null);
@@ -82,13 +83,13 @@ export function useHomeProfiles() {
       return [];
     }
 
-    // Show single and both profiles on home page (exclude matchmaker-only profiles)
-    let filtered = profiles.filter(p => p.role === 'single' || p.role === 'both');
-    console.log('After role filter (singles and both):', filtered.length);
+    // Show single profiles on home page (exclude matchmaker-only profiles)
+    let filtered = profiles.filter(p => p.role === 'single');
+    console.log('After role filter (singles only):', filtered.length);
 
-    // If user is single, show opposite gender only
-    if (userProfile.role === 'single' || userProfile.role === 'both') {
-      // Single and both users see opposite gender profiles
+    // If user is single, show opposite gender only (for dating)
+    if (userProfile.role === 'single') {
+      // Singles see opposite gender profiles for dating
       filtered = filtered.filter(p => p.gender !== userProfile.gender);
       console.log(`${userProfile.role} ${userProfile.gender} user, showing opposite gender:`, filtered.length);
     }
@@ -119,13 +120,13 @@ export function useHomeProfiles() {
         console.log('Current user gender:', currentProfileResult.profile.gender);
       }
 
-      // Get all approved single and both profiles from database (exclude matchmaker-only and frozen)
+      // Get all approved single profiles from database (exclude matchmaker-only and frozen)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('status', 'approved')
         .eq('is_active', true) // Only show active (not frozen) profiles
-        .in('role', ['single', 'both']); // Show single and both profiles
+        .eq('role', 'single'); // Show single profiles only
 
       if (error) {
         console.error('Error fetching profiles:', error);
@@ -224,6 +225,9 @@ export function useHomeProfiles() {
   useEffect(() => {
     loadProfiles();
   }, [loadProfiles]);
+
+  // Set up real-time subscription for profile updates
+  useRealtimeProfiles(loadProfiles);
 
   return {
     currentUserProfile,

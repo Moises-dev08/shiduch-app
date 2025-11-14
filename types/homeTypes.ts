@@ -7,7 +7,7 @@ export interface Profile {
   hashkafa: string;
   location: string;
   bio: string;
-  role: 'single' | 'matchmaker' | 'both';
+  role: 'single' | 'matchmaker';
   gender: 'male' | 'female';
   phone?: string;
   email?: string;

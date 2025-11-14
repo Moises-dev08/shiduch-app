@@ -8,7 +8,7 @@ export interface ProfileData {
   lastName: string;
   age: string;
   hashkafa: string;
-  role: 'single' | 'matchmaker' | 'both';
+  role: 'single' | 'matchmaker';
   gender: 'male' | 'female';
   address: string;
   street: string;

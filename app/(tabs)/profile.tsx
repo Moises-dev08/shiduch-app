@@ -19,7 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ProfileStatusModal from '../../components/ProfileStatusModal';
 import { useProfileShare } from '../../hooks/useProfileShare';
 import { Profile, profileService } from '../../lib/profileService';
-import { supabase } from '../../lib/supabase';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -28,7 +27,7 @@ interface ProfileData {
   lastName: string;
   age: string;
   hashkafa: string;
-  role: 'single' | 'matchmaker' | 'both';
+  role: 'single' | 'matchmaker';
   gender: 'male' | 'female';
   address: string;
   street: string;
@@ -47,7 +46,6 @@ interface ProfileData {
   picturePrivacy: 'none' | 'always' | 'private';
   height: string;
   hasChildren: 'yes' | 'no' | '';
-  matchmakerEmail?: string;
 }
 
 interface PrivacySettings {
@@ -92,8 +90,7 @@ export default function ProfileScreen() {
     mainPictureIndex: 0,
     picturePrivacy: 'none',
     height: '',
-    hasChildren: '',
-    matchmakerEmail: ''
+    hasChildren: ''
   });
 
   const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
@@ -105,9 +102,6 @@ export default function ProfileScreen() {
   });
 
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
-  const [matchmakerInfo, setMatchmakerInfo] = useState<{name: string; email: string} | null>(null);
-  const [showMatchmakerInput, setShowMatchmakerInput] = useState(false);
-
   const [showPictureViewer, setShowPictureViewer] = useState(false);
   const [selectedPictureIndex, setSelectedPictureIndex] = useState(0);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -180,30 +174,6 @@ export default function ProfileScreen() {
           school: false,
           occupation: false
         });
-
-        // Load matchmaker info if exists
-        if (profile.matchmaker_id) {
-          try {
-            const { data: matchmakerData } = await supabase
-              .from('profiles')
-              .select('first_name, last_name, email')
-              .eq('id', profile.matchmaker_id)
-              .single();
-            
-            if (matchmakerData) {
-              setMatchmakerInfo({
-                name: `${matchmakerData.first_name} ${matchmakerData.last_name}`,
-                email: matchmakerData.email
-              });
-              setShowMatchmakerInput(false);
-            }
-          } catch (err) {
-            console.error('Error loading matchmaker info:', err);
-          }
-        } else {
-          setMatchmakerInfo(null);
-          setShowMatchmakerInput(false);
-        }
 
         // Show status modal if pending or rejected (not approved)
         if (profile.status === 'pending' || profile.status === 'rejected') {
@@ -640,103 +610,9 @@ export default function ProfileScreen() {
               >
                 <Text style={[styles.radioText, profileData.role === 'matchmaker' && styles.radioTextSelected]}>Matchmaker</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.radioOption, profileData.role === 'both' && styles.radioSelected]}
-                onPress={() => handleInputChange('role', 'both')}
-              >
-                <Text style={[styles.radioText, profileData.role === 'both' && styles.radioTextSelected]}>Both</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </View>
-
-        {/* Matchmaker Association - Only for Singles and Both */}
-        {(profileData.role === 'single' || profileData.role === 'both') && (
-          <View style={[styles.section, styles.matchmakerSection]}>
-            <View style={styles.matchmakerHeader}>
-              <Ionicons name="people" size={24} color="#e91e63" />
-              <Text style={styles.matchmakerTitle}>Matchmaker Association</Text>
-            </View>
-            <Text style={styles.matchmakerDescription}>
-              Connect with your matchmaker for better matches and guidance
-            </Text>
-
-            {matchmakerInfo && !showMatchmakerInput ? (
-              <View style={styles.currentMatchmakerContainer}>
-                <View style={styles.matchmakerInfoCard}>
-                  <View style={styles.matchmakerInfoHeader}>
-                    <Ionicons name="person-circle" size={40} color="#e91e63" />
-                    <View style={styles.matchmakerDetails}>
-                      <Text style={styles.matchmakerName}>{matchmakerInfo.name}</Text>
-                      <Text style={styles.matchmakerEmail}>{matchmakerInfo.email}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.matchmakerActions}>
-                    <TouchableOpacity
-                      style={styles.changeMatchmakerButton}
-                      onPress={() => {
-                        setShowMatchmakerInput(true);
-                        handleInputChange('matchmakerEmail', '');
-                      }}
-                    >
-                      <Ionicons name="create-outline" size={18} color="#666" />
-                      <Text style={styles.changeMatchmakerText}>Change</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.removeMatchmakerButton}
-                      onPress={() => {
-                        Alert.alert(
-                          'Remove Matchmaker',
-                          'Are you sure you want to remove your matchmaker?',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            {
-                              text: 'Remove',
-                              style: 'destructive',
-                              onPress: () => {
-                                setMatchmakerInfo(null);
-                                setShowMatchmakerInput(false);
-                                handleInputChange('matchmakerEmail', '');
-                              }
-                            }
-                          ]
-                        );
-                      }}
-                    >
-                      <Ionicons name="trash-outline" size={18} color="#F44336" />
-                      <Text style={styles.removeMatchmakerText}>Remove</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Matchmaker&apos;s Email (Optional)</Text>
-                <TextInput
-                  style={[styles.input, styles.matchmakerInput]}
-                  value={profileData.matchmakerEmail}
-                  onChangeText={(value) => handleInputChange('matchmakerEmail', value)}
-                  placeholder="Enter matchmaker's signup email"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  textContentType="emailAddress"
-                />
-                <Text style={styles.helpText}>
-                  📧 Enter the email your matchmaker used to sign up. They must have an approved matchmaker account.
-                </Text>
-                {matchmakerInfo && (
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={() => setShowMatchmakerInput(false)}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-          </View>
-        )}
 
         {/* Contact Information */}
         <View style={styles.section}>
