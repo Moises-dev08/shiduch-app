@@ -4,38 +4,73 @@ import { readAsStringAsync } from 'expo-file-system/legacy';
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 
 export interface ProfileData {
+  // Basic required fields
   firstName: string;
   lastName: string;
-  age: string;
-  hashkafa: string;
-  role: 'single' | 'matchmaker';
   gender: 'male' | 'female';
-  address: string;
-  street: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  country: string;
-  school: string;
-  occupation: string;
+  role: 'single' | 'matchmaker';
+  dob: string; // Date of birth
   bio: string;
   phone: string;
-  email: string;
-  whatsapp: string;
+  
+  // Pictures
   pictures: string[];
-  mainPictureIndex?: number; // Index of the main picture (0-2)
-  picturePrivacy: 'none' | 'always' | 'private';
+  mainPictureIndex?: number;
+  picturePrivacy: 'none' | 'always' | 'private' | 'one-time';
+  
+  // Singles only - required fields
+  whatLookingFor?: string; // Required for singles
+  
+  // Optional fields with "Ask me" capability
   height?: string;
+  locationCity?: string;
+  locationState?: string;
+  locationCountry?: string;
+  languages?: string[];
+  
+  // Nationality / Background
+  nationality?: string[];
+  isCohen?: boolean; // Male only
+  
+  // Hashkafa / Religious
+  hashkafaType?: string; // Specific type
+  torahLearning?: string; // Male only
+  praying?: string; // Male only
+  
+  // Education
+  educationLevel?: string;
+  postHighSchoolPath?: string;
+  
+  // Occupation / Study
+  currentOccupationStudy?: string;
+  
+  // Plan After Marriage
+  planAfterMarriage?: string;
+  
+  // Marital Status
+  maritalStatus?: string;
+  
+  // Dress & Appearance
+  dressStyle?: string;
+  wearsBlackHat?: boolean; // Male only
+  headCovering?: string; // Female only
+  
+  // Lifestyle
+  smoking?: string;
+  alcoholConsumption?: string;
+  
+  // References
+  userReferences?: { name: string; phone: string }[];
+  
+  // Contact info (optional - for legacy support and direct contact)
+  email?: string;
+  whatsapp?: string;
   hasChildren?: boolean;
-  matchmakerEmail?: string; // Email of the matchmaker to associate
+  matchmakerEmail?: string;
 }
 
-export interface PrivacySettings {
-  height: boolean;
-  hasChildren: boolean;
-  address: boolean;
-  school: boolean;
-  occupation: boolean;
+export interface FieldPrivacy {
+  [fieldName: string]: boolean; // true means field is private/"Ask me"
 }
 
 export interface Profile {
@@ -43,34 +78,71 @@ export interface Profile {
   user_id: string;
   first_name: string;
   last_name: string;
-  age: number;
-  hashkafa: string;
-  role: string;
   gender: string;
-  address: string;
-  street: string;
-  city: string;
-  state: string;
-  zip_code: string;
-  country: string;
-  school: string;
-  occupation: string;
+  role: string;
+  dob?: string;
   bio: string;
   phone: string;
-  email: string;
-  whatsapp: string;
   picture_privacy: string;
   status: 'pending' | 'approved' | 'rejected';
   rejection_reason?: string;
   pictures: string[];
-  privacy_settings: PrivacySettings;
+  
+  // What looking for (required for singles)
+  what_looking_for?: string;
+  
+  // Optional fields
   height?: string;
-  has_children?: boolean;
+  location_city?: string;
+  location_state?: string;
+  location_country?: string;
+  languages?: string[];
+  
+  // Nationality / Background
+  nationality?: string[];
+  is_cohen?: boolean;
+  
+  // Hashkafa / Religious
+  hashkafa_type?: string;
+  torah_learning?: string;
+  praying?: string;
+  
+  // Education
+  education_level?: string;
+  post_high_school_path?: string;
+  
+  // Occupation / Study
+  current_occupation_study?: string;
+  
+  // Plan After Marriage
+  plan_after_marriage?: string;
+  
+  // Marital Status
+  marital_status?: string;
+  
+  // Dress & Appearance
+  dress_style?: string;
+  wears_black_hat?: boolean;
+  head_covering?: string;
+  
+  // Lifestyle
+  smoking?: string;
+  alcohol_consumption?: string;
+  
+  // References
+  user_references?: { name: string; phone: string }[];
+  
+  // Privacy and metadata
+  field_privacy?: FieldPrivacy; // Maps field names to private/"Ask me" flags
+  last_active_at?: string;
   created_at: string;
   updated_at: string;
   approved_at?: string;
-  matchmaker_id?: string; // ID of associated matchmaker
-  is_active: boolean; // Whether the profile is active (true) or frozen (false)
+  matchmaker_id?: string;
+  is_active: boolean;
+  email?: string;
+  whatsapp?: string;
+  has_children?: boolean;
 }
 
 class ProfileService {
@@ -235,8 +307,8 @@ class ProfileService {
    */
   async createProfile(
     profileData: ProfileData,
-    privacySettings: PrivacySettings
-  ): Promise<{ success: boolean; error?: string; profile?: Profile }> {
+    fieldPrivacy?: FieldPrivacy
+  ): Promise<{ success: boolean; error?: string; profile?: Profile; wasResubmitted?: boolean }> {
     try {
       // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -280,27 +352,68 @@ class ProfileService {
           user_id: user.id,
           first_name: profileData.firstName,
           last_name: profileData.lastName,
-          age: parseInt(profileData.age),
-          hashkafa: profileData.hashkafa,
-          role: profileData.role,
           gender: profileData.gender,
-          address: profileData.address,
-          street: profileData.street,
-          city: profileData.city,
-          state: profileData.state,
-          zip_code: profileData.zipCode,
-          country: profileData.country,
-          school: profileData.school,
-          occupation: profileData.occupation,
+          role: profileData.role,
+          dob: profileData.dob || null,
           bio: profileData.bio,
           phone: profileData.phone,
-          email: profileData.email,
-          whatsapp: profileData.whatsapp,
           picture_privacy: profileData.picturePrivacy,
           pictures: picturePaths,
-          privacy_settings: privacySettings,
-          height: profileData.height,
-          has_children: profileData.hasChildren,
+          
+          // Singles required field
+          what_looking_for: profileData.whatLookingFor || null,
+          
+          // Optional comprehensive fields
+          height: profileData.height || null,
+          location_city: profileData.locationCity || null,
+          location_state: profileData.locationState || null,
+          location_country: profileData.locationCountry || null,
+          languages: profileData.languages || null,
+          
+          // Nationality / Background
+          nationality: profileData.nationality || null,
+          is_cohen: profileData.isCohen || null,
+          
+          // Hashkafa / Religious
+          hashkafa_type: profileData.hashkafaType || null,
+          torah_learning: profileData.torahLearning || null,
+          praying: profileData.praying || null,
+          
+          // Education
+          education_level: profileData.educationLevel || null,
+          post_high_school_path: profileData.postHighSchoolPath || null,
+          
+          // Occupation / Study
+          current_occupation_study: profileData.currentOccupationStudy || null,
+          
+          // Plan After Marriage
+          plan_after_marriage: profileData.planAfterMarriage || null,
+          
+          // Marital Status
+          marital_status: profileData.maritalStatus || null,
+          
+          // Dress & Appearance
+          dress_style: profileData.dressStyle || null,
+          wears_black_hat: profileData.wearsBlackHat || null,
+          head_covering: profileData.headCovering || null,
+          
+          // Lifestyle
+          smoking: profileData.smoking || null,
+          alcohol_consumption: profileData.alcoholConsumption || null,
+          
+          // References
+          user_references: profileData.userReferences || [],
+          
+          // Contact info (optional)
+          email: profileData.email || null,
+          whatsapp: profileData.whatsapp || null,
+          
+          // Children
+          has_children: profileData.hasChildren || null,
+          
+          // Privacy settings
+          field_privacy: fieldPrivacy || {},
+          
           status: 'pending',
           matchmaker_id: matchmakerId,
         })
@@ -372,7 +485,7 @@ class ProfileService {
    */
   async updateProfile(
     profileData: ProfileData,
-    privacySettings: PrivacySettings
+    fieldPrivacy?: FieldPrivacy
   ): Promise<{ success: boolean; error?: string; profile?: Profile; wasResubmitted?: boolean }> {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -427,27 +540,68 @@ class ProfileService {
       const updateData: any = {
         first_name: profileData.firstName,
         last_name: profileData.lastName,
-        age: parseInt(profileData.age),
-        hashkafa: profileData.hashkafa,
-        role: profileData.role,
         gender: profileData.gender,
-        address: profileData.address,
-        street: profileData.street,
-        city: profileData.city,
-        state: profileData.state,
-        zip_code: profileData.zipCode,
-        country: profileData.country,
-        school: profileData.school,
-        occupation: profileData.occupation,
+        role: profileData.role,
+        dob: profileData.dob || null,
         bio: profileData.bio,
         phone: profileData.phone,
-        email: profileData.email,
-        whatsapp: profileData.whatsapp,
         picture_privacy: profileData.picturePrivacy,
         pictures: picturePaths,
-        privacy_settings: privacySettings,
-        height: profileData.height,
-        has_children: profileData.hasChildren,
+        
+        // Singles required field
+        what_looking_for: profileData.whatLookingFor || null,
+        
+        // Optional comprehensive fields
+        height: profileData.height || null,
+        location_city: profileData.locationCity || null,
+        location_state: profileData.locationState || null,
+        location_country: profileData.locationCountry || null,
+        languages: profileData.languages || null,
+        
+        // Nationality / Background
+        nationality: profileData.nationality || null,
+        is_cohen: profileData.isCohen || null,
+        
+        // Hashkafa / Religious
+        hashkafa_type: profileData.hashkafaType || null,
+        torah_learning: profileData.torahLearning || null,
+        praying: profileData.praying || null,
+        
+        // Education
+        education_level: profileData.educationLevel || null,
+        post_high_school_path: profileData.postHighSchoolPath || null,
+        
+        // Occupation / Study
+        current_occupation_study: profileData.currentOccupationStudy || null,
+        
+        // Plan After Marriage
+        plan_after_marriage: profileData.planAfterMarriage || null,
+        
+        // Marital Status
+        marital_status: profileData.maritalStatus || null,
+        
+        // Dress & Appearance
+        dress_style: profileData.dressStyle || null,
+        wears_black_hat: profileData.wearsBlackHat || null,
+        head_covering: profileData.headCovering || null,
+        
+        // Lifestyle
+        smoking: profileData.smoking || null,
+        alcohol_consumption: profileData.alcoholConsumption || null,
+        
+        // References
+        user_references: profileData.userReferences || [],
+        
+        // Contact info (optional)
+        email: profileData.email || null,
+        whatsapp: profileData.whatsapp || null,
+        
+        // Children
+        has_children: profileData.hasChildren || null,
+        
+        // Privacy settings
+        field_privacy: fieldPrivacy || {},
+        
         matchmaker_id: matchmakerId,
       };
 

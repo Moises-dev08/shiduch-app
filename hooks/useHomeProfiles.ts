@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Profile as DBProfile, profileService } from '../lib/profileService';
 import { supabase } from '../lib/supabase';
+import { calculateAge } from '../lib/utils';
 import { FilterState, Profile } from '../types/homeTypes';
 import { useRealtimeProfiles } from './useRealtimeProfiles';
 
@@ -11,6 +12,7 @@ export function useHomeProfiles() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const isSilentRefetchRef = useRef(false);
 
   const [filterState, setFilterState] = useState<FilterState>({
     selectedAgeOption: null,
@@ -20,21 +22,14 @@ export function useHomeProfiles() {
 
   // Transform database profile to display profile
   const transformProfile = (dbProfile: any): Profile => {
-    const privacySettings = dbProfile.privacy_settings || {};
+    const fieldPrivacy = dbProfile.field_privacy || {};
     
-    console.log(`Converting profile ${dbProfile.first_name}:`, {
-      hasPictures: !!dbProfile.pictures,
-      picturesLength: dbProfile.pictures?.length || 0,
-      picturePrivacy: dbProfile.picture_privacy,
-      privacySettings: privacySettings,
-      occupation: dbProfile.occupation,
-      willShowOccupation: !privacySettings.occupation && !!dbProfile.occupation,
-    });
+  
 
     const picturePrivacy = dbProfile.picture_privacy || 'none';
-    const showPictures = picturePrivacy === 'always';
+    const showPictures = picturePrivacy === 'public' || picturePrivacy === 'private';
 
-    // Get images using profileService.getImageUrl - only if not private
+    // Get images using profileService.getImageUrl - show for public and private (blur applied in UI)
     const firstPicture = showPictures && dbProfile.pictures && dbProfile.pictures.length > 0 
       ? profileService.getImageUrl(dbProfile.pictures[0])
       : '';
@@ -43,81 +38,81 @@ export function useHomeProfiles() {
       ? dbProfile.pictures.map((pic: string) => profileService.getImageUrl(pic))
       : [];
 
-    // Build location string
-    const location = dbProfile.address || 
-      (dbProfile.city && dbProfile.state ? `${dbProfile.city}, ${dbProfile.state}` : 
-       dbProfile.location_city || 
-       dbProfile.location_street || 
-       'Unknown');
+    // Build location string - hide if marked private
+    const locationString = dbProfile.location_country === "United States"
+      ? `${dbProfile.location_city}, ${dbProfile.location_state}${dbProfile.location_country ? ', ' + dbProfile.location_country : ''}`
+      : dbProfile.location_country;
+    const location = fieldPrivacy.location_city || fieldPrivacy.location_state ? 'Hidden' : locationString;
 
     return {
       id: dbProfile.id,
       name: `${dbProfile.first_name} ${dbProfile.last_name}`,
-      age: dbProfile.age || 0,
+      dob: fieldPrivacy.dob ? undefined : dbProfile.dob,
       picture: firstPicture,
       pictures: allPictures,
-      hashkafa: dbProfile.hashkafa || 'Not specified',
-      location: privacySettings.address ? 'Hidden' : location,
+      hashkafa_type: fieldPrivacy.hashkafa_type ? undefined : dbProfile.hashkafa_type,
+      location,
       bio: dbProfile.bio || 'No bio available',
       role: dbProfile.role,
       gender: dbProfile.gender,
-      phone: dbProfile.phone || undefined,
-      email: dbProfile.email || undefined,
-      whatsapp: dbProfile.whatsapp || undefined,
-      school: privacySettings.school ? undefined : (dbProfile.school || undefined),
-      occupation: privacySettings.occupation ? undefined : (dbProfile.occupation || undefined),
-      height: privacySettings.height ? undefined : (dbProfile.height || undefined),
-      hasChildren: privacySettings.hasChildren ? undefined : dbProfile.has_children,
+      phone: fieldPrivacy.phone ? undefined : dbProfile.phone,
+      email: fieldPrivacy.email ? undefined : dbProfile.email,
+      whatsapp: fieldPrivacy.whatsapp ? undefined : dbProfile.whatsapp,
+      height: fieldPrivacy.height ? undefined : dbProfile.height,
+      hasChildren: fieldPrivacy.hasChildren ? undefined : dbProfile.has_children,
       picturePrivacy,
-      privacySettings,
+      field_privacy: fieldPrivacy,
     };
   };
 
   // Filter profiles based on user role and gender
   const filterProfilesByUserType = useCallback((profiles: Profile[], userProfile: DBProfile | null): Profile[] => {
-    console.log('Filtering profiles for user:', userProfile?.first_name, userProfile?.role);
-    console.log('Total profiles before filtering:', profiles.length);
+
     
     if (!userProfile) {
-      console.log('No user profile, returning empty array');
+
       return [];
     }
 
     // Show single profiles on home page (exclude matchmaker-only profiles)
     let filtered = profiles.filter(p => p.role === 'single');
-    console.log('After role filter (singles only):', filtered.length);
+
 
     // If user is single, show opposite gender only (for dating)
     if (userProfile.role === 'single') {
       // Singles see opposite gender profiles for dating
       filtered = filtered.filter(p => p.gender !== userProfile.gender);
-      console.log(`${userProfile.role} ${userProfile.gender} user, showing opposite gender:`, filtered.length);
+
     }
     // If user is matchmaker only, show all singles
     else if (userProfile.role === 'matchmaker') {
-      console.log('Matchmaker user, showing all singles:', filtered.length);
+      filtered = filtered.filter(p => p.role === 'single');
     }
 
     // Don't show the current user
     filtered = filtered.filter(p => p.id !== userProfile.id);
-    console.log('After removing current user:', filtered.length);
+
 
     return filtered;
   }, []);
 
-  // Load profiles
-  const loadProfiles = useCallback(async () => {
+  // Load profiles with optional silent mode
+  const loadProfiles = useCallback(async (silent: boolean = false) => {
     try {
-      setLoading(true);
+      // Only show loading state if not silent refresh
+      if (!silent) {
+        setLoading(true);
+      } else {
+        isSilentRefetchRef.current = true;
+      }
       
       // Get current user profile
       const currentProfileResult = await profileService.getProfile();
-      console.log('Current user profile:', currentProfileResult);
+
       
       if (currentProfileResult.success && currentProfileResult.profile) {
         setCurrentUserProfile(currentProfileResult.profile);
-        console.log('Current user role:', currentProfileResult.profile.role);
-        console.log('Current user gender:', currentProfileResult.profile.gender);
+
       }
 
       // Get all approved single profiles from database (exclude matchmaker-only and frozen)
@@ -133,10 +128,10 @@ export function useHomeProfiles() {
         return;
       }
 
-      console.log('Fetched profiles from database:', data?.length || 0);
+
 
       const transformedProfiles = data?.map(transformProfile) || [];
-      console.log('Transformed profiles:', transformedProfiles.length);
+
 
       setAllProfiles(transformedProfiles);
 
@@ -146,7 +141,10 @@ export function useHomeProfiles() {
     } catch (error) {
       console.error('Error loading profiles:', error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
+      isSilentRefetchRef.current = false;
     }
   }, [filterProfilesByUserType]);
 
@@ -172,7 +170,7 @@ export function useHomeProfiles() {
     
     const filtered = baseFiltered.filter(profile =>
       profile.name.toLowerCase().includes(searchLower) ||
-      profile.hashkafa.toLowerCase().includes(searchLower) ||
+      (profile.hashkafa_type && profile.hashkafa_type.toLowerCase().includes(searchLower)) ||
       profile.location.toLowerCase().includes(searchLower)
     );
     
@@ -190,7 +188,7 @@ export function useHomeProfiles() {
       const searchLower = searchQuery.toLowerCase();
       filtered = filtered.filter(profile =>
         profile.name.toLowerCase().includes(searchLower) ||
-        profile.hashkafa.toLowerCase().includes(searchLower) ||
+        (profile.hashkafa_type && profile.hashkafa_type.toLowerCase().includes(searchLower)) ||
         profile.location.toLowerCase().includes(searchLower)
       );
     }
@@ -201,13 +199,16 @@ export function useHomeProfiles() {
         ? [36, 999]
         : filterState.selectedAgeOption.split('-').map(Number);
       
-      filtered = filtered.filter(p => p.age >= min && p.age <= max);
+      filtered = filtered.filter(p => {
+        const age = calculateAge(p.dob);
+        return age >= min && age <= max;
+      });
     }
 
     // Apply hashkafa filter
     if (filterState.selectedHashkafa.length > 0) {
       filtered = filtered.filter(p => 
-        filterState.selectedHashkafa.includes(p.hashkafa)
+        p.hashkafa_type && filterState.selectedHashkafa.includes(p.hashkafa_type)
       );
     }
 
@@ -223,11 +224,16 @@ export function useHomeProfiles() {
 
   // Load profiles on mount
   useEffect(() => {
-    loadProfiles();
+    loadProfiles(false); // Initial load with loading state
+  }, []);
+
+  // Silent refresh callback for realtime updates
+  const silentRefresh = useCallback(() => {
+    loadProfiles(true); // Realtime updates without loading state
   }, [loadProfiles]);
 
-  // Set up real-time subscription for profile updates
-  useRealtimeProfiles(loadProfiles);
+  // Set up real-time subscription for profile updates (using silent refresh)
+  useRealtimeProfiles(silentRefresh);
 
   return {
     currentUserProfile,

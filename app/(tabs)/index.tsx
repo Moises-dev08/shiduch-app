@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FilterModal from '../../components/home/FilterModal';
@@ -35,9 +35,9 @@ export default function HomeScreen() {
 
   // Handlers
   const handleProfilePress = (profile: Profile) => {
-    console.log('Navigating to profile:', profile.name);
     router.push(`/profile-details?id=${profile.id}`);
   };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -108,7 +108,7 @@ export default function HomeScreen() {
           </View>
         ) : (
           <View style={styles.profilesGrid}>
-            {filteredProfiles.map((profile) => (
+            {filteredProfiles?.map((profile) => (
               <ProfileCard
                 key={profile.id}
                 profile={profile}

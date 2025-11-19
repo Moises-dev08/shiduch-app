@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -10,12 +10,15 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import InfoRequestCard from '../../components/connect/InfoRequestCard';
 import IntroRequestCard from '../../components/intro/IntroRequestCard';
 import MiddlePersonRequestCard from '../../components/intro/MiddlePersonRequestCard';
 import MadeSuggestionCard from '../../components/suggestion/MadeSuggestionCard';
 import SuggestionCard from '../../components/suggestion/SuggestionCard';
+import { useRealtimeInfoRequests } from '../../hooks/useRealtimeInfoRequests';
 import { useRealtimeIntroRequests } from '../../hooks/useRealtimeIntroRequests';
 import { useRealtimeSuggestions } from '../../hooks/useRealtimeSuggestions';
+import { InfoRequest, infoRequestService } from '../../lib/infoRequestService';
 import { IntroRequest, introService } from '../../lib/introService';
 import { Profile, profileService } from '../../lib/profileService';
 import { Suggestion, suggestionService } from '../../lib/suggestionService';
@@ -27,6 +30,7 @@ export default function ConnectScreen() {
   const [activeCategory, setActiveCategory] = useState<'for_you' | 'for_others'>('for_you');
   const [activeSection, setActiveSection] = useState<'action_needed' | 'matches' | 'passed' | 'liked'>('action_needed');
   const [activeForOthersSection, setActiveForOthersSection] = useState<'awaiting' | 'matched' | 'not_matched'>('awaiting');
+  const isSilentUpdateRef = React.useRef(false);
 
   // Real intro requests data
   const [sentIntroRequests, setSentIntroRequests] = useState<IntroRequest[]>([]);
@@ -37,8 +41,16 @@ export default function ConnectScreen() {
   const [receivedSuggestions, setReceivedSuggestions] = useState<Suggestion[]>([]);
   const [madeSuggestions, setMadeSuggestions] = useState<Suggestion[]>([]);
 
-  const loadIntroRequests = useCallback(async () => {
+  // Info requests data
+  const [receivedInfoRequests, setReceivedInfoRequests] = useState<InfoRequest[]>([]);
+  const [sentInfoRequests, setSentInfoRequests] = useState<InfoRequest[]>([]);
+
+  const loadIntroRequests = useCallback(async (silent: boolean = false) => {
     try {
+      if (silent) {
+        isSilentUpdateRef.current = true;
+      }
+
       const result = await introService.getMyIntroRequests();
       if (result.success) {
         setSentIntroRequests(result.sentRequests || []);
@@ -52,11 +64,19 @@ export default function ConnectScreen() {
       }
     } catch (error) {
       console.error('Error loading intro requests:', error);
+    } finally {
+      if (silent) {
+        isSilentUpdateRef.current = false;
+      }
     }
   }, []);
 
-  const loadSuggestions = useCallback(async () => {
+  const loadSuggestions = useCallback(async (silent: boolean = false) => {
     try {
+      if (silent) {
+        isSilentUpdateRef.current = true;
+      }
+
       const result = await suggestionService.getMySuggestions();
       if (result.success) {
         setReceivedSuggestions(result.receivedSuggestions || []);
@@ -64,11 +84,41 @@ export default function ConnectScreen() {
       }
     } catch (error) {
       console.error('Error loading suggestions:', error);
+    } finally {
+      if (silent) {
+        isSilentUpdateRef.current = false;
+      }
     }
   }, []);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadInfoRequests = useCallback(async (silent: boolean = false) => {
+    try {
+      if (silent) {
+        isSilentUpdateRef.current = true;
+      }
+
+      const receivedResult = await infoRequestService.getReceivedRequests();
+      if (receivedResult.success) {
+        setReceivedInfoRequests(receivedResult.requests || []);
+      }
+
+      const sentResult = await infoRequestService.getSentRequests();
+      if (sentResult.success) {
+        setSentInfoRequests(sentResult.requests || []);
+      }
+    } catch (error) {
+      console.error('Error loading info requests:', error);
+    } finally {
+      if (silent) {
+        isSilentUpdateRef.current = false;
+      }
+    }
+  }, []);
+
+  const loadData = useCallback(async (silent: boolean = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const result = await profileService.getProfile();
       if (result.success && result.profile) {
@@ -80,32 +130,92 @@ export default function ConnectScreen() {
         }
       }
       
-      // Load actual intro requests and suggestions
-      await loadIntroRequests();
-      await loadSuggestions();
+      // Load actual intro requests, suggestions, and info requests
+      await loadIntroRequests(silent);
+      await loadSuggestions(silent);
+      await loadInfoRequests(silent);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  }, [loadIntroRequests, loadSuggestions]);
+  }, [loadIntroRequests, loadSuggestions, loadInfoRequests]);
 
-  // Set up real-time subscription for intro requests and suggestions
-  useRealtimeIntroRequests(loadIntroRequests, currentUserProfile?.id);
-  useRealtimeSuggestions(loadSuggestions, currentUserProfile?.id);
+  // Silent refresh callbacks for realtime updates
+  const silentRefreshIntroRequests = useCallback(() => loadIntroRequests(true), [loadIntroRequests]);
+  const silentRefreshSuggestions = useCallback(() => loadSuggestions(true), [loadSuggestions]);
+  const silentRefreshInfoRequests = useCallback(() => loadInfoRequests(true), [loadInfoRequests]);
+
+  // Set up real-time subscriptions with silent updates
+  useRealtimeIntroRequests(silentRefreshIntroRequests, currentUserProfile?.id);
+  useRealtimeSuggestions(silentRefreshSuggestions, currentUserProfile?.id);
+  useRealtimeInfoRequests(silentRefreshInfoRequests, currentUserProfile?.id);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadData(false); // Initial load with loading state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await loadData(false); // Manual refresh with refreshing state
     setRefreshing(false);
   };
 
+  // Calculate notification counts for badges
+  const forYouBadgeCount = useMemo(() => {
+    let count = 0;
+    
+    // Count received info requests needing response
+    count += receivedInfoRequests.filter(r => r.status === 'pending').length;
+    
+    // Count received intro requests needing response
+    count += receivedIntroRequests.filter(r => 
+      r.status === 'pending' || 
+      (r.status === 'accepted' && (!r.requested_continuation_choice || !r.requester_continuation_choice))
+    ).length;
+    
+    // Count sent intro requests needing continuation choice
+    count += sentIntroRequests.filter(r => 
+      r.status === 'accepted' && 
+      (!r.requester_continuation_choice || !r.requested_continuation_choice)
+    ).length;
+    
+    // Count received suggestions needing response
+    if (currentUserProfile) {
+      count += receivedSuggestions.filter(s => 
+        s.status === 'pending' || 
+        (s.status === 'accepted' && (
+          (s.profile_one_id === currentUserProfile.id && !s.profile_one_continuation_choice) ||
+          (s.profile_two_id === currentUserProfile.id && !s.profile_two_continuation_choice)
+        ))
+      ).length;
+    }
+    
+    return count;
+  }, [receivedInfoRequests, receivedIntroRequests, sentIntroRequests, receivedSuggestions, currentUserProfile]);
 
-
+  const forOthersBadgeCount = useMemo(() => {
+    let count = 0;
+    
+    // Count middle person requests needing action (for matchmakers)
+    if (currentUserProfile?.role === 'matchmaker') {
+      count += middlePersonRequests.filter(r => 
+        r.status === 'pending' || 
+        (r.status === 'accepted' && (!r.requester_continuation_choice || !r.requested_continuation_choice))
+      ).length;
+    }
+    
+    // Count made suggestions awaiting response
+    count += madeSuggestions.filter(s => 
+      s.status === 'pending' || 
+      (s.status === 'accepted' && (!s.profile_one_continuation_choice || !s.profile_two_continuation_choice))
+    ).length;
+    
+    return count;
+  }, [middlePersonRequests, madeSuggestions, currentUserProfile]);
 
   const renderEmptyState = (section: string) => {
     const emptyStates = {
@@ -174,18 +284,32 @@ export default function ConnectScreen() {
             style={[styles.categoryTab, activeCategory === 'for_you' && styles.categoryTabActive]}
             onPress={() => setActiveCategory('for_you')}
           >
-            <Text style={[styles.categoryTabText, activeCategory === 'for_you' && styles.categoryTabTextActive]}>
-              For You
-            </Text>
+            <View style={styles.categoryTabContent}>
+              <Text style={[styles.categoryTabText, activeCategory === 'for_you' && styles.categoryTabTextActive]}>
+                For You
+              </Text>
+              {forYouBadgeCount > 0 && (
+                <View style={styles.categoryBadge}>
+                  <Text style={styles.categoryBadgeText}>{forYouBadgeCount}</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
           
           <TouchableOpacity
             style={[styles.categoryTab, activeCategory === 'for_others' && styles.categoryTabActive]}
             onPress={() => setActiveCategory('for_others')}
           >
-            <Text style={[styles.categoryTabText, activeCategory === 'for_others' && styles.categoryTabTextActive]}>
-              For Others
-            </Text>
+            <View style={styles.categoryTabContent}>
+              <Text style={[styles.categoryTabText, activeCategory === 'for_others' && styles.categoryTabTextActive]}>
+                For Others
+              </Text>
+              {forOthersBadgeCount > 0 && (
+                <View style={styles.categoryBadge}>
+                  <Text style={styles.categoryBadgeText}>{forOthersBadgeCount}</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
       )}
@@ -219,7 +343,8 @@ export default function ConnectScreen() {
                 sentIntroRequests.filter(r => 
                   r.status === 'accepted' && 
                   (!r.requester_continuation_choice || !r.requested_continuation_choice)
-                ).length;
+                ).length +
+                receivedInfoRequests.filter(r => r.status === 'pending').length;
               return actionCount > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{actionCount}</Text>
@@ -335,6 +460,17 @@ export default function ConnectScreen() {
         {/* Intro Requests Section - Action Needed */}
         {activeCategory === 'for_you' && activeSection === 'action_needed' && (
           <>
+            {/* Received Info Requests (need response) */}
+            {receivedInfoRequests
+              .filter(r => r.status === 'pending')
+              .map(request => (
+                <InfoRequestCard
+                  key={request.id}
+                  request={request}
+                  onUpdate={loadInfoRequests}
+                />
+              ))}
+
             {/* Received Intro Requests (need response OR need continuation choice) */}
             {receivedIntroRequests
               .filter(r => 
@@ -482,8 +618,9 @@ export default function ConnectScreen() {
           </>
         )}
 
-        {/* Empty state when no intro requests or suggestions */}
+        {/* Empty state when no intro requests, suggestions, or info requests */}
         {activeCategory === 'for_you' && activeSection === 'action_needed' &&
+         receivedInfoRequests.filter(r => r.status === 'pending').length === 0 &&
          sentIntroRequests.filter(r => r.status === 'accepted' && (!r.requester_continuation_choice || !r.requested_continuation_choice)).length === 0 &&
          receivedIntroRequests.filter(r => r.status === 'pending' || (r.status === 'accepted' && (!r.requested_continuation_choice || !r.requester_continuation_choice))).length === 0 &&
          receivedSuggestions.filter(s => 
@@ -696,6 +833,11 @@ const styles = StyleSheet.create({
   categoryTabActive: {
     borderBottomColor: '#e91e63',
   },
+  categoryTabContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   categoryTabText: {
     fontSize: 16,
     fontWeight: '500',
@@ -704,6 +846,20 @@ const styles = StyleSheet.create({
   categoryTabTextActive: {
     color: '#e91e63',
     fontWeight: '600',
+  },
+  categoryBadge: {
+    backgroundColor: '#e91e63',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  categoryBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   sectionTabs: {
     backgroundColor: '#fff',
@@ -720,6 +876,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginHorizontal: 4,
+    marginVertical: 6,
     borderRadius: 20,
     backgroundColor: '#f5f5f5',
     gap: 6,

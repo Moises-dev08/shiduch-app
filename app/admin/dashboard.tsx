@@ -15,9 +15,11 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SuccessModal from '../../components/SuccessModal';
 import { adminService } from '../../lib/adminService';
 import { Profile, profileService } from '../../lib/profileService';
 import { supabase } from '../../lib/supabase';
+import { calculateAge } from '../../lib/utils';
 
 export default function AdminDashboard() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -29,6 +31,8 @@ export default function AdminDashboard() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [processingApprove, setProcessingApprove] = useState(false);
   const [processingReject, setProcessingReject] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
 
   useEffect(() => {
     loadProfiles();
@@ -70,7 +74,11 @@ export default function AdminDashboard() {
             setProcessingApprove(false);
             
             if (result.success) {
-              Alert.alert('Success', 'Profile approved successfully');
+              setSuccessMessage({
+                title: 'Profile Approved!',
+                message: 'The profile has been approved successfully and is now visible to other users.',
+              });
+              setShowSuccessModal(true);
               setShowDetailModal(false);
               await loadProfiles();
             } else {
@@ -101,7 +109,11 @@ export default function AdminDashboard() {
     setProcessingReject(false);
 
     if (result.success) {
-      Alert.alert('Success', 'Profile rejected successfully');
+      setSuccessMessage({
+        title: 'Profile Rejected',
+        message: 'The profile has been rejected and the user will be notified.',
+      });
+      setShowSuccessModal(true);
       setShowRejectModal(false);
       setShowDetailModal(false);
       await loadProfiles();
@@ -182,11 +194,20 @@ export default function AdminDashboard() {
                     {profile.first_name} {profile.last_name}
                   </Text>
                   <Text style={styles.profileDetail}>
-                    {profile.age} years old • {profile.gender}
+                    {profile.dob 
+                      ? `Age: ${calculateAge(profile.dob)} (DOB: ${new Date(profile.dob).toLocaleDateString()})` 
+                      : 'Age not specified'
+                    } • {profile.gender}
                   </Text>
                   <Text style={styles.profileDetail}>
                     {profile.role === 'single' ? 'Single' : 'Matchmaker'}
+                    {profile.location_city && profile.location_country && ` • ${profile.location_city}, ${profile.location_country}`}
                   </Text>
+                  {profile.marital_status && (
+                    <Text style={styles.profileDetail}>
+                      {profile.marital_status}
+                    </Text>
+                  )}
                 </View>
                 <Ionicons name="chevron-forward" size={24} color="#666" />
               </View>
@@ -235,10 +256,16 @@ export default function AdminDashboard() {
               <View style={styles.detailSection}>
                 <Text style={styles.sectionTitle}>Personal Information</Text>
                 <DetailRow label="Name" value={`${selectedProfile.first_name} ${selectedProfile.last_name}`} />
-                <DetailRow label="Age" value={selectedProfile.age.toString()} />
+                {selectedProfile.dob && (
+                  <>
+                    <DetailRow label="Age" value={`${calculateAge(selectedProfile.dob)} years old`} />
+                    <DetailRow label="Date of Birth" value={new Date(selectedProfile.dob).toLocaleDateString()} />
+                  </>
+                )}
                 <DetailRow label="Gender" value={selectedProfile.gender} />
-                <DetailRow label="Role" value={selectedProfile.role} />
-                <DetailRow label="Hashkafa" value={selectedProfile.hashkafa} />
+                <DetailRow label="Role" value={selectedProfile.role === 'single' ? 'Single' : 'Matchmaker'} />
+                {selectedProfile.height && <DetailRow label="Height" value={selectedProfile.height} />}
+                {selectedProfile.marital_status && <DetailRow label="Marital Status" value={selectedProfile.marital_status} />}
               </View>
 
               {/* Bio */}
@@ -247,30 +274,124 @@ export default function AdminDashboard() {
                 <Text style={styles.bioText}>{selectedProfile.bio}</Text>
               </View>
 
+              {/* What Looking For (Singles only) */}
+              {selectedProfile.role === 'single' && selectedProfile.what_looking_for && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionTitle}>What I&apos;m Looking For</Text>
+                  <Text style={styles.bioText}>{selectedProfile.what_looking_for}</Text>
+                </View>
+              )}
+
               {/* Location */}
-              <View style={styles.detailSection}>
-                <Text style={styles.sectionTitle}>Location</Text>
-                {selectedProfile.street && <DetailRow label="Street" value={selectedProfile.street} />}
-                {selectedProfile.city && <DetailRow label="City" value={selectedProfile.city} />}
-                {selectedProfile.state && <DetailRow label="State" value={selectedProfile.state} />}
-                {selectedProfile.zip_code && <DetailRow label="ZIP Code" value={selectedProfile.zip_code} />}
-                {selectedProfile.country && <DetailRow label="Country" value={selectedProfile.country} />}
-              </View>
+              {(selectedProfile.location_country || selectedProfile.location_state || selectedProfile.location_city) && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionTitle}>Location</Text>
+                  {selectedProfile.location_country && <DetailRow label="Country" value={selectedProfile.location_country} />}
+                  {selectedProfile.location_state && <DetailRow label="State" value={selectedProfile.location_state} />}
+                  {selectedProfile.location_city && <DetailRow label="City" value={selectedProfile.location_city} />}
+                </View>
+              )}
 
               {/* Contact Info */}
               <View style={styles.detailSection}>
                 <Text style={styles.sectionTitle}>Contact Information</Text>
                 <DetailRow label="Phone" value={selectedProfile.phone} />
-                <DetailRow label="Email" value={selectedProfile.email} />
-                <DetailRow label="WhatsApp" value={selectedProfile.whatsapp} />
+                {selectedProfile.email && <DetailRow label="Email" value={selectedProfile.email} />}
+                {selectedProfile.whatsapp && <DetailRow label="WhatsApp" value={selectedProfile.whatsapp} />}
               </View>
 
-              {/* Optional Info */}
-              {(selectedProfile.school || selectedProfile.occupation) && (
+              {/* Background & Nationality */}
+              {(selectedProfile.languages?.length || selectedProfile.nationality?.length || selectedProfile.is_cohen !== null) && (
                 <View style={styles.detailSection}>
-                  <Text style={styles.sectionTitle}>Additional Information</Text>
-                  {selectedProfile.school && <DetailRow label="School" value={selectedProfile.school} />}
-                  {selectedProfile.occupation && <DetailRow label="Occupation" value={selectedProfile.occupation} />}
+                  <Text style={styles.sectionTitle}>Background & Nationality</Text>
+                  {selectedProfile.languages && selectedProfile.languages.length > 0 && (
+                    <DetailRow label="Languages" value={selectedProfile.languages.join(', ')} />
+                  )}
+                  {selectedProfile.nationality && selectedProfile.nationality.length > 0 && (
+                    <DetailRow label="Nationality" value={selectedProfile.nationality.join(', ')} />
+                  )}
+                  {selectedProfile.is_cohen !== undefined && selectedProfile.is_cohen !== null && (
+                    <DetailRow label="Cohen" value={selectedProfile.is_cohen ? 'Yes' : 'No'} />
+                  )}
+                </View>
+              )}
+
+              {/* Religious Outlook */}
+              {(selectedProfile.hashkafa_type || selectedProfile.torah_learning || selectedProfile.praying) && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionTitle}>Religious Outlook</Text>
+                  {selectedProfile.hashkafa_type && <DetailRow label="Hashkafa Type" value={selectedProfile.hashkafa_type} />}
+                  {selectedProfile.torah_learning && <DetailRow label="Torah Learning" value={selectedProfile.torah_learning} />}
+                  {selectedProfile.praying && <DetailRow label="Praying" value={selectedProfile.praying} />}
+                </View>
+              )}
+
+              {/* Education */}
+              {(selectedProfile.education_level || selectedProfile.post_high_school_path) && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionTitle}>Education</Text>
+                  {selectedProfile.education_level && <DetailRow label="Education Level" value={selectedProfile.education_level} />}
+                  {selectedProfile.post_high_school_path && <DetailRow label="Post High School Path" value={selectedProfile.post_high_school_path} />}
+                </View>
+              )}
+
+              {/* Occupation & Career */}
+              {(selectedProfile.current_occupation_study || selectedProfile.plan_after_marriage) && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionTitle}>Occupation & Career</Text>
+                  {selectedProfile.current_occupation_study && <DetailRow label="Current Occupation/Study" value={selectedProfile.current_occupation_study} />}
+                  {selectedProfile.plan_after_marriage && <DetailRow label="Plan After Marriage" value={selectedProfile.plan_after_marriage} />}
+                </View>
+              )}
+
+              {/* Dress & Appearance */}
+              {(selectedProfile.dress_style || selectedProfile.wears_black_hat !== null || selectedProfile.head_covering) && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionTitle}>Dress & Appearance</Text>
+                  {selectedProfile.dress_style && <DetailRow label="Dress Style" value={selectedProfile.dress_style} />}
+                  {selectedProfile.wears_black_hat !== undefined && selectedProfile.wears_black_hat !== null && (
+                    <DetailRow label="Wears Black Hat" value={selectedProfile.wears_black_hat ? 'Yes' : 'No'} />
+                  )}
+                  {selectedProfile.head_covering && <DetailRow label="Head Covering" value={selectedProfile.head_covering} />}
+                </View>
+              )}
+
+              {/* Lifestyle */}
+              {(selectedProfile.smoking || selectedProfile.alcohol_consumption) && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionTitle}>Lifestyle</Text>
+                  {selectedProfile.smoking && <DetailRow label="Smoking" value={selectedProfile.smoking} />}
+                  {selectedProfile.alcohol_consumption && <DetailRow label="Alcohol Consumption" value={selectedProfile.alcohol_consumption} />}
+                </View>
+              )}
+
+              {/* References */}
+              {selectedProfile.user_references && selectedProfile.user_references.length > 0 && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionTitle}>References</Text>
+                  {selectedProfile.user_references.map((ref: { name: string; phone: string }, index: number) => (
+                    <View key={index} style={styles.referenceItem}>
+                      <Text style={styles.referenceName}>{ref.name}</Text>
+                      <Text style={styles.referencePhone}>{ref.phone}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Privacy Settings */}
+              {selectedProfile.field_privacy && Object.keys(selectedProfile.field_privacy).length > 0 && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionTitle}>Privacy Settings</Text>
+                  <Text style={styles.privacyNote}>
+                    The following fields are marked as private (Ask me):
+                  </Text>
+                  {Object.entries(selectedProfile.field_privacy).map(([field, isPrivate]) => 
+                    isPrivate && (
+                      <Text key={field} style={styles.privateField}>
+                        • {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </Text>
+                    )
+                  )}
                 </View>
               )}
             </ScrollView>
@@ -355,6 +476,14 @@ export default function AdminDashboard() {
           </View>
         </View>
       </Modal>
+
+      {/* Success Modal */}
+      <SuccessModal
+        visible={showSuccessModal}
+        title={successMessage.title}
+        message={successMessage.message}
+        onClose={() => setShowSuccessModal(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -527,6 +656,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     lineHeight: 20,
+  },
+  referenceItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  referenceName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  referencePhone: {
+    fontSize: 14,
+    color: '#666',
+  },
+  privacyNote: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
+  privateField: {
+    fontSize: 14,
+    color: '#e91e63',
+    marginLeft: 8,
+    marginBottom: 4,
   },
   actionButtons: {
     flexDirection: 'row',

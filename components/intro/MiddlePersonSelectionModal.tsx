@@ -12,15 +12,16 @@ import {
   View,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import { calculateAge } from '../../lib/utils';
 
 interface Profile {
   id: string;
   first_name: string;
   last_name: string;
-  age: number;
+  dob?: string;
   gender: 'male' | 'female';
   role: 'single' | 'matchmaker';
-  hashkafa: string;
+  hashkafa_type?: string;
   pictures?: string[];
 }
 
@@ -60,7 +61,7 @@ export default function MiddlePersonSelectionModal({
     try {
       let query = supabase
         .from('profiles')
-        .select('id, first_name, last_name, age, gender, role, hashkafa, pictures')
+        .select('id, first_name, last_name, dob, gender, role, hashkafa_type, pictures')
         .eq('status', 'approved')
         .eq('is_active', true);
 
@@ -99,10 +100,10 @@ export default function MiddlePersonSelectionModal({
 
     // Age filter
     if (ageMin) {
-      filtered = filtered.filter(p => p.age >= parseInt(ageMin));
+      filtered = filtered.filter(p => calculateAge(p.dob) >= parseInt(ageMin));
     }
     if (ageMax) {
-      filtered = filtered.filter(p => p.age <= parseInt(ageMax));
+      filtered = filtered.filter(p => calculateAge(p.dob) <= parseInt(ageMax));
     }
 
     // Gender filter
@@ -226,10 +227,10 @@ export default function MiddlePersonSelectionModal({
                     {profile.first_name} {profile.last_name}
                   </Text>
                   <Text style={styles.profileInfo}>
-                    {profile.age} • {profile.gender} • {profile.role}
+                    {calculateAge(profile.dob)} • {profile.gender} • {profile.role}
                   </Text>
                   <Text style={styles.profileHashkafa} numberOfLines={1}>
-                    {profile.hashkafa}
+                    {profile.hashkafa_type || 'Not specified'}
                   </Text>
                 </View>
 

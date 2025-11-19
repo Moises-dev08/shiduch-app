@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { calculateAge } from '../../lib/utils';
 import { Profile } from '../../types/homeTypes';
 import ProfileActions from '../profile/ProfileActions';
 
@@ -40,6 +41,8 @@ export default function ProfileDetailsModal({
 
   if (!profile) return null;
 
+  const age = calculateAge(profile.dob);
+
   return (
     <Modal 
       visible={visible} 
@@ -73,7 +76,7 @@ export default function ProfileDetailsModal({
             )}
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{profile.name}</Text>
-              <Text style={styles.profileAge}>{profile.age} years old</Text>
+              <Text style={styles.profileAge}>Age: {age}</Text>
               <Text style={styles.profileLocation}>{profile.location}</Text>
             </View>
           </View>
@@ -111,10 +114,12 @@ export default function ProfileDetailsModal({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Details</Text>
             
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Hashkafa:</Text>
-              <Text style={styles.detailValue}>{profile.hashkafa}</Text>
-            </View>
+            {profile.hashkafa_type && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Hashkafa:</Text>
+                <Text style={styles.detailValue}>{profile.hashkafa_type}</Text>
+              </View>
+            )}
             
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Role:</Text>
@@ -125,20 +130,6 @@ export default function ProfileDetailsModal({
               <Text style={styles.detailLabel}>Gender:</Text>
               <Text style={styles.detailValue}>{profile.gender}</Text>
             </View>
-            
-            {profile.school && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>School:</Text>
-                <Text style={styles.detailValue}>{profile.school}</Text>
-              </View>
-            )}
-            
-            {profile.occupation && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Occupation:</Text>
-                <Text style={styles.detailValue}>{profile.occupation}</Text>
-              </View>
-            )}
           </View>
         </ScrollView>
         

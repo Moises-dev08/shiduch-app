@@ -267,9 +267,9 @@ class SuggestionService {
         .from('suggestions')
         .select(`
           *,
-          suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, age, pictures, gender),
-          profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, age, pictures, gender, phone, email, whatsapp),
-          profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, age, pictures, gender, phone, email, whatsapp),
+          suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, dob, pictures, gender),
+          profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
+          profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
           profile_one_middle_person:profiles!suggestions_profile_one_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
           profile_two_middle_person:profiles!suggestions_profile_two_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
         `)
@@ -281,9 +281,9 @@ class SuggestionService {
         .from('suggestions')
         .select(`
           *,
-          suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, age, pictures, gender),
-          profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, age, pictures, gender, phone, email, whatsapp),
-          profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, age, pictures, gender, phone, email, whatsapp),
+          suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, dob, pictures, gender),
+          profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
+          profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
           profile_one_middle_person:profiles!suggestions_profile_one_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
           profile_two_middle_person:profiles!suggestions_profile_two_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
         `)

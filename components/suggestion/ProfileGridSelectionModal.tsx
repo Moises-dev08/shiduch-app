@@ -1,17 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import { calculateAge } from '../../lib/utils';
 import { Profile } from '../../types/homeTypes';
 
 interface ProfileGridSelectionModalProps {
@@ -47,7 +48,7 @@ export default function ProfileGridSelectionModal({
     try {
       let query = supabase
         .from('profiles')
-        .select('id, first_name, last_name, age, gender, role, hashkafa, pictures')
+        .select('id, first_name, last_name, dob, gender, role, hashkafa_type, pictures')
         .eq('status', 'approved')
         .eq('is_active', true)
         .eq('role', 'single'); // Only singles can be set up
@@ -88,10 +89,10 @@ export default function ProfileGridSelectionModal({
 
     // Age filter
     if (ageMin) {
-      filtered = filtered.filter(p => p.age >= parseInt(ageMin));
+      filtered = filtered.filter(p => calculateAge(p.dob) >= parseInt(ageMin));
     }
     if (ageMax) {
-      filtered = filtered.filter(p => p.age <= parseInt(ageMax));
+      filtered = filtered.filter(p => calculateAge(p.dob) <= parseInt(ageMax));
     }
 
     // Hashkafa filter
@@ -208,7 +209,7 @@ export default function ProfileGridSelectionModal({
                     {profile.first_name} {profile.last_name}
                   </Text>
                   <Text style={styles.gridDetails}>
-                    {profile.age} • {profile.hashkafa}
+                    {calculateAge(profile.dob)} • {profile.hashkafa_type || 'Not specified'}
                   </Text>
                 </View>
               </TouchableOpacity>

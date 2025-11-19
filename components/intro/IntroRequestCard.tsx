@@ -3,15 +3,15 @@ import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Linking,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { IntroRequest, introService } from '../../lib/introService';
 import ContinuationChoiceModal from './ContinuationChoiceModal';
@@ -27,7 +27,8 @@ interface IntroRequestCardProps {
 export default function IntroRequestCard({ request, isRequester, onUpdate, isActionNeeded = false }: IntroRequestCardProps) {
   const [showRejectNote, setShowRejectNote] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
-  const [isResponding, setIsResponding] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
   const [showMiddlePersonModal, setShowMiddlePersonModal] = useState(false);
   const [showContinuationModal, setShowContinuationModal] = useState(false);
   const [selectedMiddlePerson, setSelectedMiddlePerson] = useState<any>(null);
@@ -57,7 +58,7 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
     }
 
     // If by themselves, accept directly
-    setIsResponding(true);
+    setIsAccepting(true);
     try {
       await introService.respondToIntroRequest(request.id, 'accepted', '', choice);
       setShowContinuationModal(false);
@@ -67,14 +68,14 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
       console.error('Error accepting request:', error);
       Alert.alert('Error', 'Failed to accept request');
     } finally {
-      setIsResponding(false);
+      setIsAccepting(false);
     }
   };
 
   const handleMiddlePersonSelected = async (person: any) => {
     setSelectedMiddlePerson(person);
     setShowMiddlePersonModal(false);
-    setIsResponding(true);
+    setIsAccepting(true);
     
     try {
       // If this is initial response (pending or rejected status)
@@ -102,12 +103,12 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
       console.error('Error accepting request:', error);
       Alert.alert('Error', 'Failed to accept request');
     } finally {
-      setIsResponding(false);
+      setIsAccepting(false);
     }
   };
 
   const handleReject = async () => {
-    setIsResponding(true);
+    setIsRejecting(true);
     try {
       await introService.respondToIntroRequest(request.id, 'rejected', rejectNote);
       setShowRejectNote(false);
@@ -117,7 +118,7 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
       console.error('Error rejecting request:', error);
       Alert.alert('Error', 'Failed to reject request');
     } finally {
-      setIsResponding(false);
+      setIsRejecting(false);
     }
   };
 
@@ -127,7 +128,7 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
   };
 
   const handleRequesterContinuationChoice = async (choice: 'by_themselves' | 'with_middle_person') => {
-    setIsResponding(true);
+    setIsAccepting(true);
     try {
       await introService.setContinuationChoice(request.id, choice, true);
       Alert.alert('Choice Saved', 'Your continuation preference has been saved!');
@@ -136,7 +137,7 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
       console.error('Error setting continuation choice:', error);
       Alert.alert('Error', 'Failed to save choice');
     } finally {
-      setIsResponding(false);
+      setIsAccepting(false);
     }
   };
 
@@ -326,11 +327,11 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
         <View style={styles.actionsSection}>
           <Text style={styles.actionTitle}>Changed Your Mind?</Text>
           <TouchableOpacity
-            style={[styles.button, styles.acceptButton]}
+            style={[styles.button, styles.acceptButton, isAccepting && styles.buttonDisabled]}
             onPress={handleChangeToAccept}
-            disabled={isResponding}
+            disabled={isAccepting}
           >
-            {isResponding ? (
+            {isAccepting ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
               <>
@@ -349,18 +350,18 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
           {!showRejectNote ? (
             <View style={styles.buttonRow}>
               <TouchableOpacity
-                style={[styles.button, styles.rejectButton]}
+                style={[styles.button, styles.rejectButton, (isRejecting || isAccepting) && styles.buttonDisabled]}
                 onPress={() => setShowRejectNote(true)}
-                disabled={isResponding}
+                disabled={isRejecting || isAccepting}
               >
                 <Ionicons name="close-circle" size={20} color="#fff" />
                 <Text style={styles.buttonText}>Decline</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.button, styles.acceptButton]}
+                style={[styles.button, styles.acceptButton, (isRejecting || isAccepting) && styles.buttonDisabled]}
                 onPress={handleAccept}
-                disabled={isResponding}
+                disabled={isRejecting || isAccepting}
               >
                 <Ionicons name="checkmark-circle" size={20} color="#fff" />
                 <Text style={styles.buttonText}>Accept</Text>
@@ -380,15 +381,16 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
                 <TouchableOpacity
                   style={[styles.button, styles.cancelButton]}
                   onPress={() => setShowRejectNote(false)}
+                  disabled={isRejecting}
                 >
                   <Text style={styles.buttonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.button, styles.rejectButton]}
+                  style={[styles.button, styles.rejectButton, isRejecting && styles.buttonDisabled]}
                   onPress={handleReject}
-                  disabled={isResponding}
+                  disabled={isRejecting}
                 >
-                  {isResponding ? (
+                  {isRejecting ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
                     <Text style={styles.buttonText}>Confirm Decline</Text>
@@ -406,7 +408,7 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
           <Text style={styles.actionTitle}>How would you like to continue?</Text>
           <View style={styles.buttonRow}>
             <TouchableOpacity
-              style={[styles.button, styles.continueButton]}
+              style={[styles.button, styles.continueButton, isAccepting && styles.buttonDisabled]}
               onPress={() => {
                 if (isRequester) {
                   handleRequesterContinuationChoice('by_themselves');
@@ -414,14 +416,14 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
                   handleContinuationChoice('by_themselves');
                 }
               }}
-              disabled={isResponding}
+              disabled={isAccepting}
             >
               <Ionicons name="person" size={18} color="#fff" />
               <Text style={styles.buttonTextSmall}>By Myself</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.button, styles.continueButton]}
+              style={[styles.button, styles.continueButton, isAccepting && styles.buttonDisabled]}
               onPress={() => {
                 if (isRequester) {
                   handleRequesterContinuationChoice('with_middle_person');
@@ -429,7 +431,7 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
                   handleContinuationChoice('with_middle_person');
                 }
               }}
-              disabled={isResponding}
+              disabled={isAccepting}
             >
               <Ionicons name="people" size={18} color="#fff" />
               <Text style={styles.buttonTextSmall}>With Middle Person</Text>
@@ -441,11 +443,11 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
       {/* Action Needed - Big Continue Button */}
       {isActionNeeded && needsContinuationChoice && (
         <TouchableOpacity
-          style={styles.bigContinueButton}
+          style={[styles.bigContinueButton, isAccepting && styles.buttonDisabled]}
           onPress={handleContinueProcess}
-          disabled={isResponding}
+          disabled={isAccepting}
         >
-          {isResponding ? (
+          {isAccepting ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
             <>
@@ -713,6 +715,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     gap: 6,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   acceptButton: {
     backgroundColor: '#4CAF50',

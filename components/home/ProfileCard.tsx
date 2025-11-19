@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { ReactNode, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { calculateAge } from '../../lib/utils';
 import { Profile } from '../../types/homeTypes';
 
 interface ProfileCardProps {
@@ -11,7 +12,15 @@ interface ProfileCardProps {
 
 export default function ProfileCard({ profile, onPress, renderAction }: ProfileCardProps) {
   const [imageError, setImageError] = useState(false);
-  const showImage = !imageError && profile.picture && profile.picturePrivacy === 'always';
+  const showImage = !imageError && profile.picture && (profile.picturePrivacy === 'public' || profile.picturePrivacy === 'private');
+  const isBlurred = profile.picturePrivacy === 'private';
+  const age = calculateAge(profile.dob);
+
+  console.log('isBlurred', isBlurred);
+  console.log('profile.picturePrivacy', profile.picturePrivacy);
+  console.log('showImage', showImage);
+  console.log('profile', profile);
+
 
   // Build info lines based on what's visible
   const infoLines: string[] = [];
@@ -24,11 +33,8 @@ export default function ProfileCard({ profile, onPress, renderAction }: ProfileC
   if (profile.hasChildren !== undefined) {
     infoLines.push(profile.hasChildren ? 'Has children' : 'No children');
   }
-  if (profile.school) {
-    infoLines.push(profile.school);
-  }
-  if (profile.occupation) {
-    infoLines.push(profile.occupation);
+  if (profile.hashkafa_type) {
+    infoLines.push(profile.hashkafa_type);
   }
 
   return (
@@ -44,20 +50,26 @@ export default function ProfileCard({ profile, onPress, renderAction }: ProfileC
             source={{ uri: profile.picture }} 
             style={styles.profileImage}
             onError={() => setImageError(true)}
+            blurRadius={isBlurred ? 15 : 0}
           />
+          {isBlurred && (
+            <View style={styles.blurOverlay}>
+              <Ionicons name="lock-closed" size={24} color="#fff" />
+            </View>
+          )}
           <View style={styles.ageBadge}>
-            <Text style={styles.ageText}>{profile.age} y/o</Text>
+            <Text style={styles.ageText}>{age} y/o</Text>
           </View>
         </View>
       ) : (
         <View style={[styles.profileImage, styles.placeholderImage]}>
           <Ionicons 
-            name={profile.picturePrivacy === 'private' ? 'lock-closed' : 'person'} 
+            name="person" 
             size={40} 
             color="#ccc" 
           />
           <View style={styles.ageBadge}>
-            <Text style={styles.ageText}>{profile.age} y/o</Text>
+            <Text style={styles.ageText}>{age} y/o</Text>
           </View>
         </View>
       )}
@@ -136,6 +148,16 @@ const styles = StyleSheet.create({
   actionContainer: {
     paddingHorizontal: 8,
     paddingBottom: 8,
+  },
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

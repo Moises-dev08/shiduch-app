@@ -3,14 +3,17 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AskForInfoModal from '../components/AskForInfoModal';
 import PictureViewerModal from '../components/home/PictureViewerModal';
 import ContinuationChoiceModal from '../components/intro/ContinuationChoiceModal';
 import MiddlePersonSelectionModal from '../components/intro/MiddlePersonSelectionModal';
 import ProfileGridSelectionModal from '../components/suggestion/ProfileGridSelectionModal';
+import { infoRequestService } from '../lib/infoRequestService';
 import { introService } from '../lib/introService';
 import { Profile as DBProfile, profileService } from '../lib/profileService';
 import { suggestionService } from '../lib/suggestionService';
 import { supabase } from '../lib/supabase';
+import { calculateAge } from '../lib/utils';
 import { Profile } from '../types/homeTypes';
 
 export default function ProfileDetailsScreen() {
@@ -39,13 +42,17 @@ export default function ProfileDetailsScreen() {
   const [suggestionNote, setSuggestionNote] = useState('');
   const [isSubmittingSuggestion, setIsSubmittingSuggestion] = useState(false);
 
+  // Info request states
+  const [showAskForInfoModal, setShowAskForInfoModal] = useState(false);
+  const [selectedFieldForInfo, setSelectedFieldForInfo] = useState<string>('');
+  const [isSubmittingInfoRequest, setIsSubmittingInfoRequest] = useState(false);
+
   const loadProfileData = useCallback(async () => {
     try {
       setLoading(true);
 
       // Validate profileId
       if (!profileId || profileId === 'undefined' || profileId === '') {
-        console.error('Invalid profile ID:', profileId);
         router.back();
         return;
       }
@@ -76,6 +83,7 @@ export default function ProfileDetailsScreen() {
             setExistingIntroRequest(existingRequest);
           }
         }
+
       }
 
       // Get the profile to display
@@ -92,9 +100,9 @@ export default function ProfileDetailsScreen() {
       }
 
       // Transform to display profile - RESPECTING PRIVACY SETTINGS
-      const privacySettings = data.privacy_settings || {};
+      const fieldPrivacy = data.field_privacy || {};
       const picturePrivacy = data.picture_privacy || 'none';
-      const showPictures = picturePrivacy === 'always';
+      const showPictures = picturePrivacy === 'public' || picturePrivacy === 'private';
 
       // Only show pictures if privacy allows
       const firstPicture = showPictures && data.pictures && data.pictures.length > 0 
@@ -105,32 +113,65 @@ export default function ProfileDetailsScreen() {
         ? data.pictures.map((pic: string) => profileService.getImageUrl(pic))
         : [];
 
-      const location = data.address || 
-        (data.city && data.state ? `${data.city}, ${data.state}` : 
-         data.location_city || 
-         data.location_street || 
-         'Unknown');
+      const locationString = data.location_country === "United States"
+        ? `${data.location_city}, ${data.location_state}${data.location_country ? ', ' + data.location_country : ''}`
+        : data.location_country;
+      const location = fieldPrivacy.location_city || fieldPrivacy.location_state ? 'Hidden' : locationString;
+
+      // Get approved info fields for this specific profile
+      const infoRequestResult = await infoRequestService.getSentRequests();
+      const currentApprovedFields = new Set<string>();
+      if (infoRequestResult.success && infoRequestResult.requests) {
+        infoRequestResult.requests
+          .filter(r => r.requested_profile_id === profileId && r.status === 'approved')
+          .forEach(r => currentApprovedFields.add(r.field_name));
+      }
+
+      // Create a function to check if a field should be shown (either not private OR has approved request)
+      const shouldShowField = (fieldName: string): boolean => {
+        return !fieldPrivacy[fieldName] || currentApprovedFields.has(fieldName);
+      };
 
       const displayProfile: Profile = {
         id: data.id,
         name: `${data.first_name} ${data.last_name}`,
-        age: data.age || 0,
+        dob: shouldShowField('dob') ? data.dob : undefined,
         picture: firstPicture,
         pictures: allPictures,
-        hashkafa: data.hashkafa || 'Not specified',
-        location: privacySettings.address ? 'Hidden' : location,
+        hashkafa_type: shouldShowField('hashkafa_type') ? data.hashkafa_type : undefined,
+        location,
         bio: data.bio || 'No bio available',
         role: data.role,
         gender: data.gender,
-        phone: data.phone || undefined,
-        email: data.email || undefined,
-        whatsapp: data.whatsapp || undefined,
-        school: privacySettings.school ? undefined : (data.school || undefined),
-        occupation: privacySettings.occupation ? undefined : (data.occupation || undefined),
-        height: privacySettings.height ? undefined : (data.height || undefined),
-        hasChildren: privacySettings.hasChildren ? undefined : data.has_children,
-        picturePrivacy,
-        privacySettings,
+        phone: shouldShowField('phone') ? data.phone : undefined,
+        email: shouldShowField('email') ? data.email : undefined,
+        whatsapp: shouldShowField('whatsapp') ? data.whatsapp : undefined,
+        height: shouldShowField('height') ? data.height : undefined,
+        hasChildren: shouldShowField('hasChildren') ? data.has_children : undefined,
+        picturePrivacy: currentApprovedFields.has('pictures') ? 'public' : picturePrivacy,
+        field_privacy: fieldPrivacy,
+        // Additional fields from database
+        what_looking_for: shouldShowField('what_looking_for') ? data.what_looking_for : undefined,
+        location_city: shouldShowField('location_city') ? data.location_city : undefined,
+        location_state: shouldShowField('location_state') ? data.location_state : undefined,
+        location_country: shouldShowField('location_country') ? data.location_country : undefined,
+        languages: shouldShowField('languages') ? data.languages : undefined,
+        nationality: shouldShowField('nationality') ? data.nationality : undefined,
+        is_cohen: shouldShowField('is_cohen') ? data.is_cohen : undefined,
+        torah_learning: shouldShowField('torah_learning') ? data.torah_learning : undefined,
+        praying: shouldShowField('praying') ? data.praying : undefined,
+        education_level: shouldShowField('education_level') ? data.education_level : undefined,
+        post_high_school_path: shouldShowField('post_high_school_path') ? data.post_high_school_path : undefined,
+        current_occupation_study: shouldShowField('current_occupation_study') ? data.current_occupation_study : undefined,
+        plan_after_marriage: shouldShowField('plan_after_marriage') ? data.plan_after_marriage : undefined,
+        marital_status: shouldShowField('marital_status') ? data.marital_status : undefined,
+        dress_style: shouldShowField('dress_style') ? data.dress_style : undefined,
+        wears_black_hat: shouldShowField('wears_black_hat') ? data.wears_black_hat : undefined,
+        head_covering: shouldShowField('head_covering') ? data.head_covering : undefined,
+        smoking: shouldShowField('smoking') ? data.smoking : undefined,
+        alcohol_consumption: shouldShowField('alcohol_consumption') ? data.alcohol_consumption : undefined,
+        user_references: shouldShowField('user_references') ? data.user_references : undefined,
+        last_active_at: data.last_active_at,
       };
 
       setProfile(displayProfile);
@@ -148,8 +189,77 @@ export default function ProfileDetailsScreen() {
   }, [loadProfileData]);
 
   const handlePicturePress = (index: number) => {
+    // Check if pictures are private
+    if (profile?.picturePrivacy === 'private') {
+      handleAskForInfo('pictures');
+      return;
+    }
     setSelectedPictureIndex(index);
     setShowPictureViewer(true);
+  };
+
+  const handleAskForInfo = async (fieldName: string) => {
+    // Check if there's already a pending or approved request for this field
+    const result = await infoRequestService.getSentRequests();
+    if (result.success && result.requests) {
+      const existingRequest = result.requests.find(
+        r => r.requested_profile_id === profile?.id && 
+        r.field_name === fieldName && 
+        (r.status === 'pending' || r.status === 'approved')
+      );
+
+      if (existingRequest) {
+        if (existingRequest.status === 'pending') {
+          Alert.alert(
+            'Request Already Sent',
+            'You already have a pending request for this information. Please wait for a response.',
+            [{ text: 'OK' }]
+          );
+        } else if (existingRequest.status === 'approved') {
+          Alert.alert(
+            'Request Approved',
+            'This request has already been approved. Reload the profile to see the information.',
+            [
+              { text: 'Cancel' },
+              { text: 'Reload', onPress: () => loadProfileData() }
+            ]
+          );
+        }
+        return;
+      }
+    }
+
+    setSelectedFieldForInfo(fieldName);
+    setShowAskForInfoModal(true);
+  };
+
+  const handleSubmitInfoRequest = async (note: string) => {
+    if (!profile) return;
+
+    setIsSubmittingInfoRequest(true);
+    try {
+      const result = await infoRequestService.createInfoRequest(
+        profile.id,
+        selectedFieldForInfo,
+        note
+      );
+
+      if (result.success) {
+        Alert.alert(
+          'Request Sent',
+          `Your request has been sent to ${profile.name.split(' ')[0]}. You'll be notified when they respond.`,
+          [{ text: 'OK' }]
+        );
+        setShowAskForInfoModal(false);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to send request');
+      }
+    } catch (error) {
+      console.error('Error submitting info request:', error);
+      Alert.alert('Error', 'Failed to send request');
+    } finally {
+      setIsSubmittingInfoRequest(false);
+    }
   };
 
   const handleAskForIntro = () => {
@@ -294,6 +404,37 @@ export default function ProfileDetailsScreen() {
   if (!profile) {
     return null;
   }
+  // Helper to check if field is private
+  const isFieldPrivate = (fieldName: string): boolean => {
+    return profile?.field_privacy?.[fieldName] === true;
+  };
+
+  // Helper component for rendering a detail row with "Ask me" button
+  const renderDetailRow = (label: string, value: any, fieldName: string) => {
+    const isPrivate = isFieldPrivate(fieldName);
+    
+    if (isPrivate || !value) {
+      return (
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>{label}:</Text>
+          <TouchableOpacity
+            style={styles.askMeButton}
+            onPress={() => handleAskForInfo(fieldName)}
+          >
+            <Ionicons name="lock-closed" size={14} color="#e91e63" />
+            <Text style={styles.askMeButtonText}>Ask me</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.detailRow}>
+        <Text style={styles.detailLabel}>{label}:</Text>
+        <Text style={styles.detailValue}>{value}</Text>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -308,30 +449,47 @@ export default function ProfileDetailsScreen() {
       <ScrollView style={styles.content}>
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          {!imageError && profile.picture ? (
-            <Image 
-              source={{ uri: profile.picture }} 
-              style={styles.profileImage}
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <View style={[styles.profileImage, styles.placeholderProfileImage]}>
-              <Ionicons name="person" size={50} color="#ccc" />
-            </View>
-          )}
+          <View style={styles.imageWrapper}>
+            {profile.picturePrivacy === 'none' || !profile.picture || imageError ? (
+              // No photo - show generic avatar
+              <View style={[styles.profileImage, styles.placeholderProfileImage]}>
+                <Ionicons name="person" size={50} color="#ccc" />
+              </View>
+            ) : (
+              // Public or Private - show image
+              <>
+                <Image 
+                  source={{ uri: profile.picture }} 
+                  style={styles.profileImage}
+                  onError={() => setImageError(true)}
+                  blurRadius={profile.picturePrivacy === 'private' ? 20 : 0}
+                />
+                {profile.picturePrivacy === 'private' && (
+                  <TouchableOpacity
+                    style={styles.seeMoreOverlay}
+                    onPress={() => handleAskForInfo('pictures')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="lock-closed" size={32} color="#fff" />
+                    <Text style={styles.seeMoreText}>See More</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{profile.name}</Text>
-            <Text style={styles.profileAge}>{profile.age} years old</Text>
+            <Text style={styles.profileAge}>Age: {calculateAge(profile.dob)}</Text>
             <Text style={styles.profileLocation}>{profile.location}</Text>
           </View>
         </View>
 
         {/* Pictures Section */}
-        {profile.pictures && profile.pictures.length > 0 && (
+        {profile.picturePrivacy !== 'none' && profile.pictures && profile.pictures.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Pictures</Text>
             <View style={styles.picturesGrid}>
-              {profile.pictures.map((picture, index) => (
+              {profile.pictures.slice(0, 3).map((picture, index) => (
                 <TouchableOpacity
                   key={index}
                   style={styles.pictureThumbnail}
@@ -342,10 +500,21 @@ export default function ProfileDetailsScreen() {
                     source={{ uri: picture }} 
                     style={styles.thumbnailImage}
                     resizeMode="cover"
+                    blurRadius={profile.picturePrivacy === 'private' ? 15 : 0}
                   />
+                  {profile.picturePrivacy === 'private' && (
+                    <View style={styles.blurOverlay}>
+                      <Ionicons name="lock-closed" size={20} color="#fff" />
+                    </View>
+                  )}
                 </TouchableOpacity>
               ))}
             </View>
+            {profile.picturePrivacy === 'private' && (
+              <Text style={styles.pictureNote}>
+                Photos are private. Click any photo to request access.
+              </Text>
+            )}
           </View>
         )}
 
@@ -357,11 +526,11 @@ export default function ProfileDetailsScreen() {
 
         {/* Details Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Details</Text>
+          <Text style={styles.sectionTitle}>Basic Information</Text>
           
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Hashkafa:</Text>
-            <Text style={styles.detailValue}>{profile.hashkafa}</Text>
+            <Text style={styles.detailLabel}>Gender:</Text>
+            <Text style={styles.detailValue}>{profile.gender}</Text>
           </View>
           
           <View style={styles.detailRow}>
@@ -369,25 +538,193 @@ export default function ProfileDetailsScreen() {
             <Text style={styles.detailValue}>{profile.role}</Text>
           </View>
           
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Gender:</Text>
-            <Text style={styles.detailValue}>{profile.gender}</Text>
-          </View>
-          
-          {profile.school && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>School:</Text>
-              <Text style={styles.detailValue}>{profile.school}</Text>
-            </View>
-          )}
-          
-          {profile.occupation && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Occupation:</Text>
-              <Text style={styles.detailValue}>{profile.occupation}</Text>
-            </View>
-          )}
+          {renderDetailRow('Looking For', profile.what_looking_for, 'what_looking_for')}
+          {renderDetailRow('Height', profile.height, 'height')}
+          {renderDetailRow('Has Children', profile.hasChildren !== undefined ? (profile.hasChildren ? 'Yes' : 'No') : null, 'hasChildren')}
         </View>
+
+        {/* Location Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Location</Text>
+          {renderDetailRow('City', profile.location_city, 'location_city')}
+          {renderDetailRow('State', profile.location_state, 'location_state')}
+          {renderDetailRow('Country', profile.location_country, 'location_country')}
+        </View>
+
+        {/* Languages & Background */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Languages & Background</Text>
+          {renderDetailRow('Languages', profile.languages && profile.languages.length > 0 ? profile.languages.join(', ') : null, 'languages')}
+          {renderDetailRow('Background', profile.nationality && profile.nationality.length > 0 ? profile.nationality.join(', ') : null, 'nationality')}
+          {profile.gender === 'male' && renderDetailRow('Cohen', profile.is_cohen !== undefined ? (profile.is_cohen ? 'Yes' : 'No') : null, 'is_cohen')}
+        </View>
+
+        {/* Hashkafa / Religious Outlook */}
+        {(profile.hashkafa_type || profile.hashkafa_type || profile.torah_learning || profile.praying) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Religious Outlook</Text>
+            
+            {profile.hashkafa_type && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Hashkafa:</Text>
+                <Text style={styles.detailValue}>{profile.hashkafa_type}</Text>
+              </View>
+            )}
+            
+            {profile.hashkafa_type && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Type:</Text>
+                <Text style={styles.detailValue}>{profile.hashkafa_type}</Text>
+              </View>
+            )}
+            
+            {profile.torah_learning && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Torah Learning:</Text>
+                <Text style={styles.detailValue}>{profile.torah_learning}</Text>
+              </View>
+            )}
+            
+            {profile.praying && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Praying:</Text>
+                <Text style={styles.detailValue}>{profile.praying}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Education */}
+        {(profile.education_level || profile.post_high_school_path) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Education</Text>
+            
+            {profile.education_level && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Education Level:</Text>
+                <Text style={styles.detailValue}>{profile.education_level}</Text>
+              </View>
+            )}
+            
+            {profile.post_high_school_path && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Post-High School Path:</Text>
+                <Text style={styles.detailValue}>{profile.post_high_school_path}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Occupation / Study */}
+        {profile.current_occupation_study && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Occupation / Study</Text>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Current Status:</Text>
+              <Text style={styles.detailValue}>{profile.current_occupation_study}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Plan After Marriage */}
+        {profile.plan_after_marriage && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Plan After Marriage</Text>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Plans:</Text>
+              <Text style={styles.detailValue}>{profile.plan_after_marriage}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Marital Status */}
+        {profile.marital_status && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Marital Status</Text>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Status:</Text>
+              <Text style={styles.detailValue}>{profile.marital_status}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Dress & Appearance */}
+        {(profile.dress_style || (profile.gender === 'male' && profile.wears_black_hat !== undefined) || (profile.gender === 'female' && profile.head_covering)) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Dress & Appearance</Text>
+            
+            {profile.dress_style && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Dress Style:</Text>
+                <Text style={styles.detailValue}>{profile.dress_style}</Text>
+              </View>
+            )}
+            
+            {profile.gender === 'male' && profile.wears_black_hat !== undefined && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Black Hat:</Text>
+                <Text style={styles.detailValue}>{profile.wears_black_hat ? 'Yes' : 'No'}</Text>
+              </View>
+            )}
+            
+            {profile.gender === 'female' && profile.head_covering && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Head Covering:</Text>
+                <Text style={styles.detailValue}>{profile.head_covering}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Lifestyle */}
+        {(profile.smoking || profile.alcohol_consumption) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Lifestyle</Text>
+            
+            {profile.smoking && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Smoking:</Text>
+                <Text style={styles.detailValue}>{profile.smoking}</Text>
+              </View>
+            )}
+            
+            {profile.alcohol_consumption && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Alcohol Consumption:</Text>
+                <Text style={styles.detailValue}>{profile.alcohol_consumption}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* References */}
+        {profile.user_references && profile.user_references.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>References</Text>
+            
+            {profile.user_references.map((ref: any, index: number) => (
+              <View key={index} style={styles.referenceCard}>
+                <Text style={styles.referenceName}>{ref.name}</Text>
+                <Text style={styles.referencePhone}>{ref.phone}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Last Active */}
+        {profile.last_active_at && (
+          <View style={styles.section}>
+            <View style={styles.lastActiveContainer}>
+              <Ionicons name="time-outline" size={18} color="#666" />
+              <Text style={styles.lastActiveText}>
+                Last active: {new Date(profile.last_active_at).toLocaleDateString()}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Bottom padding for action buttons */}
         <View style={{ height: hideActions ? 20 : 100 }} />
@@ -454,6 +791,16 @@ export default function ProfileDetailsScreen() {
           onClose={() => setShowPictureViewer(false)}
         />
       )}
+
+      {/* Ask for Info Modal */}
+      <AskForInfoModal
+        visible={showAskForInfoModal}
+        fieldName={selectedFieldForInfo}
+        profileName={profile.name}
+        onClose={() => setShowAskForInfoModal(false)}
+        onSubmit={handleSubmitInfoRequest}
+        isSubmitting={isSubmittingInfoRequest}
+      />
 
       {/* Middle Person Selection Modal */}
       <MiddlePersonSelectionModal
@@ -670,6 +1017,34 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 1,
   },
+  referenceCard: {
+    backgroundColor: '#f9f9f9',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  referenceName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  referencePhone: {
+    fontSize: 14,
+    color: '#666',
+  },
+  lastActiveContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+  },
+  lastActiveText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+  },
   actionsContainer: {
     flexDirection: 'row',
     gap: 12,
@@ -775,6 +1150,60 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  imageWrapper: {
+    position: 'relative',
+  },
+  seeMoreOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 50,
+    gap: 8,
+  },
+  seeMoreText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  pictureNote: {
+    fontSize: 13,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  askMeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#fef5f8',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e91e63',
+  },
+  askMeButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#e91e63',
   },
 });
 
