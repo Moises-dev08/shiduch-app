@@ -101,7 +101,7 @@ class IntroService {
         updateData.requested_note = note;
       }
 
-      // If responding person is choosing continuation and middle person
+      // If responding person is choosing continuation and Matchmaker/Shadchan
       if (continuationChoice) {
         updateData.requested_continuation_choice = continuationChoice;
       }
@@ -148,7 +148,7 @@ class IntroService {
   }
 
   /**
-   * Set requested person's middle person choice
+   * Set requested person's Matchmaker/Shadchan choice
    */
   async setRequestedMiddlePerson(
     requestId: string,
@@ -164,7 +164,7 @@ class IntroService {
         .eq('id', requestId);
 
       if (error) {
-        console.error('Error setting requested middle person:', error);
+        console.error('Error setting requested Matchmaker/Shadchan:', error);
         return { success: false, error: error.message };
       }
 
@@ -256,8 +256,8 @@ class IntroService {
         .from('intro_requests')
         .select(`
           *,
-          requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, gender),
-          requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
+          requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, gender, resume_url),
+          requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
           requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
           requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
         `)
@@ -269,8 +269,8 @@ class IntroService {
         .from('intro_requests')
         .select(`
           *,
-          requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
-          requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, gender),
+          requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+          requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, gender, resume_url),
           requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
           requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
         `)
@@ -294,7 +294,7 @@ class IntroService {
   }
 
   /**
-   * Get intro requests where current user is the middle person
+   * Get intro requests where current user is the Matchmaker/Shadchan
    */
   async getMiddlePersonRequests(): Promise<{
     success: boolean;
@@ -317,13 +317,13 @@ class IntroService {
         return { success: false, error: 'Profile not found' };
       }
 
-      // Get requests where I'm the middle person (either requester's or requested's middle person)
+      // Get requests where I'm the Matchmaker/Shadchan (either requester's or requested's Matchmaker/Shadchan)
       const { data: requests, error } = await supabase
         .from('intro_requests')
         .select(`
           *,
-          requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
-          requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
+          requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+          requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
           requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
           requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
         `)
@@ -331,7 +331,7 @@ class IntroService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching middle person requests:', error);
+        console.error('Error fetching Matchmaker/Shadchan requests:', error);
         return { success: false, error: error.message };
       }
 
@@ -346,7 +346,7 @@ class IntroService {
   }
 
   /**
-   * Get contact information for middle person based on continuation choices
+   * Get contact information for Matchmaker/Shadchan based on continuation choices
    */
   getMiddlePersonContactInfo(request: IntroRequest, middlePersonId: string): {
     shouldShowContact: boolean;
@@ -372,7 +372,7 @@ class IntroService {
     const requesterByThemselves = request.requester_continuation_choice === 'by_themselves';
     const requestedByThemselves = request.requested_continuation_choice === 'by_themselves';
 
-    // Both chose by_themselves - middle person doesn't need to do anything
+    // Both chose by_themselves - Matchmaker/Shadchan doesn't need to do anything
     if (requesterByThemselves && requestedByThemselves) {
       return {
         shouldShowContact: false,
@@ -380,7 +380,7 @@ class IntroService {
       };
     }
 
-    // If I'm the requester's middle person and requester chose me but requested chose by_themselves
+    // If I'm the requester's Matchmaker/Shadchan and requester chose me but requested chose by_themselves
     // I need the requested person's contact info
     if (isRequesterMiddlePerson && !requesterByThemselves && requestedByThemselves) {
       const contactProfile = request.requested_profile;
@@ -396,7 +396,7 @@ class IntroService {
       };
     }
 
-    // If I'm the requested person's middle person and requested chose me but requester chose by_themselves
+    // If I'm the requested person's Matchmaker/Shadchan and requested chose me but requester chose by_themselves
     // I need the requester's contact info
     if (isRequestedMiddlePerson && requesterByThemselves && !requestedByThemselves) {
       const contactProfile = request.requester_profile;
@@ -412,9 +412,9 @@ class IntroService {
       };
     }
 
-    // Both chose middle persons
+    // Both chose  Matchmaker/Shadchan
     if (!requesterByThemselves && !requestedByThemselves) {
-      // I need to contact the other side's middle person
+      // I need to contact the other side's Matchmaker/Shadchan
       if (isRequesterMiddlePerson) {
         const otherMiddlePerson = request.requested_middle_person;
         return {
@@ -425,7 +425,7 @@ class IntroService {
             email: otherMiddlePerson.email,
             whatsapp: otherMiddlePerson.whatsapp,
           },
-          message: `Contact the other middle person ${otherMiddlePerson.first_name}:`,
+          message: `Contact the other Matchmaker/Shadchan ${otherMiddlePerson.first_name}:`,
         };
       } else if (isRequestedMiddlePerson) {
         const otherMiddlePerson = request.requester_middle_person;
@@ -437,7 +437,7 @@ class IntroService {
             email: otherMiddlePerson.email,
             whatsapp: otherMiddlePerson.whatsapp,
           },
-          message: `Contact the other middle person ${otherMiddlePerson.first_name}:`,
+          message: `Contact the other Matchmaker/Shadchan ${otherMiddlePerson.first_name}:`,
         };
       }
     }
@@ -459,6 +459,7 @@ class IntroService {
       phone?: string;
       email?: string;
       whatsapp?: string;
+      resumeUrl?: string;
     };
     message: string;
   } {
@@ -483,15 +484,16 @@ class IntroService {
           phone: contactProfile.phone,
           email: contactProfile.email,
           whatsapp: contactProfile.whatsapp,
+          resumeUrl: contactProfile.resume_url || undefined,
         },
         message: 'Both chose to continue directly. Contact info below:',
       };
     }
 
-    // One chose middle person, one chose by_themselves
+    // One chose Matchmaker/Shadchan, one chose by_themselves
     if (requesterByThemselves && !requestedByThemselves) {
-      // Both parties get requested's middle person contact
-      // (The middle person will separately receive the contact of the person who chose by_themselves)
+      // Both parties get requested's Matchmaker/Shadchan contact
+      // (The Matchmaker/Shadchan will separately receive the contact of the person who chose by_themselves)
       const middlePerson = request.requested_middle_person;
       return {
         shouldShowContact: true,
@@ -502,14 +504,14 @@ class IntroService {
           whatsapp: middlePerson.whatsapp,
         },
         message: isRequester 
-          ? `Contact ${middlePerson.first_name} (their middle person):`
-          : `Contact ${middlePerson.first_name} (your middle person):`,
+          ? `Contact ${middlePerson.first_name} (their Matchmaker/Shadchan):`
+          : `Contact ${middlePerson.first_name} (your Matchmaker/Shadchan):`,
       };
     }
 
     if (!requesterByThemselves && requestedByThemselves) {
-      // Both parties get requester's middle person contact
-      // (The middle person will separately receive the contact of the person who chose by_themselves)
+      // Both parties get requester's Matchmaker/Shadchan contact
+      // (The Matchmaker/Shadchan will separately receive the contact of the person who chose by_themselves)
       const middlePerson = request.requester_middle_person;
       return {
         shouldShowContact: true,
@@ -520,12 +522,12 @@ class IntroService {
           whatsapp: middlePerson.whatsapp,
         },
         message: isRequester 
-          ? `Contact ${middlePerson.first_name} (your middle person):`
-          : `Contact ${middlePerson.first_name} (their middle person):`,
+          ? `Contact ${middlePerson.first_name} (your Matchmaker/Shadchan):`
+          : `Contact ${middlePerson.first_name} (their Matchmaker/Shadchan):`,
       };
     }
 
-    // Both chose middle person
+    // Both chose Matchmaker/Shadchan
     const middlePerson = isRequester 
       ? request.requester_middle_person 
       : request.requested_middle_person;
@@ -538,7 +540,7 @@ class IntroService {
         email: middlePerson.email,
         whatsapp: middlePerson.whatsapp,
       },
-      message: `Contact your middle person ${middlePerson.first_name}:`,
+      message: `Contact your Matchmaker/Shadchan ${middlePerson.first_name}:`,
     };
   }
 }

@@ -25,59 +25,69 @@ export default function TermsModal({ visible, onAccept, onDecline }: TermsModalP
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionTitle}>1. Acceptance of Terms</Text>
-          <Text style={styles.text}>
-            By creating an account and using our dating app, you agree to be bound by these Terms and Conditions. 
-            If you do not agree to these terms, please do not use our service.
+          <Text style={styles.introTitle}>Terms & Conditions</Text>
+          <Text style={styles.introText}>
+            Before completing your registration, please read and confirm the following terms.
+            You must accept all items to use this app.
           </Text>
 
-          <Text style={styles.sectionTitle}>2. User Responsibilities</Text>
-          <Text style={styles.text}>
-            • You must be at least 18 years old to use this service{'\n'}
-            • You are responsible for maintaining the confidentiality of your account{'\n'}
-            • You agree to provide accurate and truthful information{'\n'}
-            • You will not use the service for any illegal or unauthorized purpose{'\n'}
-            • You will not harass, abuse, or harm other users
-          </Text>
+          <View style={styles.divider} />
 
-          <Text style={styles.sectionTitle}>3. Privacy and Safety</Text>
-          <Text style={styles.text}>
-            • We prioritize user safety and privacy{'\n'}
-            • Report any inappropriate behavior immediately{'\n'}
-            • Never share personal information with strangers{'\n'}
-            • Meet in public places for first dates{'\n'}
-            • Trust your instincts and be cautious
-          </Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>1. Religious Standards</Text>
+            <Text style={styles.text}>
+              I confirm that I am religious and shomer negi&apos;a.{'\n'}
+              I understand that if I do not uphold these standards, my profile may be removed from the app.
+            </Text>
+          </View>
 
-          <Text style={styles.sectionTitle}>4. Content Guidelines</Text>
-          <Text style={styles.text}>
-            • No inappropriate, offensive, or explicit content{'\n'}
-            • Respect other users and their boundaries{'\n'}
-            • No spam, solicitation, or commercial activity{'\n'}
-            • Maintain a respectful and positive environment
-          </Text>
+          <View style={styles.divider} />
 
-          <Text style={styles.sectionTitle}>5. Account Termination</Text>
-          <Text style={styles.text}>
-            We reserve the right to suspend or terminate accounts that violate these terms. 
-            You may also delete your account at any time through the app settings.
-          </Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>2. Matchmaking Is Free of Charge</Text>
+            <Text style={styles.subsectionTitle}>I agree that:</Text>
+            <Text style={styles.bulletText}>
+              • All matchmaking done through this app is completely free.{'\n'}
+              • I may not request, require, or imply any form of payment at any stage — before, during, or after a match.{'\n'}
+              • I participate leshem Shamayim, solely to help others.{'\n'}
+              • Any money given to me must be voluntary, from the giver&apos;s free will only.
+            </Text>
+            
+            <Text style={styles.subsectionTitle}>Use of Private Information</Text>
+            <Text style={styles.subsectionTitle}>I agree that:</Text>
+            <Text style={styles.bulletText}>
+              • If I receive or access any private information from any profile on this app,{'\n'}
+              • I may not charge, request payment, or accept compensation from that individual,{'\n'}
+              • Even if I suggest a match for them outside of the app.
+            </Text>
+            <Text style={styles.text}>
+              This rule applies to all communication or assistance initiated through information obtained on the platform.
+            </Text>
+            
+            <Text style={styles.subsectionTitle}>Support for the App</Text>
+            <Text style={styles.text}>
+              If I receive any voluntary appreciation payment from someone I assisted, I agree to contribute 30% of that amount to support and maintain the app.
+            </Text>
+          </View>
 
-          <Text style={styles.sectionTitle}>6. Limitation of Liability</Text>
-          <Text style={styles.text}>
-            Our service is provided "as is" without warranties. We are not responsible for 
-            the actions of other users or any damages that may result from using our service.
-          </Text>
+          <View style={styles.divider} />
 
-          <Text style={styles.sectionTitle}>7. Changes to Terms</Text>
-          <Text style={styles.text}>
-            We may update these terms from time to time. Continued use of the service 
-            constitutes acceptance of any changes.
-          </Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>3. Account Access Authorization</Text>
+            <Text style={styles.text}>
+              I allow the app&apos;s support team to access my account and profile at any time for moderation, review, or security purposes.
+            </Text>
+          </View>
 
-          <Text style={styles.lastUpdated}>
-            Last updated: {new Date().toLocaleDateString()}
-          </Text>
+          <View style={styles.divider} />
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>4. Content & Conduct Rules</Text>
+            <Text style={styles.text}>
+              I agree not to upload any inappropriate, immodest, offensive, or misleading content.{'\n'}
+              I understand that violating these rules may result in my account being frozen, suspended, or permanently deleted without notice.
+            </Text>
+          </View>
         </ScrollView>
 
         <View style={styles.footer}>
@@ -121,25 +131,51 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
+  introTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
+  },
+  introText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#666',
+    marginBottom: 20,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#e0e0e0',
+    marginVertical: 20,
+  },
+  section: {
+    marginBottom: 10,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 20,
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  subsectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 12,
+    marginBottom: 8,
   },
   text: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
     color: '#666',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  lastUpdated: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
-    marginTop: 20,
-    marginBottom: 20,
+  bulletText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#666',
+    marginBottom: 8,
+    paddingLeft: 8,
   },
   footer: {
     flexDirection: 'row',
@@ -162,7 +198,7 @@ const styles = StyleSheet.create({
   },
   acceptButton: {
     flex: 1,
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',

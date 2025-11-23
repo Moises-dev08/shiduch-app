@@ -40,13 +40,13 @@ const slides = [
     icon: 'people' as const,
     color: '#9C27B0',
     title: 'Work with Matchmakers',
-    description: 'Connect with middle person (matchmaker) who can help guide you through the process and make introductions.',
+    description: 'Connect with Matchmaker/Shadchan who can help guide you through the process and make introductions.',
   },
   {
     icon: 'chatbubbles' as const,
     color: '#FF9800',
+    description: 'When both parties accept, choose how to proceed - by yourselves or with a Matchmaker/Shadchan to facilitate.',
     title: 'Connect & Continue',
-    description: 'When both parties accept, choose how to proceed - by yourselves or with a middle person to facilitate.',
   },
   {
     icon: 'star' as const,

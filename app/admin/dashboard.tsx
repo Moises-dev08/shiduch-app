@@ -130,7 +130,7 @@ export default function AdminDashboard() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#e91e63" />
+          <ActivityIndicator size="large" color="#03a9f4" />
           <Text style={styles.loadingText}>Loading pending profiles...</Text>
         </View>
       </SafeAreaView>
@@ -144,6 +144,9 @@ export default function AdminDashboard() {
           <Text style={styles.title}>Admin Dashboard</Text>
           <Text style={styles.subtitle}>{profiles.length} Pending Profiles</Text>
         </View>
+        <TouchableOpacity onPress={onRefresh}>
+          <Ionicons name="refresh" size={24} color="#666" />
+        </TouchableOpacity>
         <TouchableOpacity 
           style={styles.logoutButton}
           onPress={() => {
@@ -362,19 +365,6 @@ export default function AdminDashboard() {
                   <Text style={styles.sectionTitle}>Lifestyle</Text>
                   {selectedProfile.smoking && <DetailRow label="Smoking" value={selectedProfile.smoking} />}
                   {selectedProfile.alcohol_consumption && <DetailRow label="Alcohol Consumption" value={selectedProfile.alcohol_consumption} />}
-                </View>
-              )}
-
-              {/* References */}
-              {selectedProfile.user_references && selectedProfile.user_references.length > 0 && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionTitle}>References</Text>
-                  {selectedProfile.user_references.map((ref: { name: string; phone: string }, index: number) => (
-                    <View key={index} style={styles.referenceItem}>
-                      <Text style={styles.referenceName}>{ref.name}</Text>
-                      <Text style={styles.referencePhone}>{ref.phone}</Text>
-                    </View>
-                  ))}
                 </View>
               )}
 
@@ -657,21 +647,6 @@ const styles = StyleSheet.create({
     color: '#333',
     lineHeight: 20,
   },
-  referenceItem: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  referenceName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  referencePhone: {
-    fontSize: 14,
-    color: '#666',
-  },
   privacyNote: {
     fontSize: 14,
     color: '#666',
@@ -680,7 +655,7 @@ const styles = StyleSheet.create({
   },
   privateField: {
     fontSize: 14,
-    color: '#e91e63',
+    color: '#03a9f4',
     marginLeft: 8,
     marginBottom: 4,
   },

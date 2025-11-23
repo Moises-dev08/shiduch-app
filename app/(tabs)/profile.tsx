@@ -175,7 +175,7 @@ export default function ProfileScreen() {
       headCovering: profile.head_covering,
       smoking: profile.smoking,
       alcoholConsumption: profile.alcohol_consumption,
-      userReferences: profile.user_references,
+      resumeUrl: profile.resume_url,
       fieldPrivacy: profile.field_privacy,
     };
   };
@@ -218,14 +218,14 @@ export default function ProfileScreen() {
         let message = '';
         
         if (wasResubmitted) {
-          title = 'Profile Resubmitted';
+          title = 'Profile Resubmitted! 📝';
           message = 'Your profile has been updated and resubmitted for admin review. We\'ll notify you once it\'s approved!';
         } else if (isNewProfile) {
-          title = 'Profile Created!';
+          title = 'Profile Created! 🎉';
           message = 'Your profile has been created successfully and is now pending admin approval. You\'ll be notified once it\'s reviewed!';
         } else {
-          title = 'Profile Updated!';
-          message = 'Your profile has been updated successfully!';
+          title = 'Profile Updated! ✨';
+          message = 'Your profile has been updated successfully! ✨';
         }
         
         setSuccessMessage({ title, message });
@@ -282,17 +282,6 @@ export default function ProfileScreen() {
     }
   };
 
-  if (initialLoading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#e91e63" />
-          <Text style={styles.loadingText}>Loading profile...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -310,7 +299,7 @@ export default function ProfileScreen() {
                 style={styles.changeButton}
                 onPress={handleChangeRoleGender}
               >
-                <Ionicons name="swap-horizontal" size={20} color="#e91e63" />
+                <Ionicons name="swap-horizontal" size={20} color="#03a9f4" />
                 <Text style={styles.changeButtonText}>Change</Text>
               </TouchableOpacity>
             )}
@@ -337,8 +326,13 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Form Content */}
-      {selectedRole && selectedGender ? (
+      {/* Loading State or Form Content */}
+      {initialLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#03a9f4" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      ) : selectedRole && selectedGender ? (
         selectedRole === 'single' ? (
           <SinglesProfileForm
             initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
@@ -395,7 +389,7 @@ export default function ProfileScreen() {
                     onPress={() => handleRoleSelection('single')}
                   >
                     <View style={styles.roleIconContainer}>
-                      <Ionicons name="heart" size={40} color="#e91e63" />
+                      <Ionicons name="heart" size={40} color="#03a9f4" />
                     </View>
                     <Text style={styles.roleTitle}>I&apos;m Single</Text>
                     <Text style={styles.roleDescription}>
@@ -528,13 +522,13 @@ const styles = StyleSheet.create({
     padding: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#FCE4EC',
+    backgroundColor: '#e1f5fe',
     gap: 4,
   },
   changeButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#e91e63',
+    color: '#03a9f4',
   },
   shareButton: {
     padding: 8,
@@ -601,7 +595,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
   },
   stepDotInactive: {
     backgroundColor: '#e0e0e0',

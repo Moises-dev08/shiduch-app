@@ -101,7 +101,7 @@ export default function ResetPasswordScreen() {
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <Ionicons name="key" size={60} color="#e91e63" />
+          <Ionicons name="key" size={60} color="#03a9f4" />
           <Text style={styles.title}>Reset Password</Text>
           <Text style={styles.subtitle}>Enter your new password</Text>
         </View>
@@ -195,7 +195,7 @@ export default function ResetPasswordScreen() {
         <View style={styles.footer}>
           <TouchableOpacity onPress={() => router.replace('/auth/login')}>
             <Text style={styles.backToLoginText}>
-              <Ionicons name="arrow-back" size={16} color="#e91e63" /> Back to Login
+              <Ionicons name="arrow-back" size={16} color="#03a9f4" /> Back to Login
             </Text>
           </TouchableOpacity>
         </View>
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   resetButton: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backToLoginText: {
-    color: '#e91e63',
+    color: '#03a9f4',
     fontSize: 16,
     fontWeight: '600',
   },

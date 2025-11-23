@@ -129,7 +129,7 @@ class RealtimeService {
           filter: `requester_middle_person_id=eq.${profileId}`,
         },
         (payload) => {
-          console.log('🔔 Intro request change (as requester middle person):', payload.eventType, payload.new);
+          console.log('🔔 Intro request change (as requester Matchmaker/Shadchan):', payload.eventType, payload.new);
           callback(payload);
         }
       )
@@ -142,7 +142,7 @@ class RealtimeService {
           filter: `requested_middle_person_id=eq.${profileId}`,
         },
         (payload) => {
-          console.log('🔔 Intro request change (as requested middle person):', payload.eventType, payload.new);
+          console.log('🔔 Intro request change (as requested Matchmaker/Shadchan):', payload.eventType, payload.new);
           callback(payload);
         }
       )

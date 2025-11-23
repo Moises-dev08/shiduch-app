@@ -335,18 +335,17 @@ export default function SettingsScreen() {
         {/* Account Section */}
         <Text style={styles.sectionTitle}>Account</Text>
 
-        <TouchableOpacity style={styles.settingsItem} onPress={handleLogout}>
-          <View style={styles.settingsItemLeft}>
-            <Ionicons name="log-out" size={24} color="#FF9800" />
-            <Text style={styles.settingsItemText}>Logout</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
-        </TouchableOpacity>
-
         <TouchableOpacity style={styles.settingsItem} onPress={handleDeleteAccount}>
           <View style={styles.settingsItemLeft}>
             <Ionicons name="trash" size={24} color="#F44336" />
             <Text style={styles.settingsItemText}>Delete Account</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#666" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.settingsItem} onPress={handleLogout}>
+          <View style={styles.settingsItemLeft}>
+            <Ionicons name="log-out" size={24} color="#FF9800" />
+            <Text style={styles.settingsItemText}>Logout</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>

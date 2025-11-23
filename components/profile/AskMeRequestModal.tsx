@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 interface AskMeRequestModalProps {
@@ -56,7 +56,7 @@ export default function AskMeRequestModal({
 
         <View style={styles.content}>
           <View style={styles.infoBox}>
-            <Ionicons name="lock-closed" size={20} color="#e91e63" />
+            <Ionicons name="lock-closed" size={20} color="#03a9f4" />
             <Text style={styles.infoText}>
               This information is private. Send a request to view it.
             </Text>
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF0F6',
+    backgroundColor: '#e1f5fe',
     padding: 16,
     borderRadius: 12,
     marginBottom: 24,
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   sendButton: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
   },
   sendButtonText: {
     fontSize: 16,

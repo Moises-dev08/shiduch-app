@@ -12,7 +12,7 @@ export interface Profile {
   whatsapp?: string;
   height?: string;
   hasChildren?: boolean;
-  picturePrivacy: 'none' | 'public' | 'private';
+  picturePrivacy: 'none' | 'always' | 'private' | 'one_time';
   
   // New comprehensive fields
   dob?: string; // Date of birth - age is calculated from this
@@ -54,9 +54,6 @@ export interface Profile {
   // Lifestyle
   smoking?: string;
   alcohol_consumption?: string;
-  
-  // References
-  user_references?: { name: string; phone: string }[];
   
   // Metadata
   last_active_at?: string;

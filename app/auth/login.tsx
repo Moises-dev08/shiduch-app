@@ -90,7 +90,7 @@ export default function LoginScreen() {
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <Ionicons name="heart" size={60} color="#e91e63" />
+          <Ionicons name="heart" size={60} color="#03a9f4" />
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Login to your account</Text>
         </View>
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   loginButton: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   forgotPasswordText: {
-    color: '#e91e63',
+    color: '#03a9f4',
     fontSize: 14,
   },
   footer: {
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   signupLink: {
-    color: '#e91e63',
+    color: '#03a9f4',
     fontSize: 14,
     fontWeight: 'bold',
   },

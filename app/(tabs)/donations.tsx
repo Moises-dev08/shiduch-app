@@ -28,7 +28,7 @@ const donationOptions: DonationOption[] = [
     description: 'Support our upcoming Shiduch event in New York. Help us create meaningful connections in the community.',
     amount: 'Suggested: $18+',
     icon: 'heart',
-    color: '#e91e63',
+    color: '#03a9f4',
     link: 'https://example.com/donate/shiduch-event-ny'
   },
   {
@@ -103,7 +103,7 @@ export default function DonationsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <FontAwesome5 name="donate" size={40} color="#e91e63" />
+        <FontAwesome5 name="donate" size={40} color="#03a9f4" />
         <Text style={styles.title}>Support Our Community</Text>
         <Text style={styles.subtitle}>Your donations help us create meaningful connections</Text>
       </View>
@@ -133,7 +133,7 @@ export default function DonationsScreen() {
               
               <View style={styles.donationFooter}>
                 <View style={styles.donateButton}>
-                  <Ionicons name="heart" size={16} color="#e91e63" />
+                  <Ionicons name="heart" size={16} color="#03a9f4" />
                   <Text style={styles.donateButtonText}>Donate Now</Text>
                 </View>
               </View>
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   },
   donationAmount: {
     fontSize: 14,
-    color: '#e91e63',
+    color: '#03a9f4',
     fontWeight: '600',
   },
   donationDescription: {
@@ -244,11 +244,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e91e63',
+    borderColor: '#03a9f4',
   },
   donateButtonText: {
     fontSize: 14,
-    color: '#e91e63',
+    color: '#03a9f4',
     fontWeight: '600',
     marginLeft: 4,
   },

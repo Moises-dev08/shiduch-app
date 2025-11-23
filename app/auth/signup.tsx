@@ -124,7 +124,7 @@ export default function SignupScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
           <View style={styles.header}>
-            <Ionicons name="heart" size={60} color="#e91e63" />
+            <Ionicons name="heart" size={60} color="#03a9f4" />
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Join our dating community</Text>
           </View>
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   signupButton: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   loginLink: {
-    color: '#e91e63',
+    color: '#03a9f4',
     fontSize: 14,
     fontWeight: 'bold',
   },

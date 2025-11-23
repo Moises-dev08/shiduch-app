@@ -34,18 +34,18 @@ export default function ContinuationChoiceModal({
       <View style={styles.overlay}>
         <View style={styles.modal}>
           <View style={styles.iconContainer}>
-            <Ionicons name="people-circle" size={60} color="#e91e63" />
+            <Ionicons name="people-circle" size={60} color="#03a9f4" />
           </View>
 
           <Text style={styles.title}>How would you like to continue?</Text>
           
           <Text style={styles.message}>
-            Great! You and {profileName} are interested. Choose how you&apos;d like to proceed:
+            Great! You are interested in {profileName}. Choose how you&apos;d like to proceed:
           </Text>
 
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#e91e63" />
+              <ActivityIndicator size="large" color="#03a9f4" />
               <Text style={styles.loadingText}>Processing...</Text>
             </View>
           ) : (
@@ -73,9 +73,9 @@ export default function ContinuationChoiceModal({
                 <View style={styles.buttonContent}>
                   <Ionicons name="people" size={24} color="#fff" />
                   <View style={styles.buttonTextContainer}>
-                    <Text style={styles.buttonTitle}>With a middle person</Text>
+                    <Text style={styles.buttonTitle}>With a Matchmaker/Shadchan</Text>
                     <Text style={styles.buttonDescription}>
-                      Use a middle person to help coordinate
+                      Use a Matchmaker/Shadchan to help coordinate
                     </Text>
                   </View>
                 </View>

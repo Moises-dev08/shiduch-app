@@ -264,8 +264,8 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   chipSelected: {
-    backgroundColor: '#e91e63',
-    borderColor: '#e91e63',
+    backgroundColor: '#03a9f4',
+    borderColor: '#03a9f4',
   },
   chipText: {
     fontSize: 14,
@@ -341,11 +341,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e91e63',
+    borderColor: '#03a9f4',
     alignItems: 'center',
   },
   clearButtonText: {
-    color: '#e91e63',
+    color: '#03a9f4',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 8,
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     alignItems: 'center',
   },
   applyButtonText: {

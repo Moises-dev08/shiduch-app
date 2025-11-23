@@ -51,6 +51,11 @@ class SuggestionService {
         return { success: false, error: 'Profile not found' };
       }
 
+      // Validate that the suggester is not one of the profiles being suggested
+      if (profile.id === profileOneId || profile.id === profileTwoId) {
+        return { success: false, error: 'You cannot suggest yourself' };
+      }
+
       // Check if there's already an active suggestion for these profiles
       const { data: existing } = await supabase
         .from('suggestions')
@@ -268,8 +273,8 @@ class SuggestionService {
         .select(`
           *,
           suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, dob, pictures, gender),
-          profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
-          profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
+          profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+          profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
           profile_one_middle_person:profiles!suggestions_profile_one_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
           profile_two_middle_person:profiles!suggestions_profile_two_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
         `)
@@ -282,8 +287,8 @@ class SuggestionService {
         .select(`
           *,
           suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, dob, pictures, gender),
-          profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
-          profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
+          profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+          profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
           profile_one_middle_person:profiles!suggestions_profile_one_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
           profile_two_middle_person:profiles!suggestions_profile_two_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
         `)
@@ -316,6 +321,7 @@ class SuggestionService {
       phone?: string;
       email?: string;
       whatsapp?: string;
+      resumeUrl?: string;
     };
     message: string;
   } {
@@ -343,21 +349,35 @@ class SuggestionService {
     // Both chose by_themselves - share direct contact
     if (profileOneByThemselves && profileTwoByThemselves) {
       const contactProfile = isProfileOne ? suggestion.profile_two : suggestion.profile_one;
+      if (!contactProfile) {
+        return {
+          shouldShowContact: false,
+          message: 'Contact information not available',
+        };
+      }
+      const profile = contactProfile as any;
       return {
         shouldShowContact: true,
         contactPerson: {
-          name: `${contactProfile.first_name} ${contactProfile.last_name}`,
-          phone: contactProfile.phone,
-          email: contactProfile.email,
-          whatsapp: contactProfile.whatsapp,
+          name: `${profile.first_name} ${profile.last_name}`,
+          phone: profile.phone,
+          email: profile.email,
+          whatsapp: profile.whatsapp,
+          resumeUrl: profile.resume_url || undefined,
         },
         message: 'Both chose to continue directly. Contact info below:',
       };
     }
 
-    // One chose middle person, one chose by_themselves
+    // One chose Matchmaker/Shadchan, one chose by_themselves
     if (profileOneByThemselves && !profileTwoByThemselves) {
-      const middlePerson = suggestion.profile_two_middle_person;
+      const middlePerson = suggestion.profile_two_middle_person as any;
+      if (!middlePerson) {
+        return {
+          shouldShowContact: false,
+          message: 'Contact information not available',
+        };
+      }
       return {
         shouldShowContact: true,
         contactPerson: {
@@ -367,13 +387,19 @@ class SuggestionService {
           whatsapp: middlePerson.whatsapp,
         },
         message: isProfileOne 
-          ? `Contact ${middlePerson.first_name} (their middle person):`
-          : `Contact ${middlePerson.first_name} (your middle person):`,
+          ? `Contact ${middlePerson.first_name} (their Matchmaker/Shadchan):`
+          : `Contact ${middlePerson.first_name} (your Matchmaker/Shadchan):`,
       };
     }
 
     if (!profileOneByThemselves && profileTwoByThemselves) {
-      const middlePerson = suggestion.profile_one_middle_person;
+      const middlePerson = suggestion.profile_one_middle_person as any;
+      if (!middlePerson) {
+        return {
+          shouldShowContact: false,
+          message: 'Contact information not available',
+        };
+      }
       return {
         shouldShowContact: true,
         contactPerson: {
@@ -383,15 +409,22 @@ class SuggestionService {
           whatsapp: middlePerson.whatsapp,
         },
         message: isProfileOne 
-          ? `Contact ${middlePerson.first_name} (your middle person):`
-          : `Contact ${middlePerson.first_name} (their middle person):`,
+          ? `Contact ${middlePerson.first_name} (your Matchmaker/Shadchan):`
+          : `Contact ${middlePerson.first_name} (their Matchmaker/Shadchan):`,
       };
     }
 
-    // Both chose middle person
-    const middlePerson = isProfileOne 
+    // Both chose Matchmaker/Shadchan
+    const middlePerson = (isProfileOne 
       ? suggestion.profile_one_middle_person 
-      : suggestion.profile_two_middle_person;
+      : suggestion.profile_two_middle_person) as any;
+    
+    if (!middlePerson) {
+      return {
+        shouldShowContact: false,
+        message: 'Contact information not available',
+      };
+    }
     
     return {
       shouldShowContact: true,
@@ -401,7 +434,7 @@ class SuggestionService {
         email: middlePerson.email,
         whatsapp: middlePerson.whatsapp,
       },
-      message: `Contact your middle person ${middlePerson.first_name}:`,
+      message: `Contact your Matchmaker/Shadchan ${middlePerson.first_name}:`,
     };
   }
 }

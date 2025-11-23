@@ -58,10 +58,10 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <Ionicons name="heart" size={80} color="#e91e63" />
+      <Ionicons name="heart" size={80} color="#03a9f4" />
       <Text style={styles.title}>Shiduchim</Text>
       <Text style={styles.subtitle}>Finding your perfect match</Text>
-      <ActivityIndicator size="large" color="#e91e63" style={styles.loader} />
+      <ActivityIndicator size="large" color="#03a9f4" style={styles.loader} />
     </View>
   );
 }

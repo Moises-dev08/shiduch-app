@@ -246,7 +246,7 @@ export default function MatchmakerProfileForm({ initialData, onSubmit, gender, l
 
       {/* Info Box */}
       <View style={styles.infoBox}>
-        <Ionicons name="information-circle" size={24} color="#e91e63" />
+        <Ionicons name="information-circle" size={24} color="#03a9f4" />
         <View style={styles.infoTextContainer}>
           <Text style={styles.infoTitle}>Matchmaker Profile</Text>
           <Text style={styles.infoText}>
@@ -271,7 +271,7 @@ export default function MatchmakerProfileForm({ initialData, onSubmit, gender, l
 
       {/* Date Picker Modal for iOS */}
       {Platform.OS === 'ios' ? (
-        <Modal visible={showDatePicker} animationType="slide" presentationStyle="fullScreen">
+        <Modal visible={showDatePicker} animationType="slide" presentationStyle="formSheet">
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setShowDatePicker(false)}>
@@ -380,8 +380,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   radioSelected: {
-    backgroundColor: '#e91e63',
-    borderColor: '#e91e63',
+    backgroundColor: '#03a9f4',
+    borderColor: '#03a9f4',
   },
   radioText: {
     fontSize: 14,
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     left: 4,
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#FFF0F6',
+    backgroundColor: '#e1f5fe',
     padding: 20,
     marginHorizontal: 20,
     marginTop: 16,
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   submitButton: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     margin: 20,
     paddingVertical: 16,
     borderRadius: 8,
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#e91e63',
+    color: '#03a9f4',
   },
   datePickerContainer: {
     flex: 1,

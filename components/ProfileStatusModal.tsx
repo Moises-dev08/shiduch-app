@@ -139,7 +139,7 @@ export default function ProfileStatusModal({
         <View style={styles.modal}>
           {initialLoading ? (
             <>
-              <ActivityIndicator size="large" color="#e91e63" style={{ marginVertical: 40 }} />
+              <ActivityIndicator size="large" color="#03a9f4" style={{ marginVertical: 40 }} />
               <Text style={styles.message}>Loading profile status...</Text>
             </>
           ) : (
@@ -182,7 +182,7 @@ export default function ProfileStatusModal({
             {status === 'approved' && onClose && (
               <TouchableOpacity
                 style={[styles.button, { backgroundColor: getStatusColor() }]}
-                onPress={onClose}
+                onPress={checkStatus}
               >
                 <Text style={styles.buttonText}>Continue</Text>
               </TouchableOpacity>

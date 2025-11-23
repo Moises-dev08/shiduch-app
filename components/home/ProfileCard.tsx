@@ -12,30 +12,9 @@ interface ProfileCardProps {
 
 export default function ProfileCard({ profile, onPress, renderAction }: ProfileCardProps) {
   const [imageError, setImageError] = useState(false);
-  const showImage = !imageError && profile.picture && (profile.picturePrivacy === 'public' || profile.picturePrivacy === 'private');
+  const showImage = !imageError && profile.picture && (profile.picturePrivacy === 'always' || profile.picturePrivacy === 'private' || profile.picturePrivacy === 'one_time');
   const isBlurred = profile.picturePrivacy === 'private';
   const age = calculateAge(profile.dob);
-
-  console.log('isBlurred', isBlurred);
-  console.log('profile.picturePrivacy', profile.picturePrivacy);
-  console.log('showImage', showImage);
-  console.log('profile', profile);
-
-
-  // Build info lines based on what's visible
-  const infoLines: string[] = [];
-  if (profile.location && profile.location !== 'Hidden') {
-    infoLines.push(profile.location);
-  }
-  if (profile.height) {
-    infoLines.push(profile.height);
-  }
-  if (profile.hasChildren !== undefined) {
-    infoLines.push(profile.hasChildren ? 'Has children' : 'No children');
-  }
-  if (profile.hashkafa_type) {
-    infoLines.push(profile.hashkafa_type);
-  }
 
   return (
     <TouchableOpacity 
@@ -57,6 +36,9 @@ export default function ProfileCard({ profile, onPress, renderAction }: ProfileC
               <Ionicons name="lock-closed" size={24} color="#fff" />
             </View>
           )}
+          <View style={styles.nameBadge}>
+            <Text style={styles.nameText} numberOfLines={1}>{profile.name}</Text>
+          </View>
           <View style={styles.ageBadge}>
             <Text style={styles.ageText}>{age} y/o</Text>
           </View>
@@ -68,24 +50,14 @@ export default function ProfileCard({ profile, onPress, renderAction }: ProfileC
             size={40} 
             color="#ccc" 
           />
+          <View style={styles.nameBadge}>
+            <Text style={styles.nameText} numberOfLines={1}>{profile.name}</Text>
+          </View>
           <View style={styles.ageBadge}>
             <Text style={styles.ageText}>{age} y/o</Text>
           </View>
         </View>
       )}
-      <View style={styles.profileInfo}>
-        <Text style={styles.profileName} numberOfLines={1}>{profile.name}</Text>
-        {infoLines.length > 0 ? (
-          <>
-            <Text style={styles.profileDetail} numberOfLines={1}>{infoLines[0]}</Text>
-            {infoLines[1] && (
-              <Text style={styles.profileDetail} numberOfLines={1}>{infoLines[1]}</Text>
-            )}
-          </>
-        ) : (
-          <Text style={styles.profileDetail} numberOfLines={1}>Tap to view</Text>
-        )}
-      </View>
       {renderAction && <View style={styles.actionContainer}>{renderAction}</View>}
     </TouchableOpacity>
   );
@@ -109,7 +81,7 @@ const styles = StyleSheet.create({
   },
   profileImage: {
     width: '100%',
-    height: 140,
+    height: 200,
     backgroundColor: '#f0f0f0',
   },
   placeholderImage: {
@@ -117,11 +89,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
+  nameBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    right: 8,
+    backgroundColor: '#87CEEB',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  nameText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
   ageBadge: {
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: '#03a9f4',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -130,20 +118,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#fff',
-  },
-  profileInfo: {
-    padding: 8,
-  },
-  profileName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 3,
-  },
-  profileDetail: {
-    fontSize: 11,
-    color: '#666',
-    marginBottom: 2,
   },
   actionContainer: {
     paddingHorizontal: 8,

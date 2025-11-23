@@ -3,18 +3,19 @@ import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Linking,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { profileService } from '../../lib/profileService';
 import { Suggestion, suggestionService } from '../../lib/suggestionService';
 import ContinuationChoiceModal from '../intro/ContinuationChoiceModal';
 import MiddlePersonSelectionModal from '../intro/MiddlePersonSelectionModal';
@@ -37,8 +38,8 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
 
   const isProfileOne = suggestion.profile_one_id === currentProfileId;
   const isProfileTwo = suggestion.profile_two_id === currentProfileId;
-  const otherProfile = isProfileOne ? suggestion.profile_two : suggestion.profile_one;
-  const suggester = suggestion.suggester_profile;
+  const otherProfile = (isProfileOne ? suggestion.profile_two : suggestion.profile_one) as any;
+  const suggester = suggestion.suggester_profile as any;
 
   const myStatus = isProfileOne ? suggestion.profile_one_status : suggestion.profile_two_status;
   const otherStatus = isProfileOne ? suggestion.profile_two_status : suggestion.profile_one_status;
@@ -125,7 +126,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
 
   const getProfileImage = (profile: any) => {
     if (Array.isArray(profile?.pictures) && profile.pictures.length > 0) {
-      return profile.pictures[0];
+      return profileService.getImageUrl(profile.pictures[0]);
     }
     return null;
   };
@@ -141,7 +142,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
     if (myStatus === 'accepted' && otherStatus === 'pending') {
       return (
         <View style={[styles.statusBadge, styles.waitingBadge]}>
-          <Text style={styles.statusText}>⏳ Waiting for {otherProfile.first_name}</Text>
+          <Text style={styles.statusText}>⏳ Waiting for {otherProfile?.first_name}</Text>
         </View>
       );
     }
@@ -183,9 +184,9 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.suggestionText}>
-          <Text style={styles.boldText}>{suggester.first_name} {suggester.last_name}</Text>
+          <Text style={styles.boldText}>{suggester?.first_name} {suggester?.last_name}</Text>
           {' '}suggests you with{' '}
-          <Text style={styles.boldText}>{otherProfile.first_name} {otherProfile.last_name}</Text>
+          <Text style={styles.boldText}>{otherProfile?.first_name} {otherProfile?.last_name}</Text>
         </Text>
         {renderStatus()}
       </View>
@@ -195,7 +196,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
         style={styles.learnMoreButton}
         onPress={() => setShowLearnMore(true)}
       >
-        <Ionicons name="information-circle-outline" size={20} color="#e91e63" />
+        <Ionicons name="information-circle-outline" size={20} color="#03a9f4" />
         <Text style={styles.learnMoreText}>Learn More</Text>
       </TouchableOpacity>
 
@@ -308,10 +309,10 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
                         <Text style={styles.contactActionText}>SMS</Text>
                       </TouchableOpacity>
 
-                      {contactInfo.contactPerson.whatsapp && (
+                      {contactInfo.contactPerson.phone && (
                         <TouchableOpacity
                           style={styles.contactAction}
-                          onPress={() => handleSendWhatsApp(contactInfo.contactPerson!.whatsapp!)}
+                          onPress={() => handleSendWhatsApp(contactInfo.contactPerson!.phone!)}
                         >
                           <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
                           <Text style={styles.contactActionText}>WhatsApp</Text>
@@ -338,6 +339,26 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
                     </TouchableOpacity>
                   )}
                 </View>
+
+                {/* Resume Download */}
+                {contactInfo.contactPerson.resumeUrl && (
+                  <TouchableOpacity
+                    style={styles.resumeButton}
+                    onPress={async () => {
+                      const { resumeService } = await import('../../lib/resumeService');
+                      const result = await resumeService.downloadResume(
+                        contactInfo.contactPerson!.resumeUrl!,
+                        `${contactInfo.contactPerson!.name}_resume`
+                      );
+                      if (!result.success) {
+                        Alert.alert('Error', result.error || 'Failed to open resume');
+                      }
+                    }}
+                  >
+                    <Ionicons name="document-text" size={20} color="#03a9f4" />
+                    <Text style={styles.resumeButtonText}>Download Resume 📄</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </>
           )}
@@ -364,30 +385,32 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
             {/* Suggester Profile */}
             <View style={styles.profileSection}>
               <Text style={styles.sectionTitle}>Suggested by</Text>
-              <TouchableOpacity
-                style={styles.profileCard}
-                onPress={() => {
-                  setShowLearnMore(false);
-                  handleViewProfile(suggester.id);
-                }}
-              >
-                {getProfileImage(suggester) ? (
-                  <Image source={{ uri: getProfileImage(suggester)! }} style={styles.profileImage} />
-                ) : (
-                  <View style={styles.profileImagePlaceholder}>
-                    <Ionicons name="person" size={30} color="#ccc" />
+              {suggester && (
+                <TouchableOpacity
+                  style={styles.profileCard}
+                  onPress={() => {
+                    setShowLearnMore(false);
+                    handleViewProfile(suggester.id);
+                  }}
+                >
+                  {getProfileImage(suggester) ? (
+                    <Image source={{ uri: getProfileImage(suggester)! }} style={styles.profileImage} />
+                  ) : (
+                    <View style={styles.profileImagePlaceholder}>
+                      <Ionicons name="person" size={30} color="#ccc" />
+                    </View>
+                  )}
+                  <View style={styles.profileInfo}>
+                    <Text style={styles.profileName}>{suggester?.first_name} {suggester.last_name}</Text>
+                    <Text style={styles.profileDetails}>{suggester.age} • {suggester.gender}</Text>
                   </View>
-                )}
-                <View style={styles.profileInfo}>
-                  <Text style={styles.profileName}>{suggester.first_name} {suggester.last_name}</Text>
-                  <Text style={styles.profileDetails}>{suggester.age} • {suggester.gender}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#ccc" />
-              </TouchableOpacity>
+                  <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Note */}
-            {suggestion.note && (
+            {suggestion.note && suggester && (
               <View style={styles.noteSection}>
                 <Text style={styles.sectionTitle}>Note from {suggester.first_name}</Text>
                 <View style={styles.noteCard}>
@@ -403,7 +426,9 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
                 style={styles.profileCard}
                 onPress={() => {
                   setShowLearnMore(false);
-                  handleViewProfile(otherProfile.id);
+                  if (otherProfile?.id) {
+                    handleViewProfile(otherProfile.id);
+                  }
                 }}
               >
                 {getProfileImage(otherProfile) ? (
@@ -414,8 +439,8 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
                   </View>
                 )}
                 <View style={styles.profileInfo}>
-                  <Text style={styles.profileName}>{otherProfile.first_name} {otherProfile.last_name}</Text>
-                  <Text style={styles.profileDetails}>{otherProfile.age} • {otherProfile.gender}</Text>
+                  <Text style={styles.profileName}>{otherProfile?.first_name} {otherProfile?.last_name}</Text>
+                  <Text style={styles.profileDetails}>{otherProfile?.age} • {otherProfile?.gender}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#ccc" />
               </TouchableOpacity>
@@ -436,7 +461,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
       {otherProfile && (
         <ContinuationChoiceModal
           visible={showContinuationModal}
-          profileName={`${otherProfile.first_name} ${otherProfile.last_name}`}
+          profileName={`${otherProfile?.first_name} ${otherProfile?.last_name}`}
           onSelectChoice={handleContinuationChoice}
           onCancel={() => setShowContinuationModal(false)}
           loading={isResponding}
@@ -460,11 +485,11 @@ const styles = StyleSheet.create({
   },
   actionNeededCard: {
     borderLeftWidth: 4,
-    borderLeftColor: '#e91e63',
+    borderLeftColor: '#03a9f4',
     paddingTop: 0,
   },
   actionBanner: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -496,7 +521,7 @@ const styles = StyleSheet.create({
   },
   boldText: {
     fontWeight: '600',
-    color: '#e91e63',
+    color: '#03a9f4',
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -534,7 +559,7 @@ const styles = StyleSheet.create({
   learnMoreText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#e91e63',
+    color: '#03a9f4',
   },
   actionsSection: {
     borderTopWidth: 1,
@@ -658,6 +683,23 @@ const styles = StyleSheet.create({
   contactActionText: {
     fontSize: 11,
     color: '#666',
+  },
+  resumeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e1f5fe',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#03a9f4',
+  },
+  resumeButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#03a9f4',
+    marginLeft: 8,
   },
   modalContainer: {
     flex: 1,

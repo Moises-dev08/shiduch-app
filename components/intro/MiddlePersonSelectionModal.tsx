@@ -120,7 +120,7 @@ export default function MiddlePersonSelectionModal({
     if (filterHashkafa.trim()) {
       const query = filterHashkafa.toLowerCase();
       filtered = filtered.filter(p =>
-        p.hashkafa.toLowerCase().includes(query)
+        p?.hashkafa_type?.toLowerCase().includes(query)
       );
     }
 
@@ -169,7 +169,7 @@ export default function MiddlePersonSelectionModal({
           <TouchableOpacity onPress={handleCancel}>
             <Ionicons name="close" size={28} color="#333" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Select middle person</Text>
+          <Text style={styles.headerTitle}>Select Matchmaker/Shadchan</Text>
           <View style={{ width: 28 }} />
         </View>
 
@@ -187,7 +187,7 @@ export default function MiddlePersonSelectionModal({
             style={styles.filterButton}
             onPress={() => setShowFilters(!showFilters)}
           >
-            <Ionicons name="options" size={22} color={showFilters ? '#e91e63' : '#666'} />
+            <Ionicons name="options" size={22} color={showFilters ? '#03a9f4' : '#666'} />
           </TouchableOpacity>
         </View>
 
@@ -199,7 +199,7 @@ export default function MiddlePersonSelectionModal({
         {/* Profile List */}
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#e91e63" />
+            <ActivityIndicator size="large" color="#03a9f4" />
           </View>
         ) : (
           <ScrollView style={styles.profileList}>
@@ -478,8 +478,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   chipActive: {
-    backgroundColor: '#e91e63',
-    borderColor: '#e91e63',
+    backgroundColor: '#03a9f4',
+    borderColor: '#03a9f4',
   },
   chipText: {
     fontSize: 14,
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   },
   clearButtonText: {
     fontSize: 14,
-    color: '#e91e63',
+    color: '#03a9f4',
     fontWeight: '600',
   },
   resultsCount: {
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
   doneButton: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#e91e63',
+    color: '#03a9f4',
   },
   filterModalContent: {
     flex: 1,

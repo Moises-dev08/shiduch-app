@@ -2,13 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { profileService } from '../../lib/profileService';
 import { Suggestion } from '../../lib/suggestionService';
@@ -136,7 +136,7 @@ export default function MadeSuggestionCard({ suggestion }: MadeSuggestionCardPro
            (suggestion.status === 'accepted' && 
             suggestion.profile_one_continuation_choice && 
             suggestion.profile_two_continuation_choice) ? (
-            <Ionicons name="heart" size={20} color="#e91e63" />
+            <Ionicons name="heart" size={20} color="#03a9f4" />
           ) : (
             <Ionicons name="arrow-forward" size={20} color="#999" />
           )}
@@ -173,7 +173,7 @@ export default function MadeSuggestionCard({ suggestion }: MadeSuggestionCardPro
           style={styles.noteButton}
           onPress={() => setShowNoteModal(true)}
         >
-          <Ionicons name="document-text" size={16} color="#e91e63" />
+          <Ionicons name="document-text" size={16} color="#03a9f4" />
           <Text style={styles.noteButtonText}>View Your Note</Text>
         </TouchableOpacity>
       )}
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   noteButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#e91e63',
+    color: '#03a9f4',
   },
   dateSection: {
     flexDirection: 'row',

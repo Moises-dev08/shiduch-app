@@ -10,6 +10,7 @@ import MiddlePersonSelectionModal from '../components/intro/MiddlePersonSelectio
 import ProfileGridSelectionModal from '../components/suggestion/ProfileGridSelectionModal';
 import { infoRequestService } from '../lib/infoRequestService';
 import { introService } from '../lib/introService';
+import { pictureViewService } from '../lib/pictureViewService';
 import { Profile as DBProfile, profileService } from '../lib/profileService';
 import { suggestionService } from '../lib/suggestionService';
 import { supabase } from '../lib/supabase';
@@ -46,6 +47,9 @@ export default function ProfileDetailsScreen() {
   const [showAskForInfoModal, setShowAskForInfoModal] = useState(false);
   const [selectedFieldForInfo, setSelectedFieldForInfo] = useState<string>('');
   const [isSubmittingInfoRequest, setIsSubmittingInfoRequest] = useState(false);
+  
+  // One-time picture view tracking
+  const [hasPicturesBeenViewed, setHasPicturesBeenViewed] = useState(false);
 
   const loadProfileData = useCallback(async () => {
     try {
@@ -102,7 +106,20 @@ export default function ProfileDetailsScreen() {
       // Transform to display profile - RESPECTING PRIVACY SETTINGS
       const fieldPrivacy = data.field_privacy || {};
       const picturePrivacy = data.picture_privacy || 'none';
-      const showPictures = picturePrivacy === 'public' || picturePrivacy === 'private';
+      
+      // Check if pictures have been viewed (for one_time privacy)
+      let hasViewedPictures = false;
+      if (picturePrivacy === 'one_time') {
+        const viewResult = await pictureViewService.hasViewedPictures(profileId);
+        if (viewResult.success) {
+          hasViewedPictures = viewResult.hasViewed;
+          setHasPicturesBeenViewed(hasViewedPictures);
+        }
+      }
+      
+      // Show pictures based on privacy setting and view status
+      const showPictures = picturePrivacy === 'always' || picturePrivacy === 'private' || 
+                          (picturePrivacy === 'one_time' && !hasViewedPictures);
 
       // Only show pictures if privacy allows
       const firstPicture = showPictures && data.pictures && data.pictures.length > 0 
@@ -148,7 +165,7 @@ export default function ProfileDetailsScreen() {
         whatsapp: shouldShowField('whatsapp') ? data.whatsapp : undefined,
         height: shouldShowField('height') ? data.height : undefined,
         hasChildren: shouldShowField('hasChildren') ? data.has_children : undefined,
-        picturePrivacy: currentApprovedFields.has('pictures') ? 'public' : picturePrivacy,
+        picturePrivacy: currentApprovedFields.has('pictures') ? 'always' : picturePrivacy,
         field_privacy: fieldPrivacy,
         // Additional fields from database
         what_looking_for: shouldShowField('what_looking_for') ? data.what_looking_for : undefined,
@@ -170,7 +187,6 @@ export default function ProfileDetailsScreen() {
         head_covering: shouldShowField('head_covering') ? data.head_covering : undefined,
         smoking: shouldShowField('smoking') ? data.smoking : undefined,
         alcohol_consumption: shouldShowField('alcohol_consumption') ? data.alcohol_consumption : undefined,
-        user_references: shouldShowField('user_references') ? data.user_references : undefined,
         last_active_at: data.last_active_at,
       };
 
@@ -188,12 +204,31 @@ export default function ProfileDetailsScreen() {
     loadProfileData();
   }, [loadProfileData]);
 
-  const handlePicturePress = (index: number) => {
+  const handlePicturePress = async (index: number) => {
     // Check if pictures are private
     if (profile?.picturePrivacy === 'private') {
       handleAskForInfo('pictures');
       return;
     }
+    
+    // For one-time pictures, show alert if already viewed
+    if (profile?.picturePrivacy === 'one_time' && hasPicturesBeenViewed) {
+      Alert.alert(
+        'Pictures Already Viewed',
+        'You have already viewed this profile\'s pictures. One-time pictures can only be viewed once.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    // Record the view for one-time pictures (before opening)
+    if (profile?.picturePrivacy === 'one_time' && !hasPicturesBeenViewed && profile.id) {
+      const recordResult = await pictureViewService.recordPictureView(profile.id);
+      if (recordResult.success) {
+        setHasPicturesBeenViewed(true);
+      }
+    }
+    
     setSelectedPictureIndex(index);
     setShowPictureViewer(true);
   };
@@ -246,7 +281,7 @@ export default function ProfileDetailsScreen() {
 
       if (result.success) {
         Alert.alert(
-          'Request Sent',
+          'Request Sent! 📤',
           `Your request has been sent to ${profile.name.split(' ')[0]}. You'll be notified when they respond.`,
           [{ text: 'OK' }]
         );
@@ -278,7 +313,7 @@ export default function ProfileDetailsScreen() {
       return;
     }
 
-    // Start the intro flow by selecting middle person
+    // Start the intro flow by selecting Matchmaker/Shadchan
     setShowMiddlePersonModal(true);
   };
 
@@ -312,7 +347,7 @@ export default function ProfileDetailsScreen() {
 
       setShowContinuationModal(false);
       Alert.alert(
-        'Intro Request Sent!',
+        'Intro Request Sent! 💌',
         `Your intro request has been sent to ${profile.name}. ${selectedMiddlePerson.first_name} ${selectedMiddlePerson.last_name} will facilitate the introduction.`,
         [
           {
@@ -365,7 +400,7 @@ export default function ProfileDetailsScreen() {
       setSelectedProfileForSetup(null);
 
       Alert.alert(
-        'Suggestion Sent!',
+          'Suggestion Sent! 💡',
         `Your match suggestion has been sent to ${profile.name} and ${selectedProfileForSetup.name}.`,
         [
           {
@@ -395,7 +430,7 @@ export default function ProfileDetailsScreen() {
           <View style={styles.placeholder} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#e91e63" />
+          <ActivityIndicator size="large" color="#03a9f4" />
         </View>
       </SafeAreaView>
     );
@@ -421,7 +456,7 @@ export default function ProfileDetailsScreen() {
             style={styles.askMeButton}
             onPress={() => handleAskForInfo(fieldName)}
           >
-            <Ionicons name="lock-closed" size={14} color="#e91e63" />
+            <Ionicons name="lock-closed" size={14} color="#03a9f4" />
             <Text style={styles.askMeButtonText}>Ask me</Text>
           </TouchableOpacity>
         </View>
@@ -464,7 +499,7 @@ export default function ProfileDetailsScreen() {
                   onError={() => setImageError(true)}
                   blurRadius={profile.picturePrivacy === 'private' ? 20 : 0}
                 />
-                {profile.picturePrivacy === 'private' && (
+                {profile.picturePrivacy === 'private' &&  (
                   <TouchableOpacity
                     style={styles.seeMoreOverlay}
                     onPress={() => handleAskForInfo('pictures')}
@@ -520,13 +555,13 @@ export default function ProfileDetailsScreen() {
 
         {/* About Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
+          <Text style={styles.sectionTitle}>About 👤</Text>
           <Text style={styles.bioText}>{profile.bio}</Text>
         </View>
 
         {/* Details Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Basic Information</Text>
+          <Text style={styles.sectionTitle}>Basic Information 📋</Text>
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Gender:</Text>
@@ -545,7 +580,7 @@ export default function ProfileDetailsScreen() {
 
         {/* Location Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location</Text>
+          <Text style={styles.sectionTitle}>Location 📍</Text>
           {renderDetailRow('City', profile.location_city, 'location_city')}
           {renderDetailRow('State', profile.location_state, 'location_state')}
           {renderDetailRow('Country', profile.location_country, 'location_country')}
@@ -553,7 +588,7 @@ export default function ProfileDetailsScreen() {
 
         {/* Languages & Background */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Languages & Background</Text>
+          <Text style={styles.sectionTitle}>Languages & Background 🌍</Text>
           {renderDetailRow('Languages', profile.languages && profile.languages.length > 0 ? profile.languages.join(', ') : null, 'languages')}
           {renderDetailRow('Background', profile.nationality && profile.nationality.length > 0 ? profile.nationality.join(', ') : null, 'nationality')}
           {profile.gender === 'male' && renderDetailRow('Cohen', profile.is_cohen !== undefined ? (profile.is_cohen ? 'Yes' : 'No') : null, 'is_cohen')}
@@ -562,7 +597,7 @@ export default function ProfileDetailsScreen() {
         {/* Hashkafa / Religious Outlook */}
         {(profile.hashkafa_type || profile.hashkafa_type || profile.torah_learning || profile.praying) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Religious Outlook</Text>
+            <Text style={styles.sectionTitle}>Religious Outlook ✡️</Text>
             
             {profile.hashkafa_type && (
               <View style={styles.detailRow}>
@@ -597,7 +632,7 @@ export default function ProfileDetailsScreen() {
         {/* Education */}
         {(profile.education_level || profile.post_high_school_path) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Education</Text>
+            <Text style={styles.sectionTitle}>Education 🎓</Text>
             
             {profile.education_level && (
               <View style={styles.detailRow}>
@@ -618,7 +653,7 @@ export default function ProfileDetailsScreen() {
         {/* Occupation / Study */}
         {profile.current_occupation_study && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Occupation / Study</Text>
+            <Text style={styles.sectionTitle}>Occupation / Study 💼</Text>
             
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Current Status:</Text>
@@ -630,7 +665,7 @@ export default function ProfileDetailsScreen() {
         {/* Plan After Marriage */}
         {profile.plan_after_marriage && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Plan After Marriage</Text>
+            <Text style={styles.sectionTitle}>Plan After Marriage 💍</Text>
             
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Plans:</Text>
@@ -642,7 +677,7 @@ export default function ProfileDetailsScreen() {
         {/* Marital Status */}
         {profile.marital_status && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Marital Status</Text>
+            <Text style={styles.sectionTitle}>Marital Status 💑</Text>
             
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Status:</Text>
@@ -654,7 +689,7 @@ export default function ProfileDetailsScreen() {
         {/* Dress & Appearance */}
         {(profile.dress_style || (profile.gender === 'male' && profile.wears_black_hat !== undefined) || (profile.gender === 'female' && profile.head_covering)) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Dress & Appearance</Text>
+            <Text style={styles.sectionTitle}>Dress & Appearance 👔</Text>
             
             {profile.dress_style && (
               <View style={styles.detailRow}>
@@ -682,7 +717,7 @@ export default function ProfileDetailsScreen() {
         {/* Lifestyle */}
         {(profile.smoking || profile.alcohol_consumption) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Lifestyle</Text>
+            <Text style={styles.sectionTitle}>Lifestyle 🌟</Text>
             
             {profile.smoking && (
               <View style={styles.detailRow}>
@@ -697,20 +732,6 @@ export default function ProfileDetailsScreen() {
                 <Text style={styles.detailValue}>{profile.alcohol_consumption}</Text>
               </View>
             )}
-          </View>
-        )}
-
-        {/* References */}
-        {profile.user_references && profile.user_references.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>References</Text>
-            
-            {profile.user_references.map((ref: any, index: number) => (
-              <View key={index} style={styles.referenceCard}>
-                <Text style={styles.referenceName}>{ref.name}</Text>
-                <Text style={styles.referencePhone}>{ref.phone}</Text>
-              </View>
-            ))}
           </View>
         )}
 
@@ -1017,22 +1038,6 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 1,
   },
-  referenceCard: {
-    backgroundColor: '#f9f9f9',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  referenceName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  referencePhone: {
-    fontSize: 14,
-    color: '#666',
-  },
   lastActiveContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1067,7 +1072,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF6B6B',
   },
   introButton: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
   },
   actionButtonText: {
     color: '#fff',
@@ -1144,7 +1149,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   sendButton: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
   },
   sendButtonText: {
     fontSize: 16,
@@ -1195,15 +1200,15 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#fef5f8',
+    backgroundColor: '#e1f5fe',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e91e63',
+    borderColor: '#03a9f4',
   },
   askMeButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#e91e63',
+    color: '#03a9f4',
   },
 });
 

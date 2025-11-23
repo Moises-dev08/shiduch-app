@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { IntroRequest, introService } from '../../lib/introService';
+import { profileService } from '../../lib/profileService';
 import ContinuationChoiceModal from './ContinuationChoiceModal';
 import MiddlePersonSelectionModal from './MiddlePersonSelectionModal';
 
@@ -31,8 +32,8 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
   const [isRejecting, setIsRejecting] = useState(false);
   const [showMiddlePersonModal, setShowMiddlePersonModal] = useState(false);
   const [showContinuationModal, setShowContinuationModal] = useState(false);
-  const [selectedMiddlePerson, setSelectedMiddlePerson] = useState<any>(null);
   const [showContactInfo, setShowContactInfo] = useState(false);
+  const [isResponding, setIsResponding] = useState(false);
 
   const otherProfile = isRequester ? request.requested_profile : request.requester_profile;
   const middlePerson = request.requester_middle_person;
@@ -43,14 +44,14 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
       router.push(`/profile-details?id=${otherProfile.id}&hideActions=true`);
     }
   };
-
+console.log('contactInfo', contactInfo);
   const handleAccept = () => {
     // Show continuation choice modal directly
     setShowContinuationModal(true);
   };
 
   const handleContinuationChoice = async (choice: 'by_themselves' | 'with_middle_person') => {
-    // If they chose to continue with middle person, show selection modal
+    // If they chose to continue with Matchmaker/Shadchan, show selection modal
     if (choice === 'with_middle_person') {
       setShowContinuationModal(false);
       setShowMiddlePersonModal(true);
@@ -62,7 +63,7 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
     try {
       await introService.respondToIntroRequest(request.id, 'accepted', '', choice);
       setShowContinuationModal(false);
-      Alert.alert('Success', 'You have accepted the intro request!');
+      Alert.alert('Success! ✅', 'You have accepted the intro request!');
       onUpdate();
     } catch (error) {
       console.error('Error accepting request:', error);
@@ -73,14 +74,13 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
   };
 
   const handleMiddlePersonSelected = async (person: any) => {
-    setSelectedMiddlePerson(person);
     setShowMiddlePersonModal(false);
     setIsAccepting(true);
     
     try {
       // If this is initial response (pending or rejected status)
       if (request.status === 'pending' || request.status === 'rejected') {
-        // Accept with middle person
+        // Accept with Matchmaker/Shadchan
         await introService.respondToIntroRequest(
           request.id, 
           'accepted', 
@@ -88,15 +88,15 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
           'with_middle_person', 
           person.id
         );
-        Alert.alert('Success', 'You have accepted the intro request!');
+        Alert.alert('Success! ✅', 'You have accepted the intro request!');
       } 
-      // If already accepted and now choosing middle person for continuation
+      // If already accepted and now choosing Matchmaker/Shadchan for continuation
       else if (request.status === 'accepted' && !isRequester && !request.requested_continuation_choice) {
-        // Set the middle person first
+        // Set the Matchmaker/Shadchan first
         await introService.setRequestedMiddlePerson(request.id, person.id);
         // Then set the continuation choice
         await introService.setContinuationChoice(request.id, 'with_middle_person', false);
-        Alert.alert('Choice Saved', 'Your continuation preference has been saved!');
+        Alert.alert('Choice Saved! ✅', 'Your continuation preference has been saved!');
       }
       onUpdate();
     } catch (error) {
@@ -157,7 +157,7 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
     }
     // If this is for requested person choosing after acceptance
     else if (!isRequester && request.status === 'accepted' && !request.requested_continuation_choice) {
-      // For requested person after accepting, they can also choose middle person
+      // For requested person after accepting, they can also choose Matchmaker/Shadchan
       if (choice === 'with_middle_person') {
         setShowContinuationModal(false);
         setShowMiddlePersonModal(true);
@@ -292,7 +292,7 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
                 : null;
             
             return firstPicture ? (
-              <Image source={{ uri: firstPicture }} style={styles.profileImage} />
+              <Image source={{ uri: profileService.getImageUrl(firstPicture) }} style={styles.profileImage} />
             ) : (
               <View style={styles.profileImagePlaceholder}>
                 <Ionicons name="person" size={30} color="#ccc" />
@@ -371,7 +371,7 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
             <View>
               <TextInput
                 style={styles.noteInput}
-                placeholder="Optional note to middle person..."
+                placeholder="Optional note to Matchmaker/Shadchan..."
                 value={rejectNote}
                 onChangeText={setRejectNote}
                 multiline
@@ -498,10 +498,10 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
                         <Text style={styles.contactActionText}>SMS</Text>
                       </TouchableOpacity>
 
-                      {contactInfo.contactPerson.whatsapp && (
+                      {contactInfo.contactPerson.phone && (
                         <TouchableOpacity
                           style={styles.contactAction}
-                          onPress={() => handleSendWhatsApp(contactInfo.contactPerson!.whatsapp!)}
+                          onPress={() => handleSendWhatsApp(contactInfo.contactPerson!.phone!)}
                         >
                           <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
                           <Text style={styles.contactActionText}>WhatsApp</Text>
@@ -528,6 +528,26 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
                     </TouchableOpacity>
                   )}
                 </View>
+
+                {/* Resume Download */}
+                {contactInfo.contactPerson.resumeUrl && (
+                  <TouchableOpacity
+                    style={styles.resumeButton}
+                    onPress={async () => {
+                      const { resumeService } = await import('../../lib/resumeService');
+                      const result = await resumeService.downloadResume(
+                        contactInfo.contactPerson!.resumeUrl!,
+                        `${contactInfo.contactPerson!.name}_resume`
+                      );
+                      if (!result.success) {
+                        Alert.alert('Error', result.error || 'Failed to open resume');
+                      }
+                    }}
+                  >
+                    <Ionicons name="document-text" size={20} color="#03a9f4" />
+                    <Text style={styles.resumeButtonText}>Download Resume 📄</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </>
           )}
@@ -558,7 +578,6 @@ export default function IntroRequestCard({ request, isRequester, onUpdate, isAct
           onSelectChoice={handleModalContinuationChoice}
           onCancel={() => {
             setShowContinuationModal(false);
-            setSelectedMiddlePerson(null);
           }}
           loading={isResponding}
         />
@@ -581,11 +600,11 @@ const styles = StyleSheet.create({
   },
   actionNeededCard: {
     borderLeftWidth: 4,
-    borderLeftColor: '#e91e63',
+    borderLeftColor: '#03a9f4',
     paddingTop: 0,
   },
   actionBanner: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -810,6 +829,23 @@ const styles = StyleSheet.create({
   contactActionText: {
     fontSize: 11,
     color: '#666',
+  },
+  resumeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e1f5fe',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#03a9f4',
+  },
+  resumeButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#03a9f4',
+    marginLeft: 8,
   },
   waitingSection: {
     flexDirection: 'row',

@@ -74,7 +74,7 @@ export default function HomeScreen() {
             style={styles.filterButton}
             onPress={() => setShowFilterModal(true)}
           >
-            <Ionicons name="options" size={20} color="#e91e63" />
+            <Ionicons name="options" size={20} color="#03a9f4" />
           </TouchableOpacity>
         </View>
       </View>
@@ -88,14 +88,14 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#e91e63']}
-            tintColor="#e91e63"
+            colors={['#03a9f4']}
+            tintColor="#03a9f4"
           />
         }
       >
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#e91e63" />
+            <ActivityIndicator size="large" color="#03a9f4" />
             <Text style={styles.loadingText}>Loading profiles...</Text>
           </View>
         ) : filteredProfiles.length === 0 ? (
@@ -103,7 +103,7 @@ export default function HomeScreen() {
             <Ionicons name="people-outline" size={80} color="#ccc" />
             <Text style={styles.emptyText}>No profiles found</Text>
             <Text style={styles.emptySubtext}>
-              {searchQuery ? 'Try adjusting your search' : 'Check back later for new profiles'}
+              {searchQuery ? 'Try adjusting your search 🔍' : 'Check back later for new profiles ✨'}
             </Text>
           </View>
         ) : (
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     right: 6,
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#e91e63',
+    borderColor: '#03a9f4',
     justifyContent: 'center',
     alignItems: 'center',
   },

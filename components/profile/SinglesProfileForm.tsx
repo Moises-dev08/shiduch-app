@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Modal,
@@ -23,7 +25,7 @@ interface SinglesProfileFormProps {
 }
 
 // Options data
-const NATIONALITY_OPTIONS = ['Sefardi', 'Ashkenaz', 'Chassidic', 'Yemenite', 'Other'];
+const NATIONALITY_OPTIONS = ['Sefardi', 'Ashkenaz', 'Chassidic', 'Yemenite', 'Mixed Background','Other'];
 const HASHKAFA_OPTIONS = ['Yeshivish', 'Open-minded Yeshivish', 'Modern Yeshivish', 'Chareidi', 'Orthodox', 'Modern Orthodox', 'Other'];
 const TORAH_LEARNING_OPTIONS = ['Full day', 'Half day', 'Kovea Ittim', 'Attending Torah classes', 'Other'];
 const PRAYING_OPTIONS = ['Three times a day with minyan', 'Three times a day', 'Trying as much as possible', 'Other'];
@@ -36,11 +38,15 @@ const OCCUPATION_FEMALE = ['Working', 'Part-working', 'Studying and working', 'O
 const PLAN_MALE = ['Learn Torah', 'Learn and Work', 'Work and set times for learning', 'Work and attend shiurim/classes', 'Other'];
 const PLAN_FEMALE = ['Work full-time', 'Work part-time', 'Homemaker', 'Other'];
 const MARITAL_STATUS = ['Single', 'Divorced', 'Divorced with kids', 'Widow/Widower', 'Widow/Widower with kids'];
-const DRESS_STYLE = ['Yeshivesh', 'Modest modern', 'Modest fashionable', 'Colorful', 'Black & white', 'Other'];
+const DRESS_STYLE_FEMALE = ['Yeshivesh', 'Modest modern', 'Modest fashionable', 'Other'];
+const DRESS_STYLE_MALE = [ 'Casual', 'Black & white', 'Other'];
 const HEAD_COVERING = ['Wig/Sheitel', 'Mitpachat', 'Both', 'Other'];
 const SMOKING = ['Non-smoker', 'Smoking', 'Occasionally', 'Other'];
-const ALCOHOL = ['Does not drink at all', 'Drinks very rarely', 'Drinks occasionally', 'Drinks moderately', 'Drinks very often'];
+const ALCOHOL = ['Does not drink at all', 'Drinks very rarely', 'Drinks occasionally', 'Drinks moderately', 'Drinks very often', 'Other'];
 const LANGUAGES = ['English', 'Hebrew', 'Yiddish', 'Spanish', 'French', 'Russian', 'Arabic', 'Other'];
+
+const HEIGHT_FEET = Array.from({ length: 5 }, (_, i) => (4 + i).toString()); // 4-8 feet
+const HEIGHT_INCHES = Array.from({ length: 12 }, (_, i) => i.toString()); // 0-11 inches
 
 const COUNTRIES = [
   'United States', 'Israel', 'Canada', 'United Kingdom', 'Australia',
@@ -91,19 +97,38 @@ const US_STATES = [
 export default function SinglesProfileForm({ initialData, onSubmit, gender, loading }: SinglesProfileFormProps) {
   // Images
   const [pictures, setPictures] = useState<string[]>(initialData?.pictures || []);
-  const [picturePrivacy, setPicturePrivacy] = useState<'none' | 'always' | 'private'>(initialData?.picturePrivacy || 'none');
+  const [picturePrivacy, setPicturePrivacy] = useState<'none' | 'always' | 'private' | 'one_time'>(initialData?.picturePrivacy || 'none');
+  
+  // Resume
+  const [resumeUrl, setResumeUrl] = useState<string | undefined>(initialData?.resumeUrl);
+  const [resumeFileName, setResumeFileName] = useState<string>('');
+  const [uploadingResume, setUploadingResume] = useState(false);
 
   // Basic Required
   const [firstName, setFirstName] = useState(initialData?.firstName || '');
   const [lastName, setLastName] = useState(initialData?.lastName || '');
   const [dob, setDob] = useState(initialData?.dob ? new Date(initialData.dob) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showHeightPicker, setShowHeightPicker] = useState(false);
   const [bio, setBio] = useState(initialData?.bio || '');
   const [whatLookingFor, setWhatLookingFor] = useState(initialData?.whatLookingFor || '');
   const [phone, setPhone] = useState(initialData?.phone || '');
 
   // Optional fields
-  const [height, setHeight] = useState(initialData?.height || '');
+  const [heightFeet, setHeightFeet] = useState<string>(() => {
+    if (initialData?.height) {
+      const match = initialData.height.match(/(\d+)'(\d+)"/);
+      if (match) return match[1];
+    }
+    return '5';
+  });
+  const [heightInches, setHeightInches] = useState<string>(() => {
+    if (initialData?.height) {
+      const match = initialData.height.match(/(\d+)'(\d+)"/);
+      if (match) return match[2];
+    }
+    return '0';
+  });
   const [locationCity, setLocationCity] = useState(initialData?.locationCity || '');
   const [locationState, setLocationState] = useState(initialData?.locationState || '');
   const [locationCountry, setLocationCountry] = useState(initialData?.locationCountry || '');
@@ -158,8 +183,6 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
   const [smokingOther, setSmokingOther] = useState('');
   const [alcoholConsumption, setAlcoholConsumption] = useState(initialData?.alcoholConsumption || '');
   
-  // References
-  const [references, setReferences] = useState<{ name: string; phone: string }[]>(initialData?.userReferences || []);
   
   // Field Privacy (Ask Me flags)
   const [fieldPrivacy, setFieldPrivacy] = useState<{ [key: string]: boolean }>(initialData?.fieldPrivacy || {});
@@ -215,19 +238,6 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
     );
   };
 
-  const addReference = () => {
-    setReferences([...references, { name: '', phone: '' }]);
-  };
-
-  const updateReference = (index: number, field: 'name' | 'phone', value: string) => {
-    const updated = [...references];
-    updated[index][field] = value;
-    setReferences(updated);
-  };
-
-  const removeReference = (index: number) => {
-    setReferences(references.filter((_, i) => i !== index));
-  };
 
   const toggleFieldPrivacy = (fieldName: string, hasValue: boolean) => {
     if (!hasValue) {
@@ -235,6 +245,74 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       return;
     }
     setFieldPrivacy(prev => ({ ...prev, [fieldName]: !prev[fieldName] }));
+  };
+
+  const handlePickResume = async () => {
+    const { resumeService } = await import('../../lib/resumeService');
+    setUploadingResume(true);
+    
+    try {
+      const pickResult = await resumeService.pickDocument();
+      
+      if (!pickResult.success) {
+        if (pickResult.error && pickResult.error !== 'Selection cancelled') {
+          Alert.alert('Error', pickResult.error);
+        }
+        return;
+      }
+
+      if (pickResult.uri && pickResult.name) {
+        const uploadResult = await resumeService.uploadResume(pickResult.uri, pickResult.name);
+        
+        if (uploadResult.success && uploadResult.url) {
+          setResumeUrl(uploadResult.url);
+          setResumeFileName(pickResult.name);
+          Alert.alert('Success! ✅', 'Resume uploaded successfully');
+        } else {
+          Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload resume');
+        }
+      }
+    } catch (error: any) {
+      console.error('Error picking/uploading resume:', error);
+      Alert.alert('Error', error.message || 'Failed to upload resume');
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
+  const handleDeleteResume = async () => {
+    Alert.alert(
+      'Delete Resume',
+      'Are you sure you want to delete your resume?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const { resumeService } = await import('../../lib/resumeService');
+            setUploadingResume(true);
+            
+            try {
+              const result = await resumeService.deleteResume();
+              
+              if (result.success) {
+                setResumeUrl(undefined);
+                setResumeFileName('');
+                Alert.alert('Deleted', 'Resume deleted successfully');
+              } else {
+                Alert.alert('Error', result.error || 'Failed to delete resume');
+              }
+            } catch (error: any) {
+              console.error('Error deleting resume:', error);
+              Alert.alert('Error', error.message || 'Failed to delete resume');
+            } finally {
+              setUploadingResume(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const validateAndSubmit = () => {
@@ -245,7 +323,40 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
     if (!bio.trim()) missingFields.push('Bio');
     if (!whatLookingFor.trim()) missingFields.push('What are you looking for');
     if (!phone.trim()) missingFields.push('Phone');
-    if (picturePrivacy !== 'none' && pictures.length === 0) missingFields.push('Pictures');
+    if (!heightFeet || heightFeet === '' || !heightInches || heightInches === '') missingFields.push('Height');
+    if (!locationCountry) missingFields.push('Country');
+    if (locationCountry === 'United States' && !locationState) missingFields.push('State');
+    if (locationCountry === 'United States' && !locationCity.trim()) missingFields.push('City');
+    if (selectedLanguages.length === 0) missingFields.push('Languages');
+    if (selectedLanguages.includes('Other') && !languageOther.trim()) missingFields.push('Languages (Other)');
+    if (selectedNationality.length === 0) missingFields.push('Nationality/Background');
+    if (selectedNationality.includes('Other') && !nationalityOther.trim()) missingFields.push('Nationality/Background (Other)');
+    if (!hashkafaType) missingFields.push('Hashkafa Type');
+    if (hashkafaType === 'Other' && !hashkafaOther.trim()) missingFields.push('Hashkafa Type (Other)');
+    if (gender === 'male') {
+      if (!torahLearning) missingFields.push('Torah Learning');
+      if (torahLearning === 'Other' && !torahLearningOther.trim()) missingFields.push('Torah Learning (Other)');
+      if (!praying) missingFields.push('Praying');
+      if (praying === 'Other' && !prayingOther.trim()) missingFields.push('Praying (Other)');
+    }
+    if (selectedEducation.length === 0) missingFields.push('Education Level');
+    if (selectedEducation.includes('Other') && !educationOther.trim()) missingFields.push('Education Level (Other)');
+    if (!postHighSchoolPath) missingFields.push('Post-High School Path');
+    if (postHighSchoolPath === 'Other' && !postHSOther.trim()) missingFields.push('Post-High School Path (Other)');
+    if (!currentOccupationStudy) missingFields.push('Current Occupation/Study');
+    if (currentOccupationStudy === 'Other' && !occupationOther.trim()) missingFields.push('Current Occupation/Study (Other)');
+    if (!planAfterMarriage) missingFields.push('Plan After Marriage');
+    if (planAfterMarriage === 'Other' && !planOther.trim()) missingFields.push('Plan After Marriage (Other)');
+    if (!maritalStatus) missingFields.push('Marital Status');
+    if (!dressStyle) missingFields.push('Dress Style');
+    if (dressStyle === 'Other' && !dressStyleOther.trim()) missingFields.push('Dress Style (Other)');
+    if (gender === 'male' && wearsBlackHat === undefined) missingFields.push('Black Hat');
+    if (gender === 'female' && !headCovering) missingFields.push('Head Covering');
+    if (gender === 'female' && headCovering === 'Other' && !headCoveringOther.trim()) missingFields.push('Head Covering (Other)');
+    if (!smoking) missingFields.push('Smoking');
+    if (smoking === 'Other' && !smokingOther.trim()) missingFields.push('Smoking (Other)');
+    if (!alcoholConsumption) missingFields.push('Alcohol Consumption');
+    if (gender === 'male' && isCohen === undefined) missingFields.push('Cohen');
 
     if (missingFields.length > 0) {
       Alert.alert('Missing Required Fields', `Please fill in: ${missingFields.join(', ')}`);
@@ -262,7 +373,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       phone,
       pictures,
       picturePrivacy,
-      height: height || undefined,
+      height: heightFeet && heightInches ? `${heightFeet}'${heightInches}"` : undefined,
       locationCity: locationCity || undefined,
       locationState: locationCountry === 'United States' ? locationState || undefined : undefined,
       locationCountry: locationCountry || undefined,
@@ -294,9 +405,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       headCovering: gender === 'female' ? (headCovering === 'Other' ? headCoveringOther : headCovering) : undefined,
       smoking: smoking === 'Other' ? smokingOther : smoking || undefined,
       alcoholConsumption: alcoholConsumption || undefined,
-      userReferences: references.filter(r => r.name && r.phone).length > 0 
-        ? references.filter(r => r.name && r.phone) 
-        : undefined,
+      resumeUrl,
     };
 
     onSubmit(formData, fieldPrivacy);
@@ -341,6 +450,12 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
               <Text style={[styles.radioText, picturePrivacy === 'private' && styles.radioTextSelected]}>Private</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              style={[styles.radioOption, picturePrivacy === 'one_time' && styles.radioSelected]}
+              onPress={() => setPicturePrivacy('one_time')}
+            >
+              <Text style={[styles.radioText, picturePrivacy === 'one_time' && styles.radioTextSelected]}>One Time</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.radioOption, picturePrivacy === 'none' && styles.radioSelected]}
               onPress={() => setPicturePrivacy('none')}
             >
@@ -351,6 +466,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
             {picturePrivacy === 'none' && 'A generic avatar will be used'}
             {picturePrivacy === 'always' && 'Everyone can see your photos'}
             {picturePrivacy === 'private' && 'Photos blurred - users must request access'}
+            {picturePrivacy === 'one_time' && 'Photos can be viewed only once per user 👁️'}
           </Text>
         </View>
 
@@ -457,29 +573,52 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         </View>
       </View>
 
-      {/* 3. Optional Fields */}
+      {/* 3. Additional Information */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Additional Information (Optional)</Text>
+        <Text style={styles.sectionTitle}>Additional Information *</Text>
         <Text style={styles.sectionSubtitle}>
-          You can mark any field as &quot;Ask me&quot; to keep it private
+          All fields are required. You can mark any field as &quot;Ask me&quot; to keep it private
         </Text>
 
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Height (ft/in)</Text>
-            {renderAskMeToggle('height', !!height)}
+            <Text style={styles.label}>Height (ft/in) *</Text>
+            {renderAskMeToggle('height', !!(heightFeet && heightInches && heightFeet !== '' && heightInches !== ''))}
           </View>
-          <TextInput
-            style={styles.input}
-            value={height}
-            onChangeText={setHeight}
-            placeholder="e.g., 5'8 or 175cm"
-          />
+          <TouchableOpacity 
+            style={styles.heightButton}
+            onPress={() => setShowHeightPicker(true)}
+          >
+            <Text style={heightFeet && heightInches && heightFeet !== '' && heightInches !== '' ? styles.heightButtonText : styles.heightButtonPlaceholder}>
+              {heightFeet && heightInches && heightFeet !== '' && heightInches !== '' 
+                ? `${heightFeet}'${heightInches}"` 
+                : 'Select Height'}
+            </Text>
+            <Ionicons name="chevron-down" size={20} color="#666" />
+          </TouchableOpacity>
         </View>
+        {/*  Marital Status */}
+                <View style={styles.inputGroup}>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.label}>Marital Status *</Text>
+                    {renderAskMeToggle('maritalStatus', !!maritalStatus)}
+                  </View>
+                  {MARITAL_STATUS.map(option => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[styles.checkOption, maritalStatus === option && styles.checkSelected]}
+                      onPress={() => setMaritalStatus(option)}
+                    >
+                      <Text style={[styles.checkText, maritalStatus === option && styles.checkTextSelected]}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+          </View>
 
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Location</Text>
+            <Text style={styles.label}>Location *</Text>
             {renderAskMeToggle('location', !!(locationCity || locationState || locationCountry))}
           </View>
           
@@ -517,7 +656,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Languages (select all that apply)</Text>
+            <Text style={styles.label}>Languages (select all that apply) *</Text>
             {renderAskMeToggle('languages', selectedLanguages.length > 0 || !!languageOther)}
           </View>
           {LANGUAGES.map(lang => (
@@ -544,11 +683,11 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
       {/* 4. Nationality / Background */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Nationality / Background</Text>
+        <Text style={styles.sectionTitle}>Nationality / Background *</Text>
         
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Background (select all that apply)</Text>
+            <Text style={styles.label}>Background (select all that apply) *</Text>
             {renderAskMeToggle('nationality', selectedNationality.length > 0 || !!nationalityOther)}
           </View>
           {NATIONALITY_OPTIONS.map(nat => (
@@ -575,7 +714,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         {gender === 'male' && (
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
-              <Text style={styles.label}>Cohen</Text>
+              <Text style={styles.label}>Cohen *</Text>
               {renderAskMeToggle('isCohen', isCohen !== undefined)}
             </View>
             <View style={styles.radioGroup}>
@@ -598,11 +737,11 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
       {/* 5. Hashkafa */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Hashkafa (Religious Outlook)</Text>
+        <Text style={styles.sectionTitle}>Hashkafa (Religious Outlook) *</Text>
         
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Hashkafa Type</Text>
+            <Text style={styles.label}>Hashkafa Type *</Text>
             {renderAskMeToggle('hashkafaType', !!hashkafaType || !!hashkafaOther)}
           </View>
           {HASHKAFA_OPTIONS.map(option => (
@@ -630,7 +769,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
           <>
             <View style={styles.inputGroup}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Torah Learning</Text>
+                <Text style={styles.label}>Torah Learning *</Text>
                 {renderAskMeToggle('torahLearning', !!torahLearning || !!torahLearningOther)}
               </View>
               {TORAH_LEARNING_OPTIONS.map(option => (
@@ -656,7 +795,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
             <View style={styles.inputGroup}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Praying</Text>
+                <Text style={styles.label}>Praying *</Text>
                 {renderAskMeToggle('praying', !!praying || !!prayingOther)}
               </View>
               {PRAYING_OPTIONS.map(option => (
@@ -685,11 +824,11 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
       {/* 6. Education */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Education</Text>
+        <Text style={styles.sectionTitle}>Education *</Text>
         
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Education Level (select all that apply)</Text>
+            <Text style={styles.label}>Education Level (select all that apply) *</Text>
             {renderAskMeToggle('educationLevel', selectedEducation.length > 0 || !!educationOther)}
           </View>
           {(gender === 'male' ? EDUCATION_MALE : EDUCATION_FEMALE).map(option => (
@@ -715,7 +854,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Post-High School Path</Text>
+            <Text style={styles.label}>Post-High School Path *</Text>
             {renderAskMeToggle('postHighSchoolPath', !!postHighSchoolPath || !!postHSOther)}
           </View>
           {(gender === 'male' ? POST_HS_MALE : POST_HS_FEMALE).map(option => (
@@ -742,11 +881,11 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
       {/* 7. Occupation / Study */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Occupation / Study</Text>
+        <Text style={styles.sectionTitle}>Occupation / Study *</Text>
         
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Current Status</Text>
+            <Text style={styles.label}>Current Status *</Text>
             {renderAskMeToggle('currentOccupationStudy', !!currentOccupationStudy || !!occupationOther)}
           </View>
           {(gender === 'male' ? OCCUPATION_MALE : OCCUPATION_FEMALE).map(option => (
@@ -773,11 +912,11 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
       {/* 8. Plan After Marriage */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Plan After Marriage</Text>
+        <Text style={styles.sectionTitle}>Plan After Marriage *</Text>
         
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Plans</Text>
+            <Text style={styles.label}>Plans *</Text>
             {renderAskMeToggle('planAfterMarriage', !!planAfterMarriage || !!planOther)}
           </View>
           {(gender === 'male' ? PLAN_MALE : PLAN_FEMALE).map(option => (
@@ -802,39 +941,27 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         </View>
       </View>
 
-      {/* 9. Marital Status */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Marital Status</Text>
-        
-        <View style={styles.inputGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>Status</Text>
-            {renderAskMeToggle('maritalStatus', !!maritalStatus)}
-          </View>
-          {MARITAL_STATUS.map(option => (
-            <TouchableOpacity
-              key={option}
-              style={[styles.checkOption, maritalStatus === option && styles.checkSelected]}
-              onPress={() => setMaritalStatus(option)}
-            >
-              <Text style={[styles.checkText, maritalStatus === option && styles.checkTextSelected]}>
-                {option}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
 
       {/* 10. Dress & Appearance */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Dress & Appearance</Text>
+        <Text style={styles.sectionTitle}>Dress & Appearance *</Text>
         
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Dress Style</Text>
+            <Text style={styles.label}>Dress Style *</Text>
             {renderAskMeToggle('dressStyle', !!dressStyle || !!dressStyleOther)}
           </View>
-          {DRESS_STYLE.map(option => (
+          { gender === 'male' ? DRESS_STYLE_MALE.map(option => (
+            <TouchableOpacity
+              key={option}
+              style={[styles.checkOption, dressStyle === option && styles.checkSelected]}
+              onPress={() => setDressStyle(option)}
+            >
+              <Text style={[styles.checkText, dressStyle === option && styles.checkTextSelected]}>
+                {option}
+              </Text>
+            </TouchableOpacity>
+          )) : DRESS_STYLE_FEMALE.map(option => (
             <TouchableOpacity
               key={option}
               style={[styles.checkOption, dressStyle === option && styles.checkSelected]}
@@ -858,7 +985,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         {gender === 'male' && (
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
-              <Text style={styles.label}>Black Hat</Text>
+              <Text style={styles.label}>Black Hat *</Text>
               {renderAskMeToggle('wearsBlackHat', wearsBlackHat !== undefined)}
             </View>
             <View style={styles.radioGroup}>
@@ -881,7 +1008,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         {gender === 'female' && (
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
-              <Text style={styles.label}>Head Covering</Text>
+              <Text style={styles.label}>Head Covering *</Text>
               {renderAskMeToggle('headCovering', !!headCovering || !!headCoveringOther)}
             </View>
             {HEAD_COVERING.map(option => (
@@ -909,11 +1036,11 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
       {/* 11. Lifestyle */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Lifestyle</Text>
+        <Text style={styles.sectionTitle}>Lifestyle *</Text>
         
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Smoking</Text>
+            <Text style={styles.label}>Smoking *</Text>
             {renderAskMeToggle('smoking', !!smoking || !!smokingOther)}
           </View>
           {SMOKING.map(option => (
@@ -939,7 +1066,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Alcohol Consumption</Text>
+            <Text style={styles.label}>Alcohol Consumption *</Text>
             {renderAskMeToggle('alcoholConsumption', !!alcoholConsumption)}
           </View>
           {ALCOHOL.map(option => (
@@ -956,41 +1083,53 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         </View>
       </View>
 
-      {/* 12. References */}
+      {/* 12. Upload Resume */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>References</Text>
+        <Text style={styles.sectionTitle}>Upload Resume 📄</Text>
         <Text style={styles.sectionSubtitle}>
-          Add references who can vouch for you (optional)
+          Upload a PDF or image of your resume (optional). This will be shared automatically when you match with someone.
         </Text>
 
-        {references.map((ref, index) => (
-          <View key={index} style={styles.referenceItem}>
-            <View style={styles.referenceHeader}>
-              <Text style={styles.referenceLabel}>Reference {index + 1}</Text>
-              <TouchableOpacity onPress={() => removeReference(index)}>
-                <Ionicons name="trash-outline" size={20} color="#ff4444" />
-              </TouchableOpacity>
+        {resumeUrl ? (
+          <View style={styles.resumeContainer}>
+            <View style={styles.resumeInfo}>
+              <Ionicons name="document-text" size={24} color="#03a9f4" />
+              <View style={styles.resumeDetails}>
+                <Text style={styles.resumeText}>Resume uploaded</Text>
+                <Text style={styles.resumeSubtext}>
+                  {resumeFileName || 'resume document'}
+                </Text>
+              </View>
             </View>
-            <TextInput
-              style={styles.input}
-              value={ref.name}
-              onChangeText={(value) => updateReference(index, 'name', value)}
-              placeholder="Full name"
-            />
-            <TextInput
-              style={[styles.input, styles.inputSpaced]}
-              value={ref.phone}
-              onChangeText={(value) => updateReference(index, 'phone', value)}
-              placeholder="Phone number"
-              keyboardType="phone-pad"
-            />
+            <TouchableOpacity
+              style={styles.deleteResumeButton}
+              onPress={handleDeleteResume}
+              disabled={uploadingResume}
+            >
+              {uploadingResume ? (
+                <ActivityIndicator size="small" color="#ff4444" />
+              ) : (
+                <Ionicons name="trash-outline" size={20} color="#ff4444" />
+              )}
+            </TouchableOpacity>
           </View>
-        ))}
-
-        <TouchableOpacity style={styles.addReferenceButton} onPress={addReference}>
-          <Ionicons name="add-circle" size={24} color="#e91e63" />
-          <Text style={styles.addReferenceText}>Add Reference</Text>
-        </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.uploadResumeButton}
+            onPress={handlePickResume}
+            disabled={uploadingResume}
+          >
+            {uploadingResume ? (
+              <ActivityIndicator size="small" color="#03a9f4" />
+            ) : (
+              <>
+                <Ionicons name="cloud-upload-outline" size={24} color="#03a9f4" />
+                <Text style={styles.uploadResumeText}>Upload Resume</Text>
+                <Text style={styles.uploadResumeSubtext}>PDF or Image (max 5MB)</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* 13. Last Active */}
@@ -1041,7 +1180,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
               >
                 <Text style={styles.modalOptionText}>{country}</Text>
                 {locationCountry === country && (
-                  <Ionicons name="checkmark" size={24} color="#e91e63" />
+                  <Ionicons name="checkmark" size={24} color="#03a9f4" />
                 )}
               </TouchableOpacity>
             ))}
@@ -1073,13 +1212,100 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
               >
                 <Text style={styles.modalOptionText}>{state}</Text>
                 {locationState === state && (
-                  <Ionicons name="checkmark" size={24} color="#e91e63" />
+                  <Ionicons name="checkmark" size={24} color="#03a9f4" />
                 )}
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Height Picker Modal */}
+      {Platform.OS === 'ios' ? (
+        <Modal visible={showHeightPicker} animationType="slide" presentationStyle="formSheet">
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowHeightPicker(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Select Height</Text>
+              <TouchableOpacity onPress={() => setShowHeightPicker(false)}>
+                <Text style={styles.doneText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.heightPickerModalContainer}>
+              <View style={styles.heightPickerWrapper}>
+                <Text style={styles.heightPickerLabel}>Feet</Text>
+                <Picker
+                  selectedValue={heightFeet}
+                  onValueChange={(itemValue) => setHeightFeet(itemValue)}
+                  style={styles.heightPicker}
+                >
+                  {HEIGHT_FEET.map((feet) => (
+                    <Picker.Item key={feet} label={`${feet}'`} value={feet} />
+                  ))}
+                </Picker>
+              </View>
+              <View style={styles.heightPickerWrapper}>
+                <Text style={styles.heightPickerLabel}>Inches</Text>
+                <Picker
+                  selectedValue={heightInches}
+                  onValueChange={(itemValue) => setHeightInches(itemValue)}
+                  style={styles.heightPicker}
+                >
+                  {HEIGHT_INCHES.map((inches) => (
+                    <Picker.Item key={inches} label={`${inches}"`} value={inches} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      ) : (
+        showHeightPicker && (
+          <Modal visible={showHeightPicker} transparent={true} animationType="slide">
+            <View style={styles.heightPickerModalOverlay}>
+              <View style={styles.heightPickerModalContent}>
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity onPress={() => setShowHeightPicker(false)}>
+                    <Text style={styles.cancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.modalTitle}>Select Height</Text>
+                  <TouchableOpacity onPress={() => setShowHeightPicker(false)}>
+                    <Text style={styles.doneText}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.heightPickerModalContainer}>
+                  <View style={styles.heightPickerWrapper}>
+                    <Text style={styles.heightPickerLabel}>Feet</Text>
+                    <Picker
+                      selectedValue={heightFeet}
+                      onValueChange={(itemValue) => setHeightFeet(itemValue)}
+                      style={styles.heightPicker}
+                    >
+                      {HEIGHT_FEET.map((feet) => (
+                        <Picker.Item key={feet} label={`${feet}'`} value={feet} />
+                      ))}
+                    </Picker>
+                  </View>
+                  <View style={styles.heightPickerWrapper}>
+                    <Text style={styles.heightPickerLabel}>Inches</Text>
+                    <Picker
+                      selectedValue={heightInches}
+                      onValueChange={(itemValue) => setHeightInches(itemValue)}
+                      style={styles.heightPicker}
+                    >
+                      {HEIGHT_INCHES.map((inches) => (
+                        <Picker.Item key={inches} label={`${inches}"`} value={inches} />
+                      ))}
+                    </Picker>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )
+      )}
 
       {/* Date Picker Modal for iOS */}
       {Platform.OS === 'ios' ? (
@@ -1199,8 +1425,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   radioSelected: {
-    backgroundColor: '#e91e63',
-    borderColor: '#e91e63',
+    backgroundColor: '#03a9f4',
+    borderColor: '#03a9f4',
   },
   radioText: {
     fontSize: 14,
@@ -1255,7 +1481,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     left: 4,
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1322,15 +1548,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   checkSelected: {
-    backgroundColor: '#FFF0F6',
-    borderColor: '#e91e63',
+    backgroundColor: '#e1f5fe',
+    borderColor: '#03a9f4',
   },
   checkText: {
     fontSize: 15,
     color: '#333',
   },
   checkTextSelected: {
-    color: '#e91e63',
+    color: '#03a9f4',
     fontWeight: '600',
   },
   askMeToggle: {
@@ -1343,7 +1569,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   askMeToggleActive: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
   },
   askMeText: {
     fontSize: 12,
@@ -1354,7 +1580,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   submitButton: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     margin: 20,
     paddingVertical: 16,
     borderRadius: 8,
@@ -1388,7 +1614,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#e91e63',
+    color: '#03a9f4',
   },
   modalContent: {
     flex: 1,
@@ -1421,38 +1647,107 @@ const styles = StyleSheet.create({
   datePicker: {
     height: 200,
   },
-  referenceItem: {
-    backgroundColor: '#f9f9f9',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  referenceHeader: {
+  heightButton: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
   },
-  referenceLabel: {
+  heightButtonText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  heightButtonPlaceholder: {
+    fontSize: 16,
+    color: '#999',
+  },
+  heightPickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  heightPickerModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
+  heightPickerModalContainer: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 20,
+  },
+  heightPickerWrapper: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  heightPickerLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
+    marginBottom: 8,
   },
-  addReferenceButton: {
+  heightPicker: {
+    width: '100%',
+    height: 200,
+  },
+  resumeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#e91e63',
+    backgroundColor: '#e1f5fe',
     borderRadius: 8,
-    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#03a9f4',
   },
-  addReferenceText: {
-    marginLeft: 8,
+  resumeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  resumeDetails: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  resumeText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+  resumeSubtext: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 2,
+  },
+  deleteResumeButton: {
+    padding: 8,
+  },
+  uploadResumeButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    borderWidth: 2,
+    borderColor: '#03a9f4',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+  },
+  uploadResumeText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#e91e63',
+    color: '#03a9f4',
+    marginTop: 8,
+  },
+  uploadResumeSubtext: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 4,
   },
   lastActiveContainer: {
     flexDirection: 'row',

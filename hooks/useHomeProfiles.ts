@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { pictureViewService } from '../lib/pictureViewService';
 import { Profile as DBProfile, profileService } from '../lib/profileService';
 import { supabase } from '../lib/supabase';
 import { calculateAge } from '../lib/utils';
@@ -21,15 +22,19 @@ export function useHomeProfiles() {
   });
 
   // Transform database profile to display profile
-  const transformProfile = (dbProfile: any): Profile => {
+  const transformProfile = (dbProfile: any, viewedProfileIds?: string[]): Profile => {
     const fieldPrivacy = dbProfile.field_privacy || {};
     
-  
-
     const picturePrivacy = dbProfile.picture_privacy || 'none';
-    const showPictures = picturePrivacy === 'public' || picturePrivacy === 'private';
+    
+    // Check if this profile's one-time pictures have been viewed
+    const hasBeenViewed = viewedProfileIds?.includes(dbProfile.id) || false;
+    
+    // Show pictures based on privacy and view status
+    const showPictures = picturePrivacy === 'always' || picturePrivacy === 'private' ||
+                        (picturePrivacy === 'one_time' && !hasBeenViewed);
 
-    // Get images using profileService.getImageUrl - show for public and private (blur applied in UI)
+    // Get images using profileService.getImageUrl - show for always, private, and unviewed one-time
     const firstPicture = showPictures && dbProfile.pictures && dbProfile.pictures.length > 0 
       ? profileService.getImageUrl(dbProfile.pictures[0])
       : '';
@@ -128,9 +133,11 @@ export function useHomeProfiles() {
         return;
       }
 
+      // Get viewed profile IDs for one-time picture privacy
+      const viewedResult = await pictureViewService.getViewedProfiles();
+      const viewedProfileIds = viewedResult.success ? viewedResult.viewedProfileIds : [];
 
-
-      const transformedProfiles = data?.map(transformProfile) || [];
+      const transformedProfiles = data?.map(p => transformProfile(p, viewedProfileIds)) || [];
 
 
       setAllProfiles(transformedProfiles);

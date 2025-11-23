@@ -1,15 +1,16 @@
+import { profileService } from '@/lib/profileService';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Image,
-    Linking,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  Linking,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { IntroRequest, introService } from '../../lib/introService';
 
@@ -24,11 +25,11 @@ export default function MiddlePersonRequestCard({ request, currentUserProfileId 
   const requester = request.requester_profile;
   const requested = request.requested_profile;
 
-  // Determine which side the current user is middle person for
+  // Determine which side the current user is Matchmaker/Shadchan for
   const isRequesterMiddlePerson = request.requester_middle_person_id === currentUserProfileId;
   const isRequestedMiddlePerson = request.requested_middle_person_id === currentUserProfileId;
 
-  // Get contact info for middle person
+  // Get contact info for Matchmaker/Shadchan
   const contactInfo = currentUserProfileId 
     ? introService.getMiddlePersonContactInfo(request, currentUserProfileId)
     : { shouldShowContact: false, message: 'Loading...' };
@@ -126,16 +127,22 @@ export default function MiddlePersonRequestCard({ request, currentUserProfileId 
 
   const getRequesterPicture = () => {
     const pictures = requester?.pictures;
-    if (Array.isArray(pictures) && pictures.length > 0) return pictures[0];
-    if (typeof pictures === 'string') return pictures;
-    return null;
+    const picturePath = Array.isArray(pictures) && pictures.length > 0 
+      ? pictures[0] 
+      : typeof pictures === 'string' 
+        ? pictures 
+        : null;
+    return picturePath ? profileService.getImageUrl(picturePath) : null;
   };
 
   const getRequestedPicture = () => {
     const pictures = requested?.pictures;
-    if (Array.isArray(pictures) && pictures.length > 0) return pictures[0];
-    if (typeof pictures === 'string') return pictures;
-    return null;
+    const picturePath = Array.isArray(pictures) && pictures.length > 0 
+      ? pictures[0] 
+      : typeof pictures === 'string' 
+        ? pictures 
+        : null;
+    return picturePath ? profileService.getImageUrl(picturePath) : null;
   };
 
   return (
@@ -188,7 +195,7 @@ export default function MiddlePersonRequestCard({ request, currentUserProfileId 
         <View style={styles.separator}>
           {request.status === 'completed' || 
            (request.status === 'accepted' && request.requester_continuation_choice && request.requested_continuation_choice) ? (
-            <Ionicons name="heart" size={20} color="#e91e63" />
+            <Ionicons name="heart" size={20} color="#03a9f4" />
           ) : (
             <Ionicons name="arrow-forward" size={20} color="#999" />
           )}

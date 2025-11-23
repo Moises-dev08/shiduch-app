@@ -171,7 +171,7 @@ export default function ProfileGridSelectionModal({
             style={styles.filterButton}
             onPress={() => setShowFilters(!showFilters)}
           >
-            <Ionicons name="options" size={22} color={showFilters ? '#e91e63' : '#666'} />
+            <Ionicons name="options" size={22} color={showFilters ? '#03a9f4' : '#666'} />
           </TouchableOpacity>
         </View>
 
@@ -183,7 +183,7 @@ export default function ProfileGridSelectionModal({
         {/* Profile Grid */}
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#e91e63" />
+            <ActivityIndicator size="large" color="#03a9f4" />
           </View>
         ) : (
           <ScrollView style={styles.gridContainer} contentContainerStyle={styles.grid}>
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   doneButton: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#e91e63',
+    color: '#03a9f4',
   },
   filterModalContent: {
     flex: 1,

@@ -57,7 +57,7 @@ export default function ConnectScreen() {
         setReceivedIntroRequests(result.receivedRequests || []);
       }
 
-      // Load middle person requests
+      // Load Matchmaker/Shadchan requests
       const middleResult = await introService.getMiddlePersonRequests();
       if (middleResult.success) {
         setMiddlePersonRequests(middleResult.middlePersonRequests || []);
@@ -200,7 +200,7 @@ export default function ConnectScreen() {
   const forOthersBadgeCount = useMemo(() => {
     let count = 0;
     
-    // Count middle person requests needing action (for matchmakers)
+    // Count Matchmaker/Shadchan requests needing action (for matchmakers)
     if (currentUserProfile?.role === 'matchmaker') {
       count += middlePersonRequests.filter(r => 
         r.status === 'pending' || 
@@ -222,12 +222,12 @@ export default function ConnectScreen() {
       action_needed: {
         icon: 'notifications-outline',
         title: 'No Actions Needed',
-        message: 'You\'re all caught up! Check back later for new intro requests.',
+        message: 'You\'re all caught up! ✨ Check back later for new intro requests.',
       },
       matches: {
         icon: 'heart-circle-outline',
         title: 'No Matches Yet',
-        message: 'When both parties accept an intro request, your matches will appear here.',
+        message: 'When both parties accept an intro request, your matches will appear here. 💕',
       },
       passed: {
         icon: 'close-circle-outline',
@@ -237,12 +237,12 @@ export default function ConnectScreen() {
       liked: {
         icon: 'heart-outline',
         title: 'No Liked Profiles',
-        message: 'Profiles you like will appear here showing their response status (pending, accepted, or declined).',
+        message: 'Profiles you like will appear here showing their response status. ❤️',
       },
       for_others: {
         icon: 'people-outline',
         title: 'For Others',
-        message: 'This section is coming soon.',
+        message: 'This section is coming soon. 👥',
       },
     };
 
@@ -256,17 +256,6 @@ export default function ConnectScreen() {
       </View>
     );
   };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#e91e63" />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   const isSingle = currentUserProfile?.role === 'single';
 
@@ -329,7 +318,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="notifications" 
               size={18} 
-              color={activeSection === 'action_needed' ? '#e91e63' : '#999'} 
+              color={activeSection === 'action_needed' ? '#03a9f4' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeSection === 'action_needed' && styles.sectionTabTextActive]}>
               Action Needed
@@ -360,7 +349,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="heart-circle" 
               size={18} 
-              color={activeSection === 'matches' ? '#e91e63' : '#999'} 
+              color={activeSection === 'matches' ? '#03a9f4' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeSection === 'matches' && styles.sectionTabTextActive]}>
               Matches
@@ -374,7 +363,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="close-circle" 
               size={18} 
-              color={activeSection === 'passed' ? '#e91e63' : '#999'} 
+              color={activeSection === 'passed' ? '#03a9f4' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeSection === 'passed' && styles.sectionTabTextActive]}>
               Passed
@@ -388,7 +377,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="heart" 
               size={18} 
-              color={activeSection === 'liked' ? '#e91e63' : '#999'} 
+              color={activeSection === 'liked' ? '#03a9f4' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeSection === 'liked' && styles.sectionTabTextActive]}>
               You Liked
@@ -412,7 +401,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="time" 
               size={18} 
-              color={activeForOthersSection === 'awaiting' ? '#e91e63' : '#999'} 
+              color={activeForOthersSection === 'awaiting' ? '#03a9f4' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeForOthersSection === 'awaiting' && styles.sectionTabTextActive]}>
               Awaiting Response
@@ -426,7 +415,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="heart" 
               size={18} 
-              color={activeForOthersSection === 'matched' ? '#e91e63' : '#999'} 
+              color={activeForOthersSection === 'matched' ? '#03a9f4' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeForOthersSection === 'matched' && styles.sectionTabTextActive]}>
               Matched
@@ -440,7 +429,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="close-circle" 
               size={18} 
-              color={activeForOthersSection === 'not_matched' ? '#e91e63' : '#999'} 
+              color={activeForOthersSection === 'not_matched' ? '#03a9f4' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeForOthersSection === 'not_matched' && styles.sectionTabTextActive]}>
               Did Not Match
@@ -454,9 +443,16 @@ export default function ConnectScreen() {
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e91e63']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#03a9f4']} />
         }
       >
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#03a9f4" />
+            <Text style={styles.loadingText}>Loading...</Text>
+          </View>
+        ) : (
+          <>
         {/* Intro Requests Section - Action Needed */}
         {activeCategory === 'for_you' && activeSection === 'action_needed' && (
           <>
@@ -691,7 +687,7 @@ export default function ConnectScreen() {
                 <Ionicons name="time-outline" size={64} color="#ccc" />
                 <Text style={styles.emptyStateTitle}>No Pending Matches</Text>
                 <Text style={styles.emptyStateMessage}>
-                  Matches you&apos;re facilitating will appear here once they need responses.
+                  Matches you&apos;re facilitating will appear here once they need responses. ⏳
                 </Text>
               </View>
             )}
@@ -741,7 +737,7 @@ export default function ConnectScreen() {
                 <Ionicons name="heart-outline" size={64} color="#ccc" />
                 <Text style={styles.emptyStateTitle}>No Matches Yet</Text>
                 <Text style={styles.emptyStateMessage}>
-                  Successful matches you&apos;ve facilitated will appear here.
+                  Successful matches you&apos;ve facilitated will appear here. 💕
                 </Text>
               </View>
             )}
@@ -784,6 +780,8 @@ export default function ConnectScreen() {
               </View>
             )}
           </>
+        )}
+        </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -831,7 +829,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   categoryTabActive: {
-    borderBottomColor: '#e91e63',
+    borderBottomColor: '#03a9f4',
   },
   categoryTabContent: {
     flexDirection: 'row',
@@ -844,11 +842,11 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   categoryTabTextActive: {
-    color: '#e91e63',
+    color: '#03a9f4',
     fontWeight: '600',
   },
   categoryBadge: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -882,7 +880,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   sectionTabActive: {
-    backgroundColor: '#ffe4f0',
+    backgroundColor: '#e1f5fe',
   },
   sectionTabText: {
     fontSize: 14,
@@ -890,11 +888,11 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   sectionTabTextActive: {
-    color: '#e91e63',
+    color: '#03a9f4',
     fontWeight: '600',
   },
   badge: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
     borderRadius: 10,
     minWidth: 20,
     height: 20,

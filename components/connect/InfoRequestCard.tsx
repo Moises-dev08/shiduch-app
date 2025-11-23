@@ -37,7 +37,6 @@ const fieldLabels: { [key: string]: string } = {
   phone: 'Phone Number',
   email: 'Email Address',
   whatsapp: 'WhatsApp Number',
-  user_references: 'References',
   dob: 'Date of Birth',
 };
 
@@ -56,7 +55,7 @@ export default function InfoRequestCard({ request, onUpdate }: InfoRequestCardPr
     : requesterProfile.location_country;
 
   // Get profile picture
-  const showPicture = requesterProfile.picture_privacy === 'public' || requesterProfile.picture_privacy === 'private';
+  const showPicture = requesterProfile.picture_privacy === 'always' || requesterProfile.picture_privacy === 'private';
   const profilePicture = showPicture && requesterProfile.pictures && requesterProfile.pictures.length > 0
     ? profileService.getImageUrl(requesterProfile.pictures[0])
     : null;
@@ -76,7 +75,7 @@ export default function InfoRequestCard({ request, onUpdate }: InfoRequestCardPr
       const result = await infoRequestService.respondToRequest(request.id, status);
       if (result.success) {
         Alert.alert(
-          'Success',
+          status === 'approved' ? 'Success! ✅' : 'Request Declined',
           status === 'approved' 
             ? `You approved the request to view your ${fieldLabel.toLowerCase()}.`
             : `You declined the request to view your ${fieldLabel.toLowerCase()}.`
@@ -143,7 +142,7 @@ export default function InfoRequestCard({ request, onUpdate }: InfoRequestCardPr
       {/* Request details */}
       <View style={styles.requestDetails}>
         <View style={styles.requestHeader}>
-          <Ionicons name="lock-closed" size={16} color="#e91e63" />
+          <Ionicons name="lock-closed" size={16} color="#03a9f4" />
           <Text style={styles.requestTitle}>Request to View {fieldLabel}</Text>
         </View>
         
@@ -290,7 +289,7 @@ const styles = StyleSheet.create({
   requestTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#e91e63',
+    color: '#03a9f4',
   },
   messageContainer: {
     backgroundColor: '#f9f9f9',
@@ -338,7 +337,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   approveButton: {
-    backgroundColor: '#e91e63',
+    backgroundColor: '#03a9f4',
   },
   approveButtonText: {
     fontSize: 15,

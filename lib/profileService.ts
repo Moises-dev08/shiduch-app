@@ -16,7 +16,7 @@ export interface ProfileData {
   // Pictures
   pictures: string[];
   mainPictureIndex?: number;
-  picturePrivacy: 'none' | 'always' | 'private' | 'one-time';
+  picturePrivacy: 'none' | 'always' | 'private' | 'one_time';
   
   // Singles only - required fields
   whatLookingFor?: string; // Required for singles
@@ -59,12 +59,12 @@ export interface ProfileData {
   smoking?: string;
   alcoholConsumption?: string;
   
-  // References
-  userReferences?: { name: string; phone: string }[];
-  
   // Contact info (optional - for legacy support and direct contact)
   email?: string;
   whatsapp?: string;
+  
+  // Resume document
+  resumeUrl?: string;
   hasChildren?: boolean;
   matchmakerEmail?: string;
 }
@@ -129,9 +129,6 @@ export interface Profile {
   smoking?: string;
   alcohol_consumption?: string;
   
-  // References
-  user_references?: { name: string; phone: string }[];
-  
   // Privacy and metadata
   field_privacy?: FieldPrivacy; // Maps field names to private/"Ask me" flags
   last_active_at?: string;
@@ -140,6 +137,7 @@ export interface Profile {
   approved_at?: string;
   matchmaker_id?: string;
   is_active: boolean;
+  resume_url?: string;
   email?: string;
   whatsapp?: string;
   has_children?: boolean;
@@ -401,15 +399,15 @@ class ProfileService {
           smoking: profileData.smoking || null,
           alcohol_consumption: profileData.alcoholConsumption || null,
           
-          // References
-          user_references: profileData.userReferences || [],
-          
           // Contact info (optional)
           email: profileData.email || null,
           whatsapp: profileData.whatsapp || null,
           
           // Children
           has_children: profileData.hasChildren || null,
+          
+          // Resume (only for singles)
+          resume_url: profileData.role === 'single' ? (profileData.resumeUrl || null) : null,
           
           // Privacy settings
           field_privacy: fieldPrivacy || {},
@@ -589,15 +587,15 @@ class ProfileService {
         smoking: profileData.smoking || null,
         alcohol_consumption: profileData.alcoholConsumption || null,
         
-        // References
-        user_references: profileData.userReferences || [],
-        
         // Contact info (optional)
         email: profileData.email || null,
         whatsapp: profileData.whatsapp || null,
         
         // Children
         has_children: profileData.hasChildren || null,
+        
+        // Resume (only for singles)
+        resume_url: profileData.role === 'single' ? (profileData.resumeUrl || null) : null,
         
         // Privacy settings
         field_privacy: fieldPrivacy || {},
