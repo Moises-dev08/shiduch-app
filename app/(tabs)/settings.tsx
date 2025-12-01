@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
@@ -15,12 +14,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HowItWorksCarousel from '../../components/HowItWorksCarousel';
+import TermsModal from '../../components/TermsModal';
 import { useAuth } from '../../lib/AuthContext';
 import { profileService } from '../../lib/profileService';
 
 export default function SettingsScreen() {
   const [showFreezeModal, setShowFreezeModal] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [isProfileActive, setIsProfileActive] = useState(true);
   const [loadingProfileStatus, setLoadingProfileStatus] = useState(true);
@@ -153,38 +154,8 @@ export default function SettingsScreen() {
     setShowHowItWorks(true);
   };
 
-  const handlePrivacyPolicy = () => {
-    Alert.alert(
-      'Privacy Policy',
-      'Opening Privacy Policy...',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Open',
-          onPress: () => {
-            // TODO: Update with actual privacy policy URL
-            Linking.openURL('https://shiduchim.app/privacy');
-          }
-        }
-      ]
-    );
-  };
-
-  const handleTermsOfService = () => {
-    Alert.alert(
-      'Terms of Service',
-      'Opening Terms of Service...',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Open',
-          onPress: () => {
-            // TODO: Update with actual terms URL
-            Linking.openURL('https://shiduchim.app/terms');
-          }
-        }
-      ]
-    );
+  const handleTermsAndConditions = () => {
+    setShowTermsModal(true);
   };
 
   const handleDeleteAccount = () => {
@@ -316,18 +287,10 @@ export default function SettingsScreen() {
         {/* Legal Section */}
         <Text style={styles.sectionTitle}>Legal</Text>
 
-        <TouchableOpacity style={styles.settingsItem} onPress={handlePrivacyPolicy}>
-          <View style={styles.settingsItemLeft}>
-            <Ionicons name="shield-checkmark" size={24} color="#673AB7" />
-            <Text style={styles.settingsItemText}>Privacy Policy</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingsItem} onPress={handleTermsOfService}>
+        <TouchableOpacity style={styles.settingsItem} onPress={handleTermsAndConditions}>
           <View style={styles.settingsItemLeft}>
             <Ionicons name="document-text" size={24} color="#3F51B5" />
-            <Text style={styles.settingsItemText}>Terms of Service</Text>
+            <Text style={styles.settingsItemText}>Terms and Conditions</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>
@@ -356,6 +319,13 @@ export default function SettingsScreen() {
       <HowItWorksCarousel
         visible={showHowItWorks}
         onClose={() => setShowHowItWorks(false)}
+      />
+
+      {/* Terms and Conditions Modal */}
+      <TermsModal
+        visible={showTermsModal}
+        onDecline={() => setShowTermsModal(false)}
+        viewOnly={true}
       />
 
       {/* Freeze Profile Confirmation Modal */}

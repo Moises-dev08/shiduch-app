@@ -181,7 +181,20 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
   // Lifestyle
   const [smoking, setSmoking] = useState(initialData?.smoking || '');
   const [smokingOther, setSmokingOther] = useState('');
-  const [alcoholConsumption, setAlcoholConsumption] = useState(initialData?.alcoholConsumption || '');
+  const [alcoholConsumption, setAlcoholConsumption] = useState(() => {
+    const initial = initialData?.alcoholConsumption || '';
+    if (initial && !ALCOHOL.includes(initial)) {
+      return 'Other';
+    }
+    return initial;
+  });
+  const [alcoholOther, setAlcoholOther] = useState(() => {
+    const initial = initialData?.alcoholConsumption || '';
+    if (initial && !ALCOHOL.includes(initial)) {
+      return initial;
+    }
+    return '';
+  });
   
   
   // Field Privacy (Ask Me flags)
@@ -356,6 +369,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
     if (!smoking) missingFields.push('Smoking');
     if (smoking === 'Other' && !smokingOther.trim()) missingFields.push('Smoking (Other)');
     if (!alcoholConsumption) missingFields.push('Alcohol Consumption');
+    if (alcoholConsumption === 'Other' && !alcoholOther.trim()) missingFields.push('Alcohol Consumption (Other)');
     if (gender === 'male' && isCohen === undefined) missingFields.push('Cohen');
 
     if (missingFields.length > 0) {
@@ -404,7 +418,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       wearsBlackHat: gender === 'male' ? wearsBlackHat : undefined,
       headCovering: gender === 'female' ? (headCovering === 'Other' ? headCoveringOther : headCovering) : undefined,
       smoking: smoking === 'Other' ? smokingOther : smoking || undefined,
-      alcoholConsumption: alcoholConsumption || undefined,
+      alcoholConsumption: alcoholConsumption === 'Other' ? alcoholOther : alcoholConsumption || undefined,
       resumeUrl,
     };
 
@@ -1067,7 +1081,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Alcohol Consumption *</Text>
-            {renderAskMeToggle('alcoholConsumption', !!alcoholConsumption)}
+            {renderAskMeToggle('alcoholConsumption', !!alcoholConsumption || !!alcoholOther)}
           </View>
           {ALCOHOL.map(option => (
             <TouchableOpacity
@@ -1080,6 +1094,14 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
               </Text>
             </TouchableOpacity>
           ))}
+          {alcoholConsumption === 'Other' && (
+            <TextInput
+              style={[styles.input, styles.inputSpaced]}
+              value={alcoholOther}
+              onChangeText={setAlcoholOther}
+              placeholder="Please specify"
+            />
+          )}
         </View>
       </View>
 

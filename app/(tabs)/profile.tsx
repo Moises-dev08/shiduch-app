@@ -470,7 +470,7 @@ export default function ProfileScreen() {
         status={profileStatus}
         rejectionReason={rejectionReason}
         onClose={() => {
-          setShowStatusModal(false);
+
           if (profileStatus === 'approved') {
             router.replace('/(tabs)');
           }

@@ -850,7 +850,7 @@ export default function ProfileDetailsScreen() {
       <ProfileGridSelectionModal
         visible={showProfileGridModal}
         currentUserGender={profile?.gender}
-        excludedProfileId={profile?.id}
+        excludedProfileId={currentUserProfile?.id}
         onSelect={handleProfileSelected}
         onCancel={() => setShowProfileGridModal(false)}
       />
@@ -1055,6 +1055,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingBottom: 16,
+    paddingTop: 16,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
@@ -1129,7 +1130,9 @@ const styles = StyleSheet.create({
   noteModalActions: {
     flexDirection: 'row',
     gap: 12,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 26,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
   },

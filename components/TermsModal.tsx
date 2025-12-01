@@ -4,11 +4,12 @@ import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 
 interface TermsModalProps {
   visible: boolean;
-  onAccept: () => void;
+  onAccept?: () => void;
   onDecline: () => void;
+  viewOnly?: boolean;
 }
 
-export default function TermsModal({ visible, onAccept, onDecline }: TermsModalProps) {
+export default function TermsModal({ visible, onAccept, onDecline, viewOnly = false }: TermsModalProps) {
   return (
     <Modal
       visible={visible}
@@ -26,10 +27,12 @@ export default function TermsModal({ visible, onAccept, onDecline }: TermsModalP
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <Text style={styles.introTitle}>Terms & Conditions</Text>
-          <Text style={styles.introText}>
-            Before completing your registration, please read and confirm the following terms.
-            You must accept all items to use this app.
-          </Text>
+          {!viewOnly && (
+            <Text style={styles.introText}>
+              Before completing your registration, please read and confirm the following terms.
+              You must accept all items to use this app.
+            </Text>
+          )}
 
           <View style={styles.divider} />
 
@@ -90,14 +93,23 @@ export default function TermsModal({ visible, onAccept, onDecline }: TermsModalP
           </View>
         </ScrollView>
 
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.declineButton} onPress={onDecline}>
-            <Text style={styles.declineButtonText}>Decline</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.acceptButton} onPress={onAccept}>
-            <Text style={styles.acceptButtonText}>Accept & Continue</Text>
-          </TouchableOpacity>
-        </View>
+        {!viewOnly && onAccept && (
+          <View style={styles.footer}>
+            <TouchableOpacity style={styles.declineButton} onPress={onDecline}>
+              <Text style={styles.declineButtonText}>Decline</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.acceptButton} onPress={onAccept}>
+              <Text style={styles.acceptButtonText}>Accept & Continue</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {viewOnly && (
+          <View style={styles.footer}>
+            <TouchableOpacity style={styles.acceptButton} onPress={onDecline}>
+              <Text style={styles.acceptButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </Modal>
   );

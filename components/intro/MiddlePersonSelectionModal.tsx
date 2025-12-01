@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { profileService } from '../../lib/profileService';
 import { supabase } from '../../lib/supabase';
 import { calculateAge } from '../../lib/utils';
 
@@ -23,6 +25,7 @@ interface Profile {
   role: 'single' | 'matchmaker';
   hashkafa_type?: string;
   pictures?: string[];
+  picture_privacy?: 'none' | 'always' | 'private' | 'one_time';
 }
 
 interface MiddlePersonSelectionModalProps {
@@ -61,7 +64,7 @@ export default function MiddlePersonSelectionModal({
     try {
       let query = supabase
         .from('profiles')
-        .select('id, first_name, last_name, dob, gender, role, hashkafa_type, pictures')
+        .select('id, first_name, last_name, dob, gender, role, hashkafa_type, pictures, picture_privacy')
         .eq('status', 'approved')
         .eq('is_active', true);
 
@@ -204,38 +207,76 @@ export default function MiddlePersonSelectionModal({
         ) : (
           <ScrollView style={styles.profileList}>
             {filteredProfiles.map(profile => (
-              <TouchableOpacity
-                key={profile.id}
-                style={styles.profileItem}
-                onPress={() => handleSelectProfile(profile)}
-              >
-                <View style={styles.profileImageContainer}>
-                  {profile.pictures && profile.pictures.length > 0 ? (
-                    <Image
-                      source={{ uri: profile.pictures[0] }}
-                      style={styles.profileImage}
-                    />
-                  ) : (
-                    <View style={styles.profileImagePlaceholder}>
-                      <Ionicons name="person" size={30} color="#ccc" />
-                    </View>
-                  )}
-                </View>
-                
-                <View style={styles.profileDetails}>
-                  <Text style={styles.profileName}>
-                    {profile.first_name} {profile.last_name}
-                  </Text>
-                  <Text style={styles.profileInfo}>
-                    {calculateAge(profile.dob)} • {profile.gender} • {profile.role}
-                  </Text>
-                  <Text style={styles.profileHashkafa} numberOfLines={1}>
-                    {profile.hashkafa_type || 'Not specified'}
-                  </Text>
-                </View>
+              <View key={profile.id} style={styles.profileItem}>
+                <TouchableOpacity
+                  style={styles.profileItemContent}
+                  onPress={() => handleSelectProfile(profile)}
+                  activeOpacity={0.7}
+                >
+                  <TouchableOpacity
+                    style={styles.profileImageContainer}
+                    onPress={() => {
+                      onCancel(); // Close the modal first
+                      // Use setTimeout to ensure modal closes before navigation
+                      setTimeout(() => {
+                        router.push(`/profile-details?id=${profile.id}&hideActions=true`);
+                      }, 100);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    {(() => {
+                      const pictures = profile.pictures;
+                      const picturePrivacy = profile.picture_privacy || 'none';
+                      const firstPicture = Array.isArray(pictures) && pictures.length > 0 
+                        ? pictures[0] 
+                        : typeof pictures === 'string' 
+                          ? pictures 
+                          : null;
+                      
+                      // Determine if we should show the image based on privacy settings
+                      const showImage = firstPicture && (picturePrivacy === 'always' || picturePrivacy === 'private' || picturePrivacy === 'one_time');
+                      const isBlurred = picturePrivacy === 'private';
+                      
+                      if (showImage) {
+                        return (
+                          <View style={styles.imageWrapper}>
+                            <Image
+                              source={{ uri: profileService.getImageUrl(firstPicture) }}
+                              style={styles.profileImage}
+                              blurRadius={isBlurred ? 15 : 0}
+                            />
+                            {isBlurred && (
+                              <View style={styles.blurOverlay}>
+                                <Ionicons name="lock-closed" size={16} color="#fff" />
+                              </View>
+                            )}
+                          </View>
+                        );
+                      } else {
+                        return (
+                          <View style={styles.profileImagePlaceholder}>
+                            <Ionicons name="person" size={30} color="#ccc" />
+                          </View>
+                        );
+                      }
+                    })()}
+                  </TouchableOpacity>
+                  
+                  <View style={styles.profileDetails}>
+                    <Text style={styles.profileName}>
+                      {profile.first_name} {profile.last_name}
+                    </Text>
+                    <Text style={styles.profileInfo}>
+                      {calculateAge(profile.dob)} • {profile.gender} • {profile.role}
+                    </Text>
+                    <Text style={styles.profileHashkafa} numberOfLines={1}>
+                      {profile.hashkafa_type || 'Not specified'}
+                    </Text>
+                  </View>
 
-                <Ionicons name="chevron-forward" size={20} color="#ccc" />
-              </TouchableOpacity>
+                  <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                </TouchableOpacity>
+              </View>
             ))}
 
             {filteredProfiles.length === 0 && !loading && (
@@ -526,14 +567,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
+  profileItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
   profileImageContainer: {
     marginRight: 12,
+    position: 'relative',
+  },
+  imageWrapper: {
+    position: 'relative',
   },
   profileImage: {
     width: 60,
@@ -545,6 +592,17 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
   },

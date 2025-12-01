@@ -285,19 +285,39 @@ console.log('contactInfo', contactInfo);
         <View style={styles.profileSection}>
           {(() => {
             const pictures = otherProfile?.pictures;
+            const picturePrivacy = otherProfile?.picture_privacy || otherProfile?.picturePrivacy || 'none';
             const firstPicture = Array.isArray(pictures) && pictures.length > 0 
               ? pictures[0] 
               : typeof pictures === 'string' 
                 ? pictures 
                 : null;
             
-            return firstPicture ? (
-              <Image source={{ uri: profileService.getImageUrl(firstPicture) }} style={styles.profileImage} />
-            ) : (
-              <View style={styles.profileImagePlaceholder}>
-                <Ionicons name="person" size={30} color="#ccc" />
-              </View>
-            );
+            // Determine if we should show the image based on privacy settings
+            const showImage = firstPicture && (picturePrivacy === 'always' || picturePrivacy === 'private' || picturePrivacy === 'one_time');
+            const isBlurred = picturePrivacy === 'private';
+            
+            if (showImage) {
+              return (
+                <View style={styles.profileImageContainer}>
+                  <Image 
+                    source={{ uri: profileService.getImageUrl(firstPicture) }} 
+                    style={styles.profileImage}
+                    blurRadius={isBlurred ? 15 : 0}
+                  />
+                  {isBlurred && (
+                    <View style={styles.blurOverlay}>
+                      <Ionicons name="lock-closed" size={16} color="#fff" />
+                    </View>
+                  )}
+                </View>
+              );
+            } else {
+              return (
+                <View style={styles.profileImagePlaceholder}>
+                  <Ionicons name="person" size={30} color="#ccc" />
+                </View>
+              );
+            }
           })()}
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>
@@ -318,7 +338,7 @@ console.log('contactInfo', contactInfo);
       <View style={styles.middlePersonSection}>
         <Ionicons name="people" size={16} color="#666" />
         <Text style={styles.middlePersonText}>
-          via {middlePerson.first_name} {middlePerson.last_name}
+          via {middlePerson.first_name} {middlePerson.last_name} (Matchmaker/Shadchan) 
         </Text>
       </View>
 
@@ -646,11 +666,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  profileImageContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
   profileImage: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    marginRight: 12,
   },
   profileImagePlaceholder: {
     width: 50,
@@ -660,6 +683,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+  },
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profileInfo: {
     flex: 1,

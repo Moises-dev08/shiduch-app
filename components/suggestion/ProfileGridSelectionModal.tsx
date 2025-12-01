@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -11,9 +11,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { profileService } from '../../lib/profileService';
 import { supabase } from '../../lib/supabase';
 import { calculateAge } from '../../lib/utils';
 import { Profile } from '../../types/homeTypes';
+import ProfileCard from '../home/ProfileCard';
 
 interface ProfileGridSelectionModalProps {
   visible: boolean;
@@ -23,7 +25,18 @@ interface ProfileGridSelectionModalProps {
   onCancel: () => void;
 }
 
-type FilterGender = 'all' | 'male' | 'female';
+// Local interface for database profile structure
+interface DatabaseProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  dob?: string;
+  gender: 'male' | 'female';
+  role: 'single' | 'matchmaker';
+  hashkafa_type?: string;
+  pictures?: string[];
+  picture_privacy?: 'none' | 'always' | 'private' | 'one_time';
+}
 
 export default function ProfileGridSelectionModal({
   visible,
@@ -32,8 +45,8 @@ export default function ProfileGridSelectionModal({
   onSelect,
   onCancel,
 }: ProfileGridSelectionModalProps) {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
+  const [profiles, setProfiles] = useState<DatabaseProfile[]>([]);
+  const [filteredProfiles, setFilteredProfiles] = useState<DatabaseProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -48,7 +61,7 @@ export default function ProfileGridSelectionModal({
     try {
       let query = supabase
         .from('profiles')
-        .select('id, first_name, last_name, dob, gender, role, hashkafa_type, pictures')
+        .select('id, first_name, last_name, dob, gender, role, hashkafa_type, pictures, picture_privacy')
         .eq('status', 'approved')
         .eq('is_active', true)
         .eq('role', 'single'); // Only singles can be set up
@@ -68,7 +81,7 @@ export default function ProfileGridSelectionModal({
 
       if (error) throw error;
 
-      setProfiles(data || []);
+      setProfiles((data as DatabaseProfile[]) || []);
     } catch (error) {
       console.error('Error loading profiles:', error);
     } finally {
@@ -99,7 +112,7 @@ export default function ProfileGridSelectionModal({
     if (filterHashkafa.trim()) {
       const query = filterHashkafa.toLowerCase();
       filtered = filtered.filter(p =>
-        p.hashkafa.toLowerCase().includes(query)
+        p.hashkafa_type?.toLowerCase().includes(query)
       );
     }
 
@@ -123,21 +136,42 @@ export default function ProfileGridSelectionModal({
     setSearchQuery('');
   };
 
+  // Transform database profile to Profile type
+  const transformProfile = useCallback((dbProfile: DatabaseProfile): Profile => {
+    const firstPicture = Array.isArray(dbProfile.pictures) && dbProfile.pictures.length > 0 
+      ? dbProfile.pictures[0] 
+      : '';
+    
+    return {
+      id: dbProfile.id,
+      name: `${dbProfile.first_name} ${dbProfile.last_name}`,
+      picture: firstPicture ? profileService.getImageUrl(firstPicture) : '',
+      pictures: dbProfile.pictures || [],
+      location: '',
+      bio: '',
+      role: dbProfile.role,
+      gender: dbProfile.gender,
+      dob: dbProfile.dob,
+      hashkafa_type: dbProfile.hashkafa_type,
+      picturePrivacy: dbProfile.picture_privacy || 'none',
+    };
+  }, []);
+
   const handleSelectProfile = (profile: Profile) => {
     onSelect(profile);
     clearFilters();
   };
 
+  const handleViewProfile = (profile: Profile) => {
+    onCancel(); // Close the modal first
+    setTimeout(() => {
+      router.push(`/profile-details?id=${profile.id}&hideActions=true`);
+    }, 100);
+  };
+
   const handleCancel = () => {
     clearFilters();
     onCancel();
-  };
-
-  const getProfileImage = (profile: Profile) => {
-    if (Array.isArray(profile.pictures) && profile.pictures.length > 0) {
-      return profile.pictures[0];
-    }
-    return null;
   };
 
   return (
@@ -185,45 +219,40 @@ export default function ProfileGridSelectionModal({
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#03a9f4" />
           </View>
+        ) : filteredProfiles.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="people-outline" size={64} color="#ccc" />
+            <Text style={styles.emptyStateTitle}>No profiles found</Text>
+            <Text style={styles.emptyStateMessage}>
+              Try adjusting your search or filters.
+            </Text>
+          </View>
         ) : (
-          <ScrollView style={styles.gridContainer} contentContainerStyle={styles.grid}>
-            {filteredProfiles.map((profile) => (
-              <TouchableOpacity
-                key={profile.id}
-                style={styles.gridItem}
-                onPress={() => handleSelectProfile(profile)}
-                activeOpacity={0.7}
-              >
-                {getProfileImage(profile) ? (
-                  <Image
-                    source={{ uri: getProfileImage(profile)! }}
-                    style={styles.gridImage}
-                  />
-                ) : (
-                  <View style={styles.gridImagePlaceholder}>
-                    <Ionicons name="person" size={40} color="#ccc" />
-                  </View>
-                )}
-                <View style={styles.gridOverlay}>
-                  <Text style={styles.gridName} numberOfLines={1}>
-                    {profile.first_name} {profile.last_name}
-                  </Text>
-                  <Text style={styles.gridDetails}>
-                    {calculateAge(profile.dob)} • {profile.hashkafa_type || 'Not specified'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-
-            {filteredProfiles.length === 0 && !loading && (
-              <View style={styles.emptyState}>
-                <Ionicons name="people-outline" size={64} color="#ccc" />
-                <Text style={styles.emptyStateTitle}>No profiles found</Text>
-                <Text style={styles.emptyStateMessage}>
-                  Try adjusting your search or filters.
-                </Text>
-              </View>
-            )}
+          <ScrollView 
+            style={styles.scrollView} 
+            contentContainerStyle={styles.profilesGrid}
+            showsVerticalScrollIndicator={false}
+          >
+            {filteredProfiles.map((dbProfile) => {
+              const profile = transformProfile(dbProfile);
+              return (
+                <ProfileCard
+                  key={profile.id}
+                  profile={profile}
+                  onPress={handleViewProfile}
+                  renderAction={
+                    <TouchableOpacity
+                      style={styles.selectButton}
+                      onPress={() => handleSelectProfile(profile)}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                      <Text style={styles.selectButtonText}>Select Profile</Text>
+                    </TouchableOpacity>
+                  }
+                />
+              );
+            })}
           </ScrollView>
         )}
       </View>
@@ -352,57 +381,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  gridContainer: {
+  scrollView: {
     flex: 1,
   },
-  grid: {
+  profilesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: 8,
+    justifyContent: 'space-between',
+    padding: 16,
   },
-  gridItem: {
-    width: '47%',
-    aspectRatio: 0.75,
-    margin: '1.5%',
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#f0f0f0',
-    shadowColor: '#000',
+  selectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingVertical: 12,
+    backgroundColor: '#03a9f4',
+    borderRadius: 0,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
+    shadowColor: '#03a9f4',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
   },
-  gridImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  gridImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#e0e0e0',
-  },
-  gridOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  gridName: {
-    fontSize: 14,
+  selectButtonText: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#fff',
-    marginBottom: 2,
-  },
-  gridDetails: {
-    fontSize: 12,
-    color: '#fff',
-    opacity: 0.9,
+    letterSpacing: 0.3,
   },
   emptyState: {
     width: '100%',
