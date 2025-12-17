@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -14,7 +14,8 @@ import {
 import { profileService } from '../../lib/profileService';
 import { supabase } from '../../lib/supabase';
 import { calculateAge } from '../../lib/utils';
-import { Profile } from '../../types/homeTypes';
+import { FilterState, Profile } from '../../types/homeTypes';
+import FilterModal from '../home/FilterModal';
 import ProfileCard from '../home/ProfileCard';
 
 interface ProfileGridSelectionModalProps {
@@ -51,17 +52,33 @@ export default function ProfileGridSelectionModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   
-  // Filters
-  const [ageMin, setAgeMin] = useState('');
-  const [ageMax, setAgeMax] = useState('');
-  const [filterHashkafa, setFilterHashkafa] = useState('');
+  // Filter state based on singles profile form (same as home page)
+  const [filterState, setFilterState] = useState<FilterState>({
+    selectedAgeOption: null,
+    minAge: null,
+    maxAge: null,
+    exactAge: null,
+    selectedCountries: [],
+    selectedStates: [],
+    selectedCities: [],
+    selectedHashkafa: [],
+    selectedNationality: [],
+    selectedMaritalStatus: [],
+    hasChildren: null,
+    selectedEducation: [],
+    selectedOccupation: [],
+    minHeightFeet: null,
+    minHeightInches: null,
+    maxHeightFeet: null,
+    maxHeightInches: null,
+  });
 
   const loadProfiles = useCallback(async () => {
     setLoading(true);
     try {
       let query = supabase
         .from('profiles')
-        .select('id, first_name, last_name, dob, gender, role, hashkafa_type, pictures, picture_privacy')
+        .select('id, first_name, last_name, dob, gender, role, hashkafa_type, pictures, picture_privacy, location_country, location_state, location_city, nationality, marital_status, has_children, education_level, current_occupation_study, height')
         .eq('status', 'approved')
         .eq('is_active', true)
         .eq('role', 'single'); // Only singles can be set up
@@ -101,23 +118,141 @@ export default function ProfileGridSelectionModal({
     }
 
     // Age filter
-    if (ageMin) {
-      filtered = filtered.filter(p => calculateAge(p.dob) >= parseInt(ageMin));
+    if (filterState.selectedAgeOption) {
+      const [min, max] = filterState.selectedAgeOption === '36+' 
+        ? [36, 999]
+        : filterState.selectedAgeOption.split('-').map(Number);
+      
+      filtered = filtered.filter(p => {
+        if (!p.dob) return false;
+        const age = calculateAge(p.dob);
+        return age >= min && age <= max;
+      });
+    } else if (filterState.exactAge !== null) {
+      filtered = filtered.filter(p => {
+        if (!p.dob) return false;
+        const age = calculateAge(p.dob);
+        return age === filterState.exactAge;
+      });
+    } else if (filterState.minAge !== null || filterState.maxAge !== null) {
+      filtered = filtered.filter(p => {
+        if (!p.dob) return false;
+        const age = calculateAge(p.dob);
+        const min = filterState.minAge ?? 0;
+        const max = filterState.maxAge ?? 999;
+        return age >= min && age <= max;
+      });
     }
-    if (ageMax) {
-      filtered = filtered.filter(p => calculateAge(p.dob) <= parseInt(ageMax));
+
+    // Location filters
+    if (filterState.selectedCountries.length > 0) {
+      filtered = filtered.filter(p => {
+        const country = (p as any).location_country;
+        return country && filterState.selectedCountries.includes(country);
+      });
+    }
+
+    if (filterState.selectedStates.length > 0) {
+      filtered = filtered.filter(p => {
+        const state = (p as any).location_state;
+        return state && filterState.selectedStates.includes(state);
+      });
+    }
+
+    if (filterState.selectedCities.length > 0) {
+      filtered = filtered.filter(p => {
+        const city = (p as any).location_city?.toLowerCase();
+        return city && filterState.selectedCities.some(c => city.includes(c.toLowerCase()));
+      });
     }
 
     // Hashkafa filter
-    if (filterHashkafa.trim()) {
-      const query = filterHashkafa.toLowerCase();
-      filtered = filtered.filter(p =>
-        p.hashkafa_type?.toLowerCase().includes(query)
+    if (filterState.selectedHashkafa.length > 0) {
+      filtered = filtered.filter(p => 
+        p.hashkafa_type && filterState.selectedHashkafa.includes(p.hashkafa_type)
       );
     }
 
+    // Nationality filter
+    if (filterState.selectedNationality.length > 0) {
+      filtered = filtered.filter(p => {
+        const nationality = (p as any).nationality;
+        if (!nationality || !Array.isArray(nationality)) return false;
+        return filterState.selectedNationality.some(nat => nationality.includes(nat));
+      });
+    }
+
+    // Marital Status filter
+    if (filterState.selectedMaritalStatus.length > 0) {
+      filtered = filtered.filter(p => {
+        const maritalStatus = (p as any).marital_status;
+        return maritalStatus && filterState.selectedMaritalStatus.includes(maritalStatus);
+      });
+    }
+
+    // Has Children filter
+    if (filterState.hasChildren !== null) {
+      filtered = filtered.filter(p => {
+        const hasChildren = (p as any).has_children;
+        if (filterState.hasChildren === true) {
+          return hasChildren === true;
+        } else {
+          return hasChildren === false || hasChildren === undefined;
+        }
+      });
+    }
+
+    // Education filter
+    if (filterState.selectedEducation.length > 0) {
+      filtered = filtered.filter(p => {
+        const educationLevel = (p as any).education_level;
+        if (!educationLevel) return false;
+        const educationLevels = educationLevel.split(',').map((e: string) => e.trim());
+        return filterState.selectedEducation.some(edu => educationLevels.includes(edu));
+      });
+    }
+
+    // Occupation filter
+    if (filterState.selectedOccupation.length > 0) {
+      filtered = filtered.filter(p => {
+        const occupation = (p as any).current_occupation_study;
+        return occupation && filterState.selectedOccupation.includes(occupation);
+      });
+    }
+
+    // Height filter
+    if (filterState.minHeightFeet !== null || filterState.minHeightInches !== null ||
+        filterState.maxHeightFeet !== null || filterState.maxHeightInches !== null) {
+      filtered = filtered.filter(p => {
+        const height = (p as any).height;
+        if (!height) return false;
+        const match = height.match(/(\d+)'(\d+)"/);
+        if (!match) return false;
+        const profileFeet = parseInt(match[1]);
+        const profileInches = parseInt(match[2]);
+        const profileTotalInches = profileFeet * 12 + profileInches;
+
+        const minFeet = filterState.minHeightFeet ?? 0;
+        const minInches = filterState.minHeightInches ?? 0;
+        const minTotalInches = minFeet * 12 + minInches;
+
+        const maxFeet = filterState.maxHeightFeet ?? 8;
+        const maxInches = filterState.maxHeightInches ?? 11;
+        const maxTotalInches = maxFeet * 12 + maxInches;
+
+        const actualMin = (filterState.minHeightFeet !== null || filterState.minHeightInches !== null) 
+          ? minTotalInches 
+          : 0;
+        const actualMax = (filterState.maxHeightFeet !== null || filterState.maxHeightInches !== null)
+          ? maxTotalInches
+          : 999;
+
+        return profileTotalInches >= actualMin && profileTotalInches <= actualMax;
+      });
+    }
+
     setFilteredProfiles(filtered);
-  }, [profiles, searchQuery, ageMin, ageMax, filterHashkafa]);
+  }, [profiles, searchQuery, filterState]);
 
   useEffect(() => {
     if (visible) {
@@ -130,10 +265,153 @@ export default function ProfileGridSelectionModal({
   }, [applyFilters]);
 
   const clearFilters = () => {
-    setAgeMin('');
-    setAgeMax('');
-    setFilterHashkafa('');
+    setFilterState({
+      selectedAgeOption: null,
+      minAge: null,
+      maxAge: null,
+      exactAge: null,
+      selectedCountries: [],
+      selectedStates: [],
+      selectedCities: [],
+      selectedHashkafa: [],
+      selectedNationality: [],
+      selectedMaritalStatus: [],
+      hasChildren: null,
+      selectedEducation: [],
+      selectedOccupation: [],
+      minHeightFeet: null,
+      minHeightInches: null,
+      maxHeightFeet: null,
+      maxHeightInches: null,
+    });
     setSearchQuery('');
+  };
+
+  // Get active filters for display
+  const getActiveFilters = useMemo(() => {
+    const activeFilters: { label: string; removeKey: string }[] = [];
+
+    // Age filters
+    if (filterState.selectedAgeOption) {
+      activeFilters.push({ label: `Age: ${filterState.selectedAgeOption}`, removeKey: 'selectedAgeOption' });
+    } else if (filterState.exactAge !== null) {
+      activeFilters.push({ label: `Age: ${filterState.exactAge}`, removeKey: 'exactAge' });
+    } else if (filterState.minAge !== null || filterState.maxAge !== null) {
+      const min = filterState.minAge ?? '';
+      const max = filterState.maxAge ?? '';
+      activeFilters.push({ label: `Age: ${min}-${max}`, removeKey: 'customAge' });
+    }
+
+    // Location filters
+    if (filterState.selectedCountries.length > 0) {
+      activeFilters.push({ label: `Country: ${filterState.selectedCountries[0]}`, removeKey: 'selectedCountries' });
+    }
+    if (filterState.selectedStates.length > 0) {
+      filterState.selectedStates.forEach(state => {
+        activeFilters.push({ label: `State: ${state}`, removeKey: `state_${state}` });
+      });
+    }
+    if (filterState.selectedCities.length > 0) {
+      filterState.selectedCities.forEach(city => {
+        activeFilters.push({ label: `City: ${city}`, removeKey: `city_${city}` });
+      });
+    }
+
+    // Hashkafa
+    filterState.selectedHashkafa.forEach(hashkafa => {
+      activeFilters.push({ label: hashkafa, removeKey: `hashkafa_${hashkafa}` });
+    });
+
+    // Nationality
+    filterState.selectedNationality.forEach(nationality => {
+      activeFilters.push({ label: nationality, removeKey: `nationality_${nationality}` });
+    });
+
+    // Marital Status
+    filterState.selectedMaritalStatus.forEach(status => {
+      activeFilters.push({ label: status, removeKey: `maritalStatus_${status}` });
+    });
+
+    // Has Children
+    if (filterState.hasChildren !== null) {
+      activeFilters.push({ 
+        label: filterState.hasChildren ? 'Has Children' : 'No Children', 
+        removeKey: 'hasChildren' 
+      });
+    }
+
+    // Education
+    filterState.selectedEducation.forEach(education => {
+      activeFilters.push({ label: education, removeKey: `education_${education}` });
+    });
+
+    // Occupation
+    filterState.selectedOccupation.forEach(occupation => {
+      activeFilters.push({ label: occupation, removeKey: `occupation_${occupation}` });
+    });
+
+    // Height
+    if (filterState.minHeightFeet !== null || filterState.minHeightInches !== null ||
+        filterState.maxHeightFeet !== null || filterState.maxHeightInches !== null) {
+      const minHeight = filterState.minHeightFeet !== null && filterState.minHeightInches !== null
+        ? `${filterState.minHeightFeet}'${filterState.minHeightInches}"`
+        : filterState.minHeightFeet !== null ? `${filterState.minHeightFeet}'` : '';
+      const maxHeight = filterState.maxHeightFeet !== null && filterState.maxHeightInches !== null
+        ? `${filterState.maxHeightFeet}'${filterState.maxHeightInches}"`
+        : filterState.maxHeightFeet !== null ? `${filterState.maxHeightFeet}'` : '';
+      const heightLabel = minHeight && maxHeight ? `Height: ${minHeight}-${maxHeight}` 
+        : minHeight ? `Height: ${minHeight}+`
+        : maxHeight ? `Height: up to ${maxHeight}` : 'Height';
+      activeFilters.push({ label: heightLabel, removeKey: 'height' });
+    }
+
+    return activeFilters;
+  }, [filterState]);
+
+  // Remove a specific filter
+  const removeFilter = (removeKey: string) => {
+    const newFilterState = { ...filterState };
+
+    if (removeKey === 'selectedAgeOption') {
+      newFilterState.selectedAgeOption = null;
+    } else if (removeKey === 'exactAge') {
+      newFilterState.exactAge = null;
+    } else if (removeKey === 'customAge') {
+      newFilterState.minAge = null;
+      newFilterState.maxAge = null;
+    } else if (removeKey === 'selectedCountries') {
+      newFilterState.selectedCountries = [];
+    } else if (removeKey.startsWith('state_')) {
+      const state = removeKey.replace('state_', '');
+      newFilterState.selectedStates = newFilterState.selectedStates.filter(s => s !== state);
+    } else if (removeKey.startsWith('city_')) {
+      const city = removeKey.replace('city_', '');
+      newFilterState.selectedCities = newFilterState.selectedCities.filter(c => c !== city);
+    } else if (removeKey.startsWith('hashkafa_')) {
+      const hashkafa = removeKey.replace('hashkafa_', '');
+      newFilterState.selectedHashkafa = newFilterState.selectedHashkafa.filter(h => h !== hashkafa);
+    } else if (removeKey.startsWith('nationality_')) {
+      const nationality = removeKey.replace('nationality_', '');
+      newFilterState.selectedNationality = newFilterState.selectedNationality.filter(n => n !== nationality);
+    } else if (removeKey.startsWith('maritalStatus_')) {
+      const status = removeKey.replace('maritalStatus_', '');
+      newFilterState.selectedMaritalStatus = newFilterState.selectedMaritalStatus.filter(s => s !== status);
+    } else if (removeKey === 'hasChildren') {
+      newFilterState.hasChildren = null;
+    } else if (removeKey.startsWith('education_')) {
+      const education = removeKey.replace('education_', '');
+      newFilterState.selectedEducation = newFilterState.selectedEducation.filter(e => e !== education);
+    } else if (removeKey.startsWith('occupation_')) {
+      const occupation = removeKey.replace('occupation_', '');
+      newFilterState.selectedOccupation = newFilterState.selectedOccupation.filter(o => o !== occupation);
+    } else if (removeKey === 'height') {
+      newFilterState.minHeightFeet = null;
+      newFilterState.minHeightInches = null;
+      newFilterState.maxHeightFeet = null;
+      newFilterState.maxHeightInches = null;
+    }
+
+    setFilterState(newFilterState);
   };
 
   // Transform database profile to Profile type
@@ -209,6 +487,29 @@ export default function ProfileGridSelectionModal({
           </TouchableOpacity>
         </View>
 
+        {/* Active Filters Summary */}
+        {getActiveFilters.length > 0 && (
+          <View style={styles.filtersSummary}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filtersScrollContent}
+            >
+              {getActiveFilters.map((filter, index) => (
+                <View key={index} style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>{filter.label}</Text>
+                  <TouchableOpacity
+                    onPress={() => removeFilter(filter.removeKey)}
+                    style={styles.filterBadgeRemove}
+                  >
+                    <Ionicons name="close-circle" size={16} color="#666" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Results Count */}
         <View style={styles.resultsCount}>
           <Text style={styles.resultsText}>{filteredProfiles.length} profiles available</Text>
@@ -258,74 +559,14 @@ export default function ProfileGridSelectionModal({
       </View>
 
       {/* Filter Modal */}
-      <Modal
-        visible={showFilters}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowFilters(false)}
-      >
-        <View style={styles.filterModalContainer}>
-          {/* Filter Modal Header */}
-          <View style={styles.filterModalHeader}>
-            <TouchableOpacity onPress={() => setShowFilters(false)}>
-              <Ionicons name="close" size={28} color="#333" />
-            </TouchableOpacity>
-            <Text style={styles.filterModalTitle}>Filters</Text>
-            <TouchableOpacity onPress={() => setShowFilters(false)}>
-              <Text style={styles.doneButton}>Done</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.filterModalContent}>
-            {/* Age Range */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Age Range</Text>
-              <View style={styles.ageInputs}>
-                <TextInput
-                  style={styles.ageInput}
-                  placeholder="Min"
-                  value={ageMin}
-                  onChangeText={setAgeMin}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.ageSeparator}>-</Text>
-                <TextInput
-                  style={styles.ageInput}
-                  placeholder="Max"
-                  value={ageMax}
-                  onChangeText={setAgeMax}
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-
-            {/* Hashkafa Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Hashkafa</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter hashkafa..."
-                value={filterHashkafa}
-                onChangeText={setFilterHashkafa}
-                autoCapitalize="words"
-              />
-            </View>
-
-            {/* Clear Filters Button */}
-            <TouchableOpacity
-              style={styles.clearFiltersButton}
-              onPress={() => {
-                setAgeMin('');
-                setAgeMax('');
-                setFilterHashkafa('');
-              }}
-            >
-              <Ionicons name="close-circle" size={18} color="#666" />
-              <Text style={styles.clearFiltersText}>Clear All Filters</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </Modal>
+      {showFilters && (
+        <FilterModal
+          visible={showFilters}
+          filterState={filterState}
+          onClose={() => setShowFilters(false)}
+          onFilterChange={setFilterState}
+        />
+      )}
     </Modal>
   );
 }
@@ -431,83 +672,33 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
-  filterModalContainer: {
-    flex: 1,
+  filtersSummary: {
     backgroundColor: '#fff',
-  },
-  filterModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-  },
-  filterModalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  doneButton: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#03a9f4',
-  },
-  filterModalContent: {
-    flex: 1,
-    padding: 16,
-  },
-  filterSection: {
-    marginBottom: 24,
-  },
-  filterLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  ageInputs: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  ageInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
     paddingVertical: 12,
+  },
+  filtersScrollContent: {
     paddingHorizontal: 16,
-    fontSize: 16,
-    backgroundColor: '#f9f9f9',
-  },
-  ageSeparator: {
-    fontSize: 18,
-    color: '#666',
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    backgroundColor: '#f9f9f9',
-  },
-  clearFiltersButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 14,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
     gap: 8,
-    marginTop: 8,
   },
-  clearFiltersText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
+  filterBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    gap: 6,
+  },
+  filterBadgeText: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
+  },
+  filterBadgeRemove: {
+    padding: 2,
   },
 });
 

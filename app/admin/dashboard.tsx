@@ -1,52 +1,74 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Modal,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import SuccessModal from '../../components/SuccessModal';
 import { adminService } from '../../lib/adminService';
-import { Profile, profileService } from '../../lib/profileService';
+import { Profile } from '../../lib/profileService';
 import { supabase } from '../../lib/supabase';
 import { calculateAge } from '../../lib/utils';
 
 export default function AdminDashboard() {
+  const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [processingApprove, setProcessingApprove] = useState(false);
-  const [processingReject, setProcessingReject] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
+  const [filter, setFilter] = useState<'all' | 'new' | 'updates'>('all');
 
   useEffect(() => {
     loadProfiles();
   }, []);
 
+  // Reload profiles when screen comes into focus (e.g., after approving/rejecting)
+  useFocusEffect(
+    useCallback(() => {
+      loadProfiles();
+    }, [])
+  );
+
   const loadProfiles = async () => {
     setLoading(true);
     const result = await adminService.getPendingProfiles();
     if (result.success && result.profiles) {
-      setProfiles(result.profiles);
+      setAllProfiles(result.profiles);
+      applyFilter(result.profiles, filter);
     } else {
       Alert.alert('Error', result.error || 'Failed to load profiles');
     }
     setLoading(false);
+  };
+
+  const applyFilter = (profilesToFilter: Profile[], currentFilter: 'all' | 'new' | 'updates') => {
+    let filtered: Profile[] = [];
+    
+    switch (currentFilter) {
+      case 'new':
+        filtered = profilesToFilter.filter(p => !p.is_update);
+        break;
+      case 'updates':
+        filtered = profilesToFilter.filter(p => p.is_update === true);
+        break;
+      case 'all':
+      default:
+        filtered = profilesToFilter;
+        break;
+    }
+    
+    setProfiles(filtered);
+  };
+
+  const handleFilterChange = (newFilter: 'all' | 'new' | 'updates') => {
+    setFilter(newFilter);
+    applyFilter(allProfiles, newFilter);
   };
 
   const onRefresh = async () => {
@@ -56,74 +78,7 @@ export default function AdminDashboard() {
   };
 
   const handleViewProfile = (profile: Profile) => {
-    setSelectedProfile(profile);
-    setShowDetailModal(true);
-  };
-
-  const handleApprove = async (profileId: string) => {
-    Alert.alert(
-      'Approve Profile',
-      'Are you sure you want to approve this profile?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Approve',
-          onPress: async () => {
-            setProcessingApprove(true);
-            const result = await adminService.approveProfile(profileId);
-            setProcessingApprove(false);
-            
-            if (result.success) {
-              setSuccessMessage({
-                title: 'Profile Approved!',
-                message: 'The profile has been approved successfully and is now visible to other users.',
-              });
-              setShowSuccessModal(true);
-              setShowDetailModal(false);
-              await loadProfiles();
-            } else {
-              Alert.alert('Error', result.error || 'Failed to approve profile');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleReject = (profile: Profile) => {
-    setSelectedProfile(profile);
-    setRejectionReason('');
-    setShowRejectModal(true);
-  };
-
-  const confirmReject = async () => {
-    if (!selectedProfile) return;
-
-    if (!rejectionReason.trim()) {
-      Alert.alert('Error', 'Please provide a reason for rejection');
-      return;
-    }
-
-    setProcessingReject(true);
-    const result = await adminService.rejectProfile(selectedProfile.id, rejectionReason);
-    setProcessingReject(false);
-
-    if (result.success) {
-      setSuccessMessage({
-        title: 'Profile Rejected',
-        message: 'The profile has been rejected and the user will be notified.',
-      });
-      setShowSuccessModal(true);
-      setShowRejectModal(false);
-      setShowDetailModal(false);
-      await loadProfiles();
-    } else {
-      Alert.alert('Error', result.error || 'Failed to reject profile');
-    }
-  };
-
-  const getImageUrl = (path: string) => {
-    return profileService.getImageUrl(path);
+    router.push(`/admin/profile-review/${profile.id}`);
   };
 
   if (loading) {
@@ -142,8 +97,18 @@ export default function AdminDashboard() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.title}>Admin Dashboard</Text>
-          <Text style={styles.subtitle}>{profiles.length} Pending Profiles</Text>
+          <Text style={styles.subtitle}>
+            {allProfiles.length} Pending {allProfiles.length === 1 ? 'Profile' : 'Profiles'}
+            {allProfiles.length > 0 && (
+              <Text style={styles.subtitleCounts}>
+                {' '}({allProfiles.filter(p => !p.is_update).length} new, {allProfiles.filter(p => p.is_update).length} updates)
+              </Text>
+            )}
+          </Text>
         </View>
+        <TouchableOpacity onPress={() => router.push('/admin/users')} style={{ padding: 8 }}>
+          <Ionicons name="people" size={24} color="#666" />
+        </TouchableOpacity>
         <TouchableOpacity onPress={onRefresh}>
           <Ionicons name="refresh" size={24} color="#666" />
         </TouchableOpacity>
@@ -167,6 +132,46 @@ export default function AdminDashboard() {
           }}
         >
           <Ionicons name="log-out" size={24} color="#666" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter Buttons */}
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
+          onPress={() => handleFilterChange('all')}
+        >
+          <Text style={[styles.filterButtonText, filter === 'all' && styles.filterButtonTextActive]}>
+            All
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'new' && styles.filterButtonActive]}
+          onPress={() => handleFilterChange('new')}
+        >
+          <Ionicons 
+            name="add-circle" 
+            size={16} 
+            color={filter === 'new' ? '#fff' : '#4caf50'} 
+            style={{ marginRight: 4 }}
+          />
+          <Text style={[styles.filterButtonText, filter === 'new' && styles.filterButtonTextActive]}>
+            New
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'updates' && styles.filterButtonActive]}
+          onPress={() => handleFilterChange('updates')}
+        >
+          <Ionicons 
+            name="refresh" 
+            size={16} 
+            color={filter === 'updates' ? '#fff' : '#ff9800'} 
+            style={{ marginRight: 4 }}
+          />
+          <Text style={[styles.filterButtonText, filter === 'updates' && styles.filterButtonTextActive]}>
+            Updates
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -214,276 +219,42 @@ export default function AdminDashboard() {
                 </View>
                 <Ionicons name="chevron-forward" size={24} color="#666" />
               </View>
-              <Text style={styles.profileDate}>
-                Submitted: {new Date(profile.created_at).toLocaleDateString()}
-              </Text>
+              <View style={styles.profileMeta}>
+                {profile.is_update ? (
+                  <View style={styles.updateBadge}>
+                    <Ionicons name="refresh" size={12} color="#ff9800" />
+                    <Text style={styles.updateBadgeText}>Profile Update</Text>
+                  </View>
+                ) : (
+                  <View style={styles.newBadge}>
+                    <Ionicons name="add-circle" size={12} color="#4caf50" />
+                    <Text style={styles.newBadgeText}>New Profile</Text>
+                  </View>
+                )}
+                <Text style={styles.profileDate}>
+                  {profile.is_update 
+                    ? `Updated: ${new Date(profile.updated_at).toLocaleDateString()}`
+                    : `Submitted: ${new Date(profile.created_at).toLocaleDateString()}`
+                  }
+                </Text>
+              </View>
+              {profile.pending_changes?.summary && (
+                <View style={styles.changesBanner}>
+                  <Ionicons name="information-circle" size={16} color="#2196f3" />
+                  <Text style={styles.changesText}>
+                    <Text style={styles.changesLabel}>Changes: </Text>
+                    {profile.pending_changes.summary}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           ))
         )}
       </ScrollView>
 
-      {/* Profile Detail Modal */}
-      <Modal
-        visible={showDetailModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        {selectedProfile && (
-          <SafeAreaView style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setShowDetailModal(false)}>
-                <Ionicons name="close" size={28} color="#666" />
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>Profile Review</Text>
-              <View style={{ width: 28 }} />
-            </View>
-
-            <ScrollView style={styles.modalContent}>
-              {/* Pictures */}
-              {selectedProfile.pictures && selectedProfile.pictures.length > 0 && (
-                <View style={styles.picturesSection}>
-                  <Text style={styles.sectionTitle}>Photos ({selectedProfile.pictures.length})</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {selectedProfile.pictures.map((picture, index) => (
-                      <Image
-                        key={index}
-                        source={{ uri: getImageUrl(picture) }}
-                        style={styles.profilePicture}
-                      />
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* Personal Info */}
-              <View style={styles.detailSection}>
-                <Text style={styles.sectionTitle}>Personal Information</Text>
-                <DetailRow label="Name" value={`${selectedProfile.first_name} ${selectedProfile.last_name}`} />
-                {selectedProfile.dob && (
-                  <>
-                    <DetailRow label="Age" value={`${calculateAge(selectedProfile.dob)} years old`} />
-                    <DetailRow label="Date of Birth" value={new Date(selectedProfile.dob).toLocaleDateString()} />
-                  </>
-                )}
-                <DetailRow label="Gender" value={selectedProfile.gender} />
-                <DetailRow label="Role" value={selectedProfile.role === 'single' ? 'Single' : 'Matchmaker'} />
-                {selectedProfile.height && <DetailRow label="Height" value={selectedProfile.height} />}
-                {selectedProfile.marital_status && <DetailRow label="Marital Status" value={selectedProfile.marital_status} />}
-              </View>
-
-              {/* Bio */}
-              <View style={styles.detailSection}>
-                <Text style={styles.sectionTitle}>Bio</Text>
-                <Text style={styles.bioText}>{selectedProfile.bio}</Text>
-              </View>
-
-              {/* What Looking For (Singles only) */}
-              {selectedProfile.role === 'single' && selectedProfile.what_looking_for && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionTitle}>What I&apos;m Looking For</Text>
-                  <Text style={styles.bioText}>{selectedProfile.what_looking_for}</Text>
-                </View>
-              )}
-
-              {/* Location */}
-              {(selectedProfile.location_country || selectedProfile.location_state || selectedProfile.location_city) && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionTitle}>Location</Text>
-                  {selectedProfile.location_country && <DetailRow label="Country" value={selectedProfile.location_country} />}
-                  {selectedProfile.location_state && <DetailRow label="State" value={selectedProfile.location_state} />}
-                  {selectedProfile.location_city && <DetailRow label="City" value={selectedProfile.location_city} />}
-                </View>
-              )}
-
-              {/* Contact Info */}
-              <View style={styles.detailSection}>
-                <Text style={styles.sectionTitle}>Contact Information</Text>
-                <DetailRow label="Phone" value={selectedProfile.phone} />
-                {selectedProfile.email && <DetailRow label="Email" value={selectedProfile.email} />}
-                {selectedProfile.whatsapp && <DetailRow label="WhatsApp" value={selectedProfile.whatsapp} />}
-              </View>
-
-              {/* Background & Nationality */}
-              {(selectedProfile.languages?.length || selectedProfile.nationality?.length || selectedProfile.is_cohen !== null) && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionTitle}>Background & Nationality</Text>
-                  {selectedProfile.languages && selectedProfile.languages.length > 0 && (
-                    <DetailRow label="Languages" value={selectedProfile.languages.join(', ')} />
-                  )}
-                  {selectedProfile.nationality && selectedProfile.nationality.length > 0 && (
-                    <DetailRow label="Nationality" value={selectedProfile.nationality.join(', ')} />
-                  )}
-                  {selectedProfile.is_cohen !== undefined && selectedProfile.is_cohen !== null && (
-                    <DetailRow label="Cohen" value={selectedProfile.is_cohen ? 'Yes' : 'No'} />
-                  )}
-                </View>
-              )}
-
-              {/* Religious Outlook */}
-              {(selectedProfile.hashkafa_type || selectedProfile.torah_learning || selectedProfile.praying) && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionTitle}>Religious Outlook</Text>
-                  {selectedProfile.hashkafa_type && <DetailRow label="Hashkafa Type" value={selectedProfile.hashkafa_type} />}
-                  {selectedProfile.torah_learning && <DetailRow label="Torah Learning" value={selectedProfile.torah_learning} />}
-                  {selectedProfile.praying && <DetailRow label="Praying" value={selectedProfile.praying} />}
-                </View>
-              )}
-
-              {/* Education */}
-              {(selectedProfile.education_level || selectedProfile.post_high_school_path) && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionTitle}>Education</Text>
-                  {selectedProfile.education_level && <DetailRow label="Education Level" value={selectedProfile.education_level} />}
-                  {selectedProfile.post_high_school_path && <DetailRow label="Post High School Path" value={selectedProfile.post_high_school_path} />}
-                </View>
-              )}
-
-              {/* Occupation & Career */}
-              {(selectedProfile.current_occupation_study || selectedProfile.plan_after_marriage) && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionTitle}>Occupation & Career</Text>
-                  {selectedProfile.current_occupation_study && <DetailRow label="Current Occupation/Study" value={selectedProfile.current_occupation_study} />}
-                  {selectedProfile.plan_after_marriage && <DetailRow label="Plan After Marriage" value={selectedProfile.plan_after_marriage} />}
-                </View>
-              )}
-
-              {/* Dress & Appearance */}
-              {(selectedProfile.dress_style || selectedProfile.wears_black_hat !== null || selectedProfile.head_covering) && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionTitle}>Dress & Appearance</Text>
-                  {selectedProfile.dress_style && <DetailRow label="Dress Style" value={selectedProfile.dress_style} />}
-                  {selectedProfile.wears_black_hat !== undefined && selectedProfile.wears_black_hat !== null && (
-                    <DetailRow label="Wears Black Hat" value={selectedProfile.wears_black_hat ? 'Yes' : 'No'} />
-                  )}
-                  {selectedProfile.head_covering && <DetailRow label="Head Covering" value={selectedProfile.head_covering} />}
-                </View>
-              )}
-
-              {/* Lifestyle */}
-              {(selectedProfile.smoking || selectedProfile.alcohol_consumption) && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionTitle}>Lifestyle</Text>
-                  {selectedProfile.smoking && <DetailRow label="Smoking" value={selectedProfile.smoking} />}
-                  {selectedProfile.alcohol_consumption && <DetailRow label="Alcohol Consumption" value={selectedProfile.alcohol_consumption} />}
-                </View>
-              )}
-
-              {/* Privacy Settings */}
-              {selectedProfile.field_privacy && Object.keys(selectedProfile.field_privacy).length > 0 && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionTitle}>Privacy Settings</Text>
-                  <Text style={styles.privacyNote}>
-                    The following fields are marked as private (Ask me):
-                  </Text>
-                  {Object.entries(selectedProfile.field_privacy).map(([field, isPrivate]) => 
-                    isPrivate && (
-                      <Text key={field} style={styles.privateField}>
-                        • {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </Text>
-                    )
-                  )}
-                </View>
-              )}
-            </ScrollView>
-
-            {/* Action Buttons */}
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.rejectButton]}
-                onPress={() => handleReject(selectedProfile)}
-                disabled={processingApprove || processingReject}
-              >
-                {processingReject ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="close-circle" size={20} color="#fff" />
-                    <Text style={styles.actionButtonText}>Reject</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.approveButton]}
-                onPress={() => handleApprove(selectedProfile.id)}
-                disabled={processingApprove || processingReject}
-              >
-                {processingApprove ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                    <Text style={styles.actionButtonText}>Approve</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        )}
-      </Modal>
-
-      {/* Reject Modal */}
-      <Modal
-        visible={showRejectModal}
-        animationType="fade"
-        transparent
-        statusBarTranslucent
-      >
-        <View style={styles.rejectModalOverlay}>
-          <View style={styles.rejectModal}>
-            <Text style={styles.rejectModalTitle}>Reject Profile</Text>
-            <Text style={styles.rejectModalSubtitle}>
-              Please provide a reason for rejection:
-            </Text>
-            <TextInput
-              style={styles.rejectInput}
-              value={rejectionReason}
-              onChangeText={setRejectionReason}
-              placeholder="Enter reason..."
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-            <View style={styles.rejectModalButtons}>
-              <TouchableOpacity
-                style={[styles.rejectModalButton, styles.rejectModalCancel]}
-                onPress={() => setShowRejectModal(false)}
-                disabled={processingReject}
-              >
-                <Text style={styles.rejectModalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.rejectModalButton, styles.rejectModalConfirm]}
-                onPress={confirmReject}
-                disabled={processingReject}
-              >
-                {processingReject ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.rejectModalConfirmText}>Reject</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Success Modal */}
-      <SuccessModal
-        visible={showSuccessModal}
-        title={successMessage.title}
-        message={successMessage.message}
-        onClose={() => setShowSuccessModal(false)}
-      />
     </SafeAreaView>
   );
 }
-
-const DetailRow = ({ label, value }: { label: string; value: string }) => (
-  <View style={styles.detailRow}>
-    <Text style={styles.detailLabel}>{label}:</Text>
-    <Text style={styles.detailValue}>{value}</Text>
-  </View>
-);
 
 const styles = StyleSheet.create({
   container: {
@@ -521,6 +292,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 4,
+  },
+  subtitleCounts: {
+    fontSize: 12,
+    color: '#999',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    gap: 8,
+  },
+  filterButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  filterButtonActive: {
+    backgroundColor: '#03a9f4',
+    borderColor: '#03a9f4',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+  filterButtonTextActive: {
+    color: '#fff',
+    fontWeight: '600',
   },
   logoutButton: {
     padding: 8,
@@ -577,174 +386,60 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
   },
+  profileMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
   profileDate: {
     fontSize: 12,
     color: '#999',
-    marginTop: 8,
   },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  modalHeader: {
+  updateBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#fff3e0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  modalContent: {
-    flex: 1,
-    padding: 20,
-  },
-  picturesSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
-  },
-  profilePicture: {
-    width: 150,
-    height: 150,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  detailSection: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  detailLabel: {
-    fontSize: 14,
+  updateBadgeText: {
+    fontSize: 11,
     fontWeight: '600',
-    color: '#666',
-    width: 120,
+    color: '#ff9800',
   },
-  detailValue: {
-    flex: 1,
-    fontSize: 14,
-    color: '#333',
-  },
-  bioText: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-  },
-  privacyNote: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-    fontStyle: 'italic',
-  },
-  privateField: {
-    fontSize: 14,
-    color: '#03a9f4',
-    marginLeft: 8,
-    marginBottom: 4,
-  },
-  actionButtons: {
+  newBadge: {
     flexDirection: 'row',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
+    backgroundColor: '#e8f5e9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  newBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4caf50',
+  },
+  changesBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e3f2fd',
+    padding: 10,
     borderRadius: 8,
+    marginTop: 8,
     gap: 8,
   },
-  approveButton: {
-    backgroundColor: '#4caf50',
-  },
-  rejectButton: {
-    backgroundColor: '#f44336',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  rejectModalOverlay: {
+  changesText: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    fontSize: 13,
+    color: '#1976d2',
+    lineHeight: 18,
   },
-  rejectModal: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-  },
-  rejectModalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  rejectModalSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
-  },
-  rejectInput: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    minHeight: 100,
-    marginBottom: 16,
-  },
-  rejectModalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  rejectModalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  rejectModalCancel: {
-    backgroundColor: '#f0f0f0',
-  },
-  rejectModalConfirm: {
-    backgroundColor: '#f44336',
-  },
-  rejectModalCancelText: {
-    color: '#666',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  rejectModalConfirmText: {
-    color: '#fff',
-    fontSize: 16,
+  changesLabel: {
     fontWeight: '600',
   },
 });

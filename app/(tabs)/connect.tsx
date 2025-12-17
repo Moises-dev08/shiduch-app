@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ApprovedInfoRequestCard from '../../components/connect/ApprovedInfoRequestCard';
 import InfoRequestCard from '../../components/connect/InfoRequestCard';
 import IntroRequestCard from '../../components/intro/IntroRequestCard';
 import MiddlePersonRequestCard from '../../components/intro/MiddlePersonRequestCard';
@@ -22,15 +24,28 @@ import { InfoRequest, infoRequestService } from '../../lib/infoRequestService';
 import { IntroRequest, introService } from '../../lib/introService';
 import { Profile, profileService } from '../../lib/profileService';
 import { Suggestion, suggestionService } from '../../lib/suggestionService';
+import { calculateAge } from '../../lib/utils';
 
 export default function ConnectScreen() {
+  const params = useLocalSearchParams();
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState<'for_you' | 'for_others'>('for_you');
-  const [activeSection, setActiveSection] = useState<'action_needed' | 'matches' | 'passed' | 'liked'>('action_needed');
-  const [activeForOthersSection, setActiveForOthersSection] = useState<'awaiting' | 'matched' | 'not_matched'>('awaiting');
+  // Initialize activeSection from params if provided, otherwise default to 'action_needed'
+  const [activeSection, setActiveSection] = useState<'action_needed' | 'matches' | 'passed' | 'liked'>(
+    (params.section as 'action_needed' | 'matches' | 'passed' | 'liked') || 'action_needed'
+  );
+  const [activeForOthersSection, setActiveForOthersSection] = useState<'awaiting' | 'matched' | 'not_matched' | 'my_singles'>('awaiting');
   const isSilentUpdateRef = React.useRef(false);
+
+  // My Singles data
+  const [mySingles, setMySingles] = useState<Profile[]>([]);
+  const [loadingSingles, setLoadingSingles] = useState(false);
+  const [newSinglesCount, setNewSinglesCount] = useState(0);
+
+  // State for tracking last viewed matches timestamp for matchmakers
+  const [lastViewedMatchesForOthersAt, setLastViewedMatchesForOthersAt] = useState<Date | null>(null);
 
   // Real intro requests data
   const [sentIntroRequests, setSentIntroRequests] = useState<IntroRequest[]>([]);
@@ -51,16 +66,22 @@ export default function ConnectScreen() {
         isSilentUpdateRef.current = true;
       }
 
-      const result = await introService.getMyIntroRequests();
+      // Parallelize intro requests and middle person requests
+      const [result, middleResult] = await Promise.all([
+        introService.getMyIntroRequests(),
+        introService.getMiddlePersonRequests(),
+      ]);
+
       if (result.success) {
         setSentIntroRequests(result.sentRequests || []);
         setReceivedIntroRequests(result.receivedRequests || []);
       }
 
-      // Load Matchmaker/Shadchan requests
-      const middleResult = await introService.getMiddlePersonRequests();
       if (middleResult.success) {
         setMiddlePersonRequests(middleResult.middlePersonRequests || []);
+        console.log('Loaded middle person requests:', middleResult.middlePersonRequests?.length || 0);
+      } else {
+        console.error('Error loading middle person requests:', middleResult.error);
       }
     } catch (error) {
       console.error('Error loading intro requests:', error);
@@ -97,12 +118,16 @@ export default function ConnectScreen() {
         isSilentUpdateRef.current = true;
       }
 
-      const receivedResult = await infoRequestService.getReceivedRequests();
+      // Parallelize received and sent info requests
+      const [receivedResult, sentResult] = await Promise.all([
+        infoRequestService.getReceivedRequests(),
+        infoRequestService.getSentRequests(),
+      ]);
+
       if (receivedResult.success) {
         setReceivedInfoRequests(receivedResult.requests || []);
       }
 
-      const sentResult = await infoRequestService.getSentRequests();
       if (sentResult.success) {
         setSentInfoRequests(sentResult.requests || []);
       }
@@ -115,25 +140,178 @@ export default function ConnectScreen() {
     }
   }, []);
 
+  const loadMySingles = useCallback(async (silent: boolean = false) => {
+    try {
+      if (!silent) {
+        setLoadingSingles(true);
+      }
+
+      // Parallelize singles loading and count fetching
+      const [result, countResult] = await Promise.all([
+        profileService.getMySingles(),
+        profileService.getNewSinglesCount(),
+      ]);
+
+      if (result.success && result.singles) {
+        setMySingles(result.singles);
+      }
+
+      if (countResult.success && countResult.count !== undefined) {
+        setNewSinglesCount(countResult.count);
+      }
+    } catch (error) {
+      console.error('Error loading singles:', error);
+    } finally {
+      if (!silent) {
+        setLoadingSingles(false);
+      }
+    }
+  }, []);
+
+  // Mark singles as viewed when user views the "My Singles" section
+  useEffect(() => {
+    if (activeCategory === 'for_others' && activeForOthersSection === 'my_singles' && !loadingSingles) {
+      // Mark as viewed when section is displayed (even if empty, to reset the timestamp)
+      profileService.markSinglesAsViewed().then(() => {
+        // Refresh the count after marking as viewed
+        profileService.getNewSinglesCount().then(countResult => {
+          if (countResult.success && countResult.count !== undefined) {
+            setNewSinglesCount(countResult.count);
+          }
+        });
+      });
+    }
+  }, [activeCategory, activeForOthersSection, loadingSingles]);
+
+  // Mark intro requests and suggestions as viewed when user views the "Action Needed" section
+  useEffect(() => {
+    if (activeCategory === 'for_you' && activeSection === 'action_needed' && !loading) {
+      // Mark intro requests as viewed when section is displayed
+      profileService.markIntroRequestsAsViewed().then(() => {
+        // Reload intro requests to get updated data
+        loadIntroRequests(true);
+      });
+      
+      // Mark suggestions as viewed when section is displayed
+      profileService.markSuggestionsAsViewed().then(() => {
+        // Reload suggestions to get updated data
+        loadSuggestions(true);
+      });
+    }
+  }, [activeCategory, activeSection, loading, loadIntroRequests, loadSuggestions]);
+
+  // Mark matches and suggestions as viewed when user views the "Matches" section (For You)
+  useEffect(() => {
+    if (activeCategory === 'for_you' && activeSection === 'matches' && !loading) {
+      // Mark matches as viewed when section is displayed
+      profileService.markMatchesAsViewed().then(() => {
+        // Update local state and reload data
+        setLastViewedMatchesAt(new Date());
+        loadIntroRequests(true);
+        loadSuggestions(true);
+      });
+      
+      // Mark suggestions as viewed when section is displayed (suggestions can also be matches)
+      profileService.markSuggestionsAsViewed().then(() => {
+        loadSuggestions(true);
+      });
+    }
+  }, [activeCategory, activeSection, loading, loadIntroRequests, loadSuggestions]);
+
+  // Mark matches as viewed when matchmaker views the "Matched" section (For Others)
+  useEffect(() => {
+    if (activeCategory === 'for_others' && activeForOthersSection === 'matched' && !loading && middlePersonRequests.length > 0) {
+      // Mark as viewed when section is displayed (for anyone who is a matchmaker)
+      profileService.markMatchesAsViewed().then(() => {
+        // Update local state and reload data
+        setLastViewedMatchesForOthersAt(new Date());
+        loadIntroRequests(true);
+        loadSuggestions(true);
+      });
+    }
+  }, [activeCategory, activeForOthersSection, loading, middlePersonRequests.length, loadIntroRequests, loadSuggestions]);
+
+  // Mark notifications as viewed when viewing "For You" category
+  useEffect(() => {
+    if (activeCategory === 'for_you' && !loading) {
+      // Mark intro requests as viewed (for action needed notifications)
+      profileService.markIntroRequestsAsViewed().then(() => {
+        loadIntroRequests(true);
+      });
+      
+      // Mark suggestions as viewed (for action needed notifications)
+      profileService.markSuggestionsAsViewed().then(() => {
+        loadSuggestions(true);
+      });
+      
+      // Mark matches as viewed (for matches notifications)
+      profileService.markMatchesAsViewed().then(() => {
+        setLastViewedMatchesAt(new Date());
+        loadIntroRequests(true);
+        loadSuggestions(true);
+      });
+    }
+  }, [activeCategory, loading, loadIntroRequests, loadSuggestions]);
+
+  // Mark notifications as viewed when viewing "For Others" category
+  useEffect(() => {
+    if (activeCategory === 'for_others' && !loading) {
+      // Mark matches as viewed (for matches notifications)
+      if (middlePersonRequests.length > 0) {
+        profileService.markMatchesAsViewed().then(() => {
+          setLastViewedMatchesForOthersAt(new Date());
+          loadIntroRequests(true);
+          loadSuggestions(true);
+        });
+      }
+      
+      // Mark suggestions as viewed (for suggestions notifications)
+      profileService.markSuggestionsAsViewed().then(() => {
+        loadSuggestions(true);
+      });
+      
+      // Mark singles as viewed (for new singles notifications)
+      profileService.markSinglesAsViewed().then(() => {
+        setNewSinglesCount(0);
+        loadMySingles(true);
+      });
+    }
+  }, [activeCategory, loading, middlePersonRequests.length, loadIntroRequests, loadSuggestions, loadMySingles]);
+
   const loadData = useCallback(async (silent: boolean = false) => {
     if (!silent) {
       setLoading(true);
     }
     try {
-      const result = await profileService.getProfile();
-      if (result.success && result.profile) {
-        setCurrentUserProfile(result.profile);
+      // Parallelize all independent data loading operations
+      const [profileResult] = await Promise.all([
+        profileService.getProfile(),
+        // Start loading all data in parallel
+        loadIntroRequests(silent),
+        loadSuggestions(silent),
+        loadInfoRequests(silent),
+        loadMySingles(silent),
+      ]);
+
+      if (profileResult.success && profileResult.profile) {
+        setCurrentUserProfile(profileResult.profile);
+        
+        // Set last viewed matches timestamp if available
+        if (profileResult.profile.last_viewed_matches_at) {
+          setLastViewedMatchesAt(new Date(profileResult.profile.last_viewed_matches_at));
+        }
+        
+        // Set last viewed matches for "For Others" section (for matchmakers)
+        if (profileResult.profile.last_viewed_matches_at) {
+          setLastViewedMatchesForOthersAt(new Date(profileResult.profile.last_viewed_matches_at));
+        }
         
         // Set default category based on role
-        if (result.profile.role === 'matchmaker') {
+        // Note: We check role here, but middle person requests will be shown regardless of role
+        if (profileResult.profile.role === 'matchmaker') {
           setActiveCategory('for_others');
         }
       }
-      
-      // Load actual intro requests, suggestions, and info requests
-      await loadIntroRequests(silent);
-      await loadSuggestions(silent);
-      await loadInfoRequests(silent);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -141,7 +319,7 @@ export default function ConnectScreen() {
         setLoading(false);
       }
     }
-  }, [loadIntroRequests, loadSuggestions, loadInfoRequests]);
+  }, [loadIntroRequests, loadSuggestions, loadInfoRequests, loadMySingles]);
 
   // Silent refresh callbacks for realtime updates
   const silentRefreshIntroRequests = useCallback(() => loadIntroRequests(true), [loadIntroRequests]);
@@ -158,30 +336,116 @@ export default function ConnectScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Update activeSection when params change
+  useEffect(() => {
+    if (params.section && ['action_needed', 'matches', 'passed', 'liked'].includes(params.section as string)) {
+      setActiveSection(params.section as 'action_needed' | 'matches' | 'passed' | 'liked');
+    }
+  }, [params.section]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData(false); // Manual refresh with refreshing state
     setRefreshing(false);
   };
 
+  // State for tracking last viewed matches timestamp
+  const [lastViewedMatchesAt, setLastViewedMatchesAt] = useState<Date | null>(null);
+
   // Calculate notification counts for badges
+  // Calculate new matches count (for Matches tab badge)
+  const newMatchesCount = useMemo(() => {
+    if (!lastViewedMatchesAt) {
+      // If never viewed, count all current matches as new
+      let count = 0;
+      count += sentIntroRequests.filter(r => r.status === 'accepted' || r.status === 'completed').length;
+      count += receivedIntroRequests.filter(r => r.status === 'accepted' || r.status === 'completed').length;
+      if (currentUserProfile) {
+        count += receivedSuggestions.filter(s => s.status === 'accepted' || s.status === 'completed').length;
+      }
+      return count;
+    }
+
+    let count = 0;
+    // Count sent intro requests that became matches after last viewed
+    count += sentIntroRequests.filter(r => {
+      const isMatch = r.status === 'accepted' || r.status === 'completed';
+      if (!isMatch) return false;
+      const requestUpdatedAt = new Date(r.updated_at);
+      return requestUpdatedAt > lastViewedMatchesAt;
+    }).length;
+
+    // Count received intro requests that became matches after last viewed
+    count += receivedIntroRequests.filter(r => {
+      const isMatch = r.status === 'accepted' || r.status === 'completed';
+      if (!isMatch) return false;
+      const requestUpdatedAt = new Date(r.updated_at);
+      return requestUpdatedAt > lastViewedMatchesAt;
+    }).length;
+
+    // Count suggestions that became matches after last viewed
+    if (currentUserProfile) {
+      count += receivedSuggestions.filter(s => {
+        const isMatch = s.status === 'accepted' || s.status === 'completed';
+        if (!isMatch) return false;
+        const suggestionUpdatedAt = new Date(s.updated_at);
+        return suggestionUpdatedAt > lastViewedMatchesAt;
+      }).length;
+    }
+
+    return count;
+  }, [sentIntroRequests, receivedIntroRequests, receivedSuggestions, currentUserProfile, lastViewedMatchesAt]);
+
   const forYouBadgeCount = useMemo(() => {
     let count = 0;
     
     // Count received info requests needing response
     count += receivedInfoRequests.filter(r => r.status === 'pending').length;
     
-    // Count received intro requests needing response
-    count += receivedIntroRequests.filter(r => 
-      r.status === 'pending' || 
-      (r.status === 'accepted' && (!r.requested_continuation_choice || !r.requester_continuation_choice))
-    ).length;
+    // Count approved info requests (newly approved - within last 7 days or if never viewed)
+    // These show information that was provided in response to user's request
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    count += sentInfoRequests.filter(r => {
+      if (r.status !== 'approved') return false;
+      if (!r.responded_at) return false;
+      const respondedAt = new Date(r.responded_at);
+      return respondedAt > sevenDaysAgo;
+    }).length;
     
-    // Count sent intro requests needing continuation choice
-    count += sentIntroRequests.filter(r => 
-      r.status === 'accepted' && 
-      (!r.requester_continuation_choice || !r.requested_continuation_choice)
-    ).length;
+    // Count received intro requests needing response (only new ones if last viewed timestamp exists)
+    const lastViewedIntroRequests = currentUserProfile?.last_viewed_intro_requests_at 
+      ? new Date(currentUserProfile.last_viewed_intro_requests_at)
+      : null;
+    
+    if (lastViewedIntroRequests) {
+      count += receivedIntroRequests.filter(r => {
+        const needsResponse = r.status === 'pending' || 
+          (r.status === 'accepted' && (!r.requested_continuation_choice || !r.requester_continuation_choice));
+        if (!needsResponse) return false;
+        const requestCreatedAt = new Date(r.created_at);
+        return requestCreatedAt > lastViewedIntroRequests;
+      }).length;
+      
+      count += sentIntroRequests.filter(r => {
+        const needsChoice = r.status === 'accepted' && 
+          (!r.requester_continuation_choice || !r.requested_continuation_choice);
+        if (!needsChoice) return false;
+        const requestCreatedAt = new Date(r.created_at);
+        return requestCreatedAt > lastViewedIntroRequests;
+      }).length;
+    } else {
+      // If never viewed, count all
+      count += receivedIntroRequests.filter(r => 
+        r.status === 'pending' || 
+        (r.status === 'accepted' && (!r.requested_continuation_choice || !r.requester_continuation_choice))
+      ).length;
+      
+      count += sentIntroRequests.filter(r => 
+        r.status === 'accepted' && 
+        (!r.requester_continuation_choice || !r.requested_continuation_choice)
+      ).length;
+    }
     
     // Count received suggestions needing response
     if (currentUserProfile) {
@@ -194,19 +458,46 @@ export default function ConnectScreen() {
       ).length;
     }
     
+    // Add new matches count
+    count += newMatchesCount;
+    
     return count;
-  }, [receivedInfoRequests, receivedIntroRequests, sentIntroRequests, receivedSuggestions, currentUserProfile]);
+  }, [receivedInfoRequests, receivedIntroRequests, sentIntroRequests, receivedSuggestions, currentUserProfile, newMatchesCount]);
+
+  // Calculate new matches count for "For Others" section (for anyone who is a matchmaker)
+  const newMatchesForOthersCount = useMemo(() => {
+    // Only show if user has middle person requests (is a matchmaker)
+    if (middlePersonRequests.length === 0) {
+      return 0;
+    }
+
+    if (!lastViewedMatchesForOthersAt) {
+      // If never viewed, count all current matches as new
+      return middlePersonRequests.filter(r => 
+        r.status === 'completed' || 
+        (r.status === 'accepted' && r.requester_continuation_choice && r.requested_continuation_choice)
+      ).length;
+    }
+
+    // Count matches that became completed/accepted after last viewed
+    return middlePersonRequests.filter(r => {
+      const isMatch = r.status === 'completed' || 
+        (r.status === 'accepted' && r.requester_continuation_choice && r.requested_continuation_choice);
+      if (!isMatch) return false;
+      
+      const requestUpdatedAt = new Date(r.updated_at);
+      return requestUpdatedAt > lastViewedMatchesForOthersAt;
+    }).length;
+  }, [middlePersonRequests, lastViewedMatchesForOthersAt]);
 
   const forOthersBadgeCount = useMemo(() => {
     let count = 0;
     
-    // Count Matchmaker/Shadchan requests needing action (for matchmakers)
-    if (currentUserProfile?.role === 'matchmaker') {
-      count += middlePersonRequests.filter(r => 
-        r.status === 'pending' || 
-        (r.status === 'accepted' && (!r.requester_continuation_choice || !r.requested_continuation_choice))
-      ).length;
-    }
+    // Count Matchmaker/Shadchan requests needing action (for anyone who is a matchmaker, regardless of role)
+    count += middlePersonRequests.filter(r => 
+      r.status === 'pending' || 
+      (r.status === 'accepted' && (!r.requester_continuation_choice || !r.requested_continuation_choice))
+    ).length;
     
     // Count made suggestions awaiting response
     count += madeSuggestions.filter(s => 
@@ -214,8 +505,14 @@ export default function ConnectScreen() {
       (s.status === 'accepted' && (!s.profile_one_continuation_choice || !s.profile_two_continuation_choice))
     ).length;
     
+    // Add count of new singles who selected this user as matchmaker
+    count += newSinglesCount;
+    
+    // Add new matches count for matchmakers
+    count += newMatchesForOthersCount;
+    
     return count;
-  }, [middlePersonRequests, madeSuggestions, currentUserProfile]);
+  }, [middlePersonRequests, madeSuggestions, newSinglesCount, newMatchesForOthersCount]);
 
   const renderEmptyState = (section: string) => {
     const emptyStates = {
@@ -354,6 +651,11 @@ export default function ConnectScreen() {
             <Text style={[styles.sectionTabText, activeSection === 'matches' && styles.sectionTabTextActive]}>
               Matches
             </Text>
+            {newMatchesCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{newMatchesCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -420,6 +722,11 @@ export default function ConnectScreen() {
             <Text style={[styles.sectionTabText, activeForOthersSection === 'matched' && styles.sectionTabTextActive]}>
               Matched
             </Text>
+            {newMatchesForOthersCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{newMatchesForOthersCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -434,6 +741,25 @@ export default function ConnectScreen() {
             <Text style={[styles.sectionTabText, activeForOthersSection === 'not_matched' && styles.sectionTabTextActive]}>
               Did Not Match
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.sectionTab, activeForOthersSection === 'my_singles' && styles.sectionTabActive]}
+            onPress={() => setActiveForOthersSection('my_singles')}
+          >
+            <Ionicons 
+              name="people" 
+              size={18} 
+              color={activeForOthersSection === 'my_singles' ? '#03a9f4' : '#999'} 
+            />
+            <Text style={[styles.sectionTabText, activeForOthersSection === 'my_singles' && styles.sectionTabTextActive]}>
+              My Singles
+            </Text>
+            {newSinglesCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{newSinglesCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </ScrollView>
       )}
@@ -456,6 +782,16 @@ export default function ConnectScreen() {
         {/* Intro Requests Section - Action Needed */}
         {activeCategory === 'for_you' && activeSection === 'action_needed' && (
           <>
+            {/* Approved Info Requests (show the info that was provided) */}
+            {sentInfoRequests
+              .filter(r => r.status === 'approved')
+              .map(request => (
+                <ApprovedInfoRequestCard
+                  key={request.id}
+                  request={request}
+                />
+              ))}
+
             {/* Received Info Requests (need response) */}
             {receivedInfoRequests
               .filter(r => r.status === 'pending')
@@ -616,6 +952,7 @@ export default function ConnectScreen() {
 
         {/* Empty state when no intro requests, suggestions, or info requests */}
         {activeCategory === 'for_you' && activeSection === 'action_needed' &&
+         sentInfoRequests.filter(r => r.status === 'approved').length === 0 &&
          receivedInfoRequests.filter(r => r.status === 'pending').length === 0 &&
          sentIntroRequests.filter(r => r.status === 'accepted' && (!r.requester_continuation_choice || !r.requested_continuation_choice)).length === 0 &&
          receivedIntroRequests.filter(r => r.status === 'pending' || (r.status === 'accepted' && (!r.requested_continuation_choice || !r.requester_continuation_choice))).length === 0 &&
@@ -647,8 +984,8 @@ export default function ConnectScreen() {
         {/* For Others - Awaiting Response */}
         {activeCategory === 'for_others' && activeForOthersSection === 'awaiting' && (
           <>
-            {/* Show intro requests for matchmakers */}
-            {currentUserProfile?.role === 'matchmaker' && middlePersonRequests
+            {/* Show intro requests for anyone who is a matchmaker (regardless of profile role) */}
+            {middlePersonRequests.length > 0 && middlePersonRequests
               .filter(r => 
                 r.status === 'pending' || 
                 (r.status === 'accepted' && (!r.requester_continuation_choice || !r.requested_continuation_choice))
@@ -675,10 +1012,10 @@ export default function ConnectScreen() {
               ))}
 
             {/* Empty state */}
-            {((currentUserProfile?.role === 'matchmaker' && middlePersonRequests.filter(r => 
+            {middlePersonRequests.filter(r => 
                 r.status === 'pending' || 
                 (r.status === 'accepted' && (!r.requester_continuation_choice || !r.requested_continuation_choice))
-              ).length === 0) || currentUserProfile?.role !== 'matchmaker') &&
+              ).length === 0 &&
              madeSuggestions.filter(s => 
                 s.status === 'pending' || 
                 (s.status === 'accepted' && (!s.profile_one_continuation_choice || !s.profile_two_continuation_choice))
@@ -697,8 +1034,8 @@ export default function ConnectScreen() {
         {/* For Others - Matched */}
         {activeCategory === 'for_others' && activeForOthersSection === 'matched' && (
           <>
-            {/* Show intro requests for matchmakers */}
-            {currentUserProfile?.role === 'matchmaker' && middlePersonRequests
+            {/* Show intro requests for anyone who is a matchmaker (regardless of profile role) */}
+            {middlePersonRequests.length > 0 && middlePersonRequests
               .filter(r => 
                 r.status === 'completed' || 
                 (r.status === 'accepted' && r.requester_continuation_choice && r.requested_continuation_choice)
@@ -725,10 +1062,10 @@ export default function ConnectScreen() {
               ))}
 
             {/* Empty state */}
-            {((currentUserProfile?.role === 'matchmaker' && middlePersonRequests.filter(r => 
+            {middlePersonRequests.filter(r => 
                 r.status === 'completed' || 
                 (r.status === 'accepted' && r.requester_continuation_choice && r.requested_continuation_choice)
-              ).length === 0) || currentUserProfile?.role !== 'matchmaker') &&
+              ).length === 0 &&
              madeSuggestions.filter(s => 
                 s.status === 'completed' || 
                 (s.status === 'accepted' && s.profile_one_continuation_choice && s.profile_two_continuation_choice)
@@ -747,8 +1084,8 @@ export default function ConnectScreen() {
         {/* For Others - Did Not Match */}
         {activeCategory === 'for_others' && activeForOthersSection === 'not_matched' && (
           <>
-            {/* Show intro requests for matchmakers */}
-            {currentUserProfile?.role === 'matchmaker' && middlePersonRequests
+            {/* Show intro requests for anyone who is a matchmaker (regardless of profile role) */}
+            {middlePersonRequests.length > 0 && middlePersonRequests
               .filter(r => r.status === 'rejected')
               .map(request => (
                 <MiddlePersonRequestCard
@@ -769,7 +1106,7 @@ export default function ConnectScreen() {
               ))}
 
             {/* Empty state */}
-            {((currentUserProfile?.role === 'matchmaker' && middlePersonRequests.filter(r => r.status === 'rejected').length === 0) || currentUserProfile?.role !== 'matchmaker') &&
+            {middlePersonRequests.filter(r => r.status === 'rejected').length === 0 &&
              madeSuggestions.filter(s => s.status === 'rejected').length === 0 && (
               <View style={styles.emptyState}>
                 <Ionicons name="close-circle-outline" size={64} color="#ccc" />
@@ -777,6 +1114,89 @@ export default function ConnectScreen() {
                 <Text style={styles.emptyStateMessage}>
                   Matches that didn&apos;t work out will appear here.
                 </Text>
+              </View>
+            )}
+          </>
+        )}
+
+        {/* For Others - My Singles */}
+        {activeCategory === 'for_others' && activeForOthersSection === 'my_singles' && (
+          <>
+            {loadingSingles ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#03a9f4" />
+                <Text style={styles.loadingText}>Loading...</Text>
+              </View>
+            ) : mySingles.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="people-outline" size={64} color="#ccc" />
+                <Text style={styles.emptyStateTitle}>No Singles Yet</Text>
+                <Text style={styles.emptyStateMessage}>
+                  Singles who select you as their matchmaker will appear here.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.singlesList}>
+                {mySingles.map((single) => (
+                  <View key={single.id} style={styles.singleCard}>
+                    <View style={styles.singleHeader}>
+                      <Text style={styles.singleName}>
+                        {single.first_name} {single.last_name}
+                      </Text>
+                      {single.dob && (
+                        <Text style={styles.singleAge}>
+                          Age: {calculateAge(single.dob)}
+                        </Text>
+                      )}
+                    </View>
+                    
+                    {single.bio && (
+                      <Text style={styles.singleBio} numberOfLines={2}>
+                        {single.bio}
+                      </Text>
+                    )}
+
+                    <View style={styles.contactInfo}>
+                      <Text style={styles.contactTitle}>Contact Information:</Text>
+                      
+                      {single.phone && (
+                        <View style={styles.contactItem}>
+                          <Ionicons name="call" size={16} color="#4caf50" />
+                          <Text style={styles.contactText}>{single.phone}</Text>
+                        </View>
+                      )}
+                      
+                      {single.email && (
+                        <View style={styles.contactItem}>
+                          <Ionicons name="mail" size={16} color="#2196f3" />
+                          <Text style={styles.contactText}>{single.email}</Text>
+                        </View>
+                      )}
+                      
+                      {single.whatsapp && (
+                        <View style={styles.contactItem}>
+                          <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
+                          <Text style={styles.contactText}>{single.whatsapp}</Text>
+                        </View>
+                      )}
+
+                      {!single.phone && !single.email && !single.whatsapp && (
+                        <Text style={styles.noContactText}>
+                          No contact information provided
+                        </Text>
+                      )}
+                    </View>
+
+                    {single.location_city && single.location_country && (
+                      <View style={styles.singleLocation}>
+                        <Ionicons name="location" size={14} color="#666" />
+                        <Text style={styles.locationText}>
+                          {single.location_city}{single.location_state ? `, ${single.location_state}` : ''}, {single.location_country}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
               </View>
             )}
           </>
@@ -931,6 +1351,74 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  // My Singles Styles
+  singlesList: {
+    gap: 16,
+  },
+  singleCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  singleHeader: {
+    marginBottom: 12,
+  },
+  singleName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  singleAge: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  singleBio: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  contactInfo: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  contactTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  contactText: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  noContactText: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  singleLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  locationText: {
+    fontSize: 12,
+    color: '#666',
   },
 });
 

@@ -86,6 +86,18 @@ export default function TabLayout() {
     }, [checkProfileStatus, refreshNotifications])
   );
 
+  // Also check status when any tab screen is focused (more frequent checks)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Check status every 2 seconds when profile is pending/rejected to catch updates quickly
+      if (profileStatus === 'pending' || profileStatus === 'rejected') {
+        checkProfileStatus();
+      }
+    }, 2000); // Check every 2 seconds when not approved
+
+    return () => clearInterval(interval);
+  }, [profileStatus, checkProfileStatus]);
+
   const handleTabPress = (tabName: string) => {
 
     // Block all tabs except Profile if no profile exists

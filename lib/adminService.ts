@@ -130,6 +130,81 @@ class AdminService {
       return { success: false, error: 'An unexpected error occurred' };
     }
   }
+  /**
+   * Get all users with optional search and pagination
+   */
+  async getAllUsers(query?: string): Promise<{ success: boolean; profiles?: Profile[]; error?: string }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/get-all-users`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: data.error || 'Failed to fetch users' };
+      }
+
+      return { success: true, profiles: data.profiles };
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Perform admin action on a user
+   */
+  async performAdminAction(
+    userId: string, 
+    action: 'freeze' | 'unfreeze' | 'suspend' | 'unsuspend' | 'remove', 
+    reason?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/admin-action`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId, action, reason }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: data.error || `Failed to ${action} user` };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error(`Error performing admin action ${action}:`, error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
 }
 
 export const adminService = new AdminService();

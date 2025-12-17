@@ -1,4 +1,5 @@
 import { Profile } from '../types/homeTypes';
+import { notificationService } from './notificationService';
 import { supabase } from './supabase';
 
 export interface Suggestion {
@@ -6,7 +7,9 @@ export interface Suggestion {
   suggester_id: string;
   profile_one_id: string;
   profile_two_id: string;
-  note?: string;
+  note?: string; // Legacy field - kept for backward compatibility
+  profile_one_note?: string; // Note specifically for profile_one
+  profile_two_note?: string; // Note specifically for profile_two
   profile_one_status: 'pending' | 'accepted' | 'rejected';
   profile_two_status: 'pending' | 'accepted' | 'rejected';
   profile_one_continuation_choice?: 'by_themselves' | 'with_middle_person';
@@ -33,7 +36,9 @@ class SuggestionService {
   async createSuggestion(
     profileOneId: string,
     profileTwoId: string,
-    note?: string
+    note?: string, // Legacy: single note for both
+    profileOneNote?: string, // Note for profile_one
+    profileTwoNote?: string // Note for profile_two
   ): Promise<{ success: boolean; error?: string; suggestion?: Suggestion }> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -69,20 +74,88 @@ class SuggestionService {
       }
 
       // Create the suggestion
+      // If separate notes are provided, use them; otherwise fall back to single note
+      const insertData: any = {
+        suggester_id: profile.id,
+        profile_one_id: profileOneId,
+        profile_two_id: profileTwoId,
+      };
+
+      if (profileOneNote !== undefined || profileTwoNote !== undefined) {
+        // Use separate notes
+        insertData.profile_one_note = profileOneNote?.trim() || null;
+        insertData.profile_two_note = profileTwoNote?.trim() || null;
+        // Also set legacy note field for backward compatibility (use first non-empty note)
+        insertData.note = profileOneNote?.trim() || profileTwoNote?.trim() || note?.trim() || null;
+      } else {
+        // Use legacy single note
+        insertData.note = note?.trim() || null;
+        insertData.profile_one_note = null;
+        insertData.profile_two_note = null;
+      }
+
       const { data, error } = await supabase
         .from('suggestions')
-        .insert({
-          suggester_id: profile.id,
-          profile_one_id: profileOneId,
-          profile_two_id: profileTwoId,
-          note: note || null,
-        })
+        .insert(insertData)
         .select()
         .single();
 
       if (error) {
         console.error('Error creating suggestion:', error);
         return { success: false, error: error.message };
+      }
+
+      // Send push notifications to both suggested profiles
+      try {
+        // Get profile information for notifications
+        const { data: profileOne } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .eq('id', profileOneId)
+          .single();
+
+        const { data: profileTwo } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .eq('id', profileTwoId)
+          .single();
+
+        const { data: suggesterProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', profile.id)
+          .single();
+
+        // Notify profile one
+        if (profileOne && suggesterProfile && profileTwo) {
+          await notificationService.sendNotification(
+            profileOne.user_id,
+            'New Match Suggestion',
+            `${suggesterProfile.first_name} ${suggesterProfile.last_name} suggested a match with ${profileTwo.first_name} ${profileTwo.last_name}`,
+            {
+              type: 'suggestion',
+              suggestionId: data.id,
+              suggesterId: profile.id,
+            }
+          );
+        }
+
+        // Notify profile two
+        if (profileTwo && suggesterProfile && profileOne) {
+          await notificationService.sendNotification(
+            profileTwo.user_id,
+            'New Match Suggestion',
+            `${suggesterProfile.first_name} ${suggesterProfile.last_name} suggested a match with ${profileOne.first_name} ${profileOne.last_name}`,
+            {
+              type: 'suggestion',
+              suggestionId: data.id,
+              suggesterId: profile.id,
+            }
+          );
+        }
+      } catch (notifError) {
+        console.error('Error sending notifications:', notifError);
+        // Don't fail the request if notification fails
       }
 
       return { success: true, suggestion: data };
@@ -160,9 +233,211 @@ class SuggestionService {
         return { success: false, error: error.message };
       }
 
+      // Send notifications if rejected
+      if (response === 'rejected') {
+        try {
+          // Get the full suggestion with profile information
+          const { data: suggestion } = await supabase
+            .from('suggestions')
+            .select(`
+              *,
+              suggester_profile:profiles!suggestions_suggester_id_fkey(id, user_id, first_name, last_name),
+              profile_one:profiles!suggestions_profile_one_id_fkey(id, user_id, first_name, last_name),
+              profile_two:profiles!suggestions_profile_two_id_fkey(id, user_id, first_name, last_name)
+            `)
+            .eq('id', suggestionId)
+            .single();
+
+          if (suggestion) {
+            const profileOne = suggestion.profile_one;
+            const profileTwo = suggestion.profile_two;
+            const suggester = suggestion.suggester_profile;
+            const rejectingProfile = isProfileOne ? profileOne : profileTwo;
+            const otherProfile = isProfileOne ? profileTwo : profileOne;
+
+            // Notify the suggester
+            if (suggester && suggester.user_id && suggester.id !== profile.id) {
+              await notificationService.sendNotification(
+                suggester.user_id,
+                'Match Suggestion Declined',
+                `${rejectingProfile?.first_name} ${rejectingProfile?.last_name} declined your match suggestion${rejectionNote ? ': ' + rejectionNote : '.'}`,
+                {
+                  type: 'suggestion_rejected',
+                  suggestionId: suggestionId,
+                  rejectedBy: profile.id,
+                }
+              );
+            }
+
+            // Notify the other profile (the one who wasn't the one rejecting)
+            if (otherProfile && otherProfile.user_id && otherProfile.id !== profile.id) {
+              await notificationService.sendNotification(
+                otherProfile.user_id,
+                'Match Suggestion Declined',
+                `${rejectingProfile?.first_name} ${rejectingProfile?.last_name} declined the match suggestion${rejectionNote ? ': ' + rejectionNote : '.'}`,
+                {
+                  type: 'suggestion_rejected',
+                  suggestionId: suggestionId,
+                  rejectedBy: profile.id,
+                }
+              );
+            }
+          }
+        } catch (notifError) {
+          console.error('Error sending rejection notifications:', notifError);
+          // Don't fail the rejection if notification fails
+        }
+      }
+
       return { success: true };
     } catch (error: any) {
       console.error('Error in respondToSuggestion:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Revert a rejected suggestion back to pending
+   * Allows a user to change their mind after declining
+   */
+  async revertRejection(suggestionId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) {
+        return { success: false, error: 'Profile not found' };
+      }
+
+      // Get the suggestion to determine which profile is reverting
+      const { data: suggestion } = await supabase
+        .from('suggestions')
+        .select('*')
+        .eq('id', suggestionId)
+        .single();
+
+      if (!suggestion) {
+        return { success: false, error: 'Suggestion not found' };
+      }
+
+      const isProfileOne = suggestion.profile_one_id === profile.id;
+      const isProfileTwo = suggestion.profile_two_id === profile.id;
+
+      if (!isProfileOne && !isProfileTwo) {
+        return { success: false, error: 'You are not part of this suggestion' };
+      }
+
+      // Check if this profile actually rejected
+      const myStatus = isProfileOne ? suggestion.profile_one_status : suggestion.profile_two_status;
+      if (myStatus !== 'rejected') {
+        return { success: false, error: 'You have not rejected this suggestion' };
+      }
+
+      const updateData: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      // Revert the status back to pending and clear rejection note
+      if (isProfileOne) {
+        updateData.profile_one_status = 'pending';
+        updateData.profile_one_rejection_note = null;
+      } else {
+        updateData.profile_two_status = 'pending';
+        updateData.profile_two_rejection_note = null;
+      }
+
+      // Update overall suggestion status if needed
+      // If both were rejected and one is reverting, status should be pending
+      // If only one rejected and they're reverting, status should be pending or accepted (depending on other status)
+      const otherStatus = isProfileOne ? suggestion.profile_two_status : suggestion.profile_one_status;
+      if (suggestion.status === 'rejected') {
+        // If overall status was rejected, change it based on other party's status
+        if (otherStatus === 'rejected') {
+          updateData.status = 'pending'; // Both were rejected, now one is pending
+        } else if (otherStatus === 'accepted') {
+          updateData.status = 'pending'; // Other accepted, this one reverting to pending
+        } else {
+          updateData.status = 'pending'; // Other is pending, this one reverting to pending
+        }
+      }
+
+      const { error } = await supabase
+        .from('suggestions')
+        .update(updateData)
+        .eq('id', suggestionId);
+
+      if (error) {
+        console.error('Error reverting rejection:', error);
+        return { success: false, error: error.message };
+      }
+
+      // Send notification to the suggester and other profile that the rejection was reverted
+      try {
+        const { data: updatedSuggestion } = await supabase
+          .from('suggestions')
+          .select(`
+            *,
+            suggester_profile:profiles!suggestions_suggester_id_fkey(id, user_id, first_name, last_name),
+            profile_one:profiles!suggestions_profile_one_id_fkey(id, user_id, first_name, last_name),
+            profile_two:profiles!suggestions_profile_two_id_fkey(id, user_id, first_name, last_name)
+          `)
+          .eq('id', suggestionId)
+          .single();
+
+        if (updatedSuggestion) {
+          const profileOne = updatedSuggestion.profile_one;
+          const profileTwo = updatedSuggestion.profile_two;
+          const suggester = updatedSuggestion.suggester_profile;
+          const revertingProfile = isProfileOne ? profileOne : profileTwo;
+          const otherProfile = isProfileOne ? profileTwo : profileOne;
+
+          // Notify the suggester
+          if (suggester && suggester.user_id && suggester.id !== profile.id) {
+            await notificationService.sendNotification(
+              suggester.user_id,
+              'Suggestion Response Changed',
+              `${revertingProfile?.first_name} ${revertingProfile?.last_name} changed their mind and is now considering the match suggestion.`,
+              {
+                type: 'suggestion_reverted',
+                suggestionId: suggestionId,
+                revertedBy: profile.id,
+              }
+            );
+          }
+
+          // Notify the other profile if they had accepted
+          if (otherProfile && otherProfile.user_id && otherProfile.id !== profile.id) {
+            const otherStatus = isProfileOne ? updatedSuggestion.profile_two_status : updatedSuggestion.profile_one_status;
+            if (otherStatus === 'accepted' || otherStatus === 'pending') {
+              await notificationService.sendNotification(
+                otherProfile.user_id,
+                'Suggestion Response Changed',
+                `${revertingProfile?.first_name} ${revertingProfile?.last_name} changed their mind and is now considering the match suggestion.`,
+                {
+                  type: 'suggestion_reverted',
+                  suggestionId: suggestionId,
+                  revertedBy: profile.id,
+                }
+              );
+            }
+          }
+        }
+      } catch (notifError) {
+        console.error('Error sending revert notifications:', notifError);
+        // Don't fail the revert if notification fails
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error in revertRejection:', error);
       return { success: false, error: error.message };
     }
   }
@@ -267,33 +542,36 @@ class SuggestionService {
         return { success: false, error: 'Profile not found' };
       }
 
-      // Get suggestions where I'm one of the profiles (received suggestions)
-      const { data: received, error: receivedError } = await supabase
-        .from('suggestions')
-        .select(`
-          *,
-          suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, dob, pictures, gender),
-          profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
-          profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
-          profile_one_middle_person:profiles!suggestions_profile_one_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
-          profile_two_middle_person:profiles!suggestions_profile_two_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
-        `)
-        .or(`profile_one_id.eq.${profile.id},profile_two_id.eq.${profile.id}`)
-        .order('created_at', { ascending: false });
+      // Parallelize received and made suggestions queries
+      const [receivedQuery, madeQuery] = await Promise.all([
+        supabase
+          .from('suggestions')
+          .select(`
+            *,
+            suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, dob, pictures, gender),
+            profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+            profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+            profile_one_middle_person:profiles!suggestions_profile_one_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
+            profile_two_middle_person:profiles!suggestions_profile_two_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
+          `)
+          .or(`profile_one_id.eq.${profile.id},profile_two_id.eq.${profile.id}`)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('suggestions')
+          .select(`
+            *,
+            suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, dob, pictures, gender),
+            profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+            profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+            profile_one_middle_person:profiles!suggestions_profile_one_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
+            profile_two_middle_person:profiles!suggestions_profile_two_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
+          `)
+          .eq('suggester_id', profile.id)
+          .order('created_at', { ascending: false }),
+      ]);
 
-      // Get suggestions I made
-      const { data: made, error: madeError } = await supabase
-        .from('suggestions')
-        .select(`
-          *,
-          suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, dob, pictures, gender),
-          profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
-          profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
-          profile_one_middle_person:profiles!suggestions_profile_one_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
-          profile_two_middle_person:profiles!suggestions_profile_two_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
-        `)
-        .eq('suggester_id', profile.id)
-        .order('created_at', { ascending: false });
+      const { data: received, error: receivedError } = receivedQuery;
+      const { data: made, error: madeError } = madeQuery;
 
       if (receivedError || madeError) {
         console.error('Error fetching suggestions:', receivedError || madeError);

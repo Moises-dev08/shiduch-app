@@ -1,3 +1,4 @@
+import { notificationService } from './notificationService';
 import { supabase } from './supabase';
 
 export interface InfoRequest {
@@ -79,6 +80,37 @@ class InfoRequestService {
         return { success: false, error: error.message };
       }
 
+      // Send push notification to the requested profile owner
+      try {
+        const { data: requestedProfile } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .eq('id', requestedProfileId)
+          .single();
+
+        const { data: requesterProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', profile.id)
+          .single();
+
+        if (requestedProfile && requesterProfile) {
+          await notificationService.sendNotification(
+            requestedProfile.user_id,
+            'New Info Request',
+            `${requesterProfile.first_name} ${requesterProfile.last_name} requested information about your ${fieldName}`,
+            {
+              type: 'info_request',
+              requestId: data.id,
+              requesterId: profile.id,
+            }
+          );
+        }
+      } catch (notifError) {
+        console.error('Error sending notification:', notifError);
+        // Don't fail the request if notification fails
+      }
+
       return { success: true, request: data };
     } catch (error) {
       console.error('Unexpected error creating info request:', error);
@@ -110,18 +142,7 @@ class InfoRequestService {
         .from('info_requests')
         .select(`
           *,
-          requested_profile:requested_profile_id (
-            id,
-            first_name,
-            last_name,
-            gender,
-            pictures,
-            picture_privacy,
-            location_city,
-            location_state,
-            location_country,
-            dob
-          )
+          requested_profile:requested_profile_id (*)
         `)
         .eq('requester_id', profile.id)
         .order('created_at', { ascending: false });
@@ -209,6 +230,81 @@ class InfoRequestService {
       if (error) {
         console.error('Error responding to request:', error);
         return { success: false, error: error.message };
+      }
+
+      // Send notification if approved
+      if (status === 'approved') {
+        try {
+          // Get the request with profile information
+          const { data: request } = await supabase
+            .from('info_requests')
+            .select(`
+              *,
+              requester_profile:requester_id (
+                id,
+                user_id,
+                first_name,
+                last_name
+              ),
+              requested_profile:requested_profile_id (
+                id,
+                user_id,
+                first_name,
+                last_name
+              )
+            `)
+            .eq('id', requestId)
+            .single();
+
+          if (request && request.requester_profile && request.requested_profile) {
+            const fieldLabels: { [key: string]: string } = {
+              pictures: 'Pictures',
+              height: 'Height',
+              hasChildren: 'Children Status',
+              location_city: 'City',
+              location_state: 'State',
+              location_country: 'Country',
+              languages: 'Languages',
+              nationality: 'Background/Nationality',
+              is_cohen: 'Cohen Status',
+              hashkafa_type: 'Hashkafa',
+              torah_learning: 'Torah Learning',
+              praying: 'Prayer Habits',
+              education_level: 'Education Level',
+              post_high_school_path: 'Post-High School Path',
+              current_occupation_study: 'Occupation/Study',
+              plan_after_marriage: 'Plan After Marriage',
+              marital_status: 'Marital Status',
+              dress_style: 'Dress Style',
+              wears_black_hat: 'Black Hat',
+              head_covering: 'Head Covering',
+              smoking: 'Smoking Habits',
+              alcohol_consumption: 'Alcohol Consumption',
+              phone: 'Phone Number',
+              email: 'Email Address',
+              whatsapp: 'WhatsApp Number',
+              dob: 'Date of Birth',
+            };
+
+            const fieldLabel = fieldLabels[request.field_name] || request.field_name;
+
+            // Notify the requester that their request was approved
+            await notificationService.sendNotification(
+              request.requester_profile.user_id,
+              'Info Request Approved',
+              `${request.requested_profile.first_name} ${request.requested_profile.last_name} approved your request to view their ${fieldLabel.toLowerCase()}.`,
+              {
+                type: 'info_request_approved',
+                requestId: requestId,
+                fieldName: request.field_name,
+                requestedProfileId: request.requested_profile_id,
+              }
+            );
+          }
+        } catch (notifError) {
+          console.error('Error sending approval notification:', notifError);
+          // Don't fail the approval if notification fails
+        }
       }
 
       return { success: true };

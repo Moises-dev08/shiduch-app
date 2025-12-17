@@ -46,9 +46,11 @@ export default function SuccessModal({
           <Text style={styles.message}>{message}</Text>
 
           {/* Button */}
-          <TouchableOpacity style={styles.button} onPress={onClose}>
-            <Text style={styles.buttonText}>{buttonText}</Text>
-          </TouchableOpacity>
+          {!(title === 'Profile Created! 🎉' || title === 'Profile Resubmitted! 📝') && (
+            <TouchableOpacity style={styles.button} onPress={onClose}>
+              <Text style={styles.buttonText}>{buttonText}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </Modal>

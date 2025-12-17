@@ -107,6 +107,39 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
     }
   };
 
+  const handleRevertRejection = async () => {
+    Alert.alert(
+      'Change Your Mind?',
+      'Are you sure you want to reconsider this match suggestion?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes, Reconsider',
+          onPress: async () => {
+            setIsResponding(true);
+            try {
+              const result = await suggestionService.revertRejection(suggestion.id);
+              if (result.success) {
+                Alert.alert('Success', 'You are now reconsidering this match suggestion.');
+                onUpdate();
+              } else {
+                Alert.alert('Error', result.error || 'Failed to revert rejection');
+              }
+            } catch (error) {
+              console.error('Error reverting rejection:', error);
+              Alert.alert('Error', 'Failed to revert rejection');
+            } finally {
+              setIsResponding(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleSendSMS = (phone: string) => {
     Linking.openURL(`sms:${phone}`);
   };
@@ -269,6 +302,26 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
         </TouchableOpacity>
       )}
 
+      {/* Revert Rejection Button - Show when user has rejected */}
+      {myStatus === 'rejected' && (
+        <View style={styles.actionsSection}>
+          <TouchableOpacity
+            style={[styles.button, styles.revertButton]}
+            onPress={handleRevertRejection}
+            disabled={isResponding}
+          >
+            {isResponding ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Ionicons name="refresh-circle" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Change Mind</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Contact Info */}
       {suggestion.status === 'completed' && contactInfo.shouldShowContact && contactInfo.contactPerson && (
         <View style={styles.contactSection}>
@@ -410,14 +463,27 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
             </View>
 
             {/* Note */}
-            {suggestion.note && suggester && (
-              <View style={styles.noteSection}>
-                <Text style={styles.sectionTitle}>Note from {suggester.first_name}</Text>
-                <View style={styles.noteCard}>
-                  <Text style={styles.noteText}>{suggestion.note}</Text>
+            {(() => {
+              // Determine which note to show based on which profile is viewing
+              let noteToShow: string | undefined;
+              if (isProfileOne && suggestion.profile_one_note) {
+                noteToShow = suggestion.profile_one_note;
+              } else if (isProfileTwo && suggestion.profile_two_note) {
+                noteToShow = suggestion.profile_two_note;
+              } else {
+                // Fall back to legacy note field
+                noteToShow = suggestion.note;
+              }
+
+              return noteToShow && suggester ? (
+                <View style={styles.noteSection}>
+                  <Text style={styles.sectionTitle}>Note from {suggester.first_name}</Text>
+                  <View style={styles.noteCard}>
+                    <Text style={styles.noteText}>{noteToShow}</Text>
+                  </View>
                 </View>
-              </View>
-            )}
+              ) : null;
+            })()}
 
             {/* Other Profile */}
             <View style={styles.profileSection}>
@@ -476,7 +542,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -512,6 +578,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 12,
+    paddingTop: 12,
   },
   suggestionText: {
     fontSize: 15,
@@ -584,6 +651,9 @@ const styles = StyleSheet.create({
   },
   rejectButton: {
     backgroundColor: '#FF6B6B',
+  },
+  revertButton: {
+    backgroundColor: '#FF9800',
   },
   cancelButton: {
     backgroundColor: '#999',

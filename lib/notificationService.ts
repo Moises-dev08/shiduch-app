@@ -27,6 +27,25 @@ class NotificationService {
         return null;
       }
 
+      // Check if running in Expo Go (push notifications not supported in SDK 53+)
+      // Try to detect Expo Go by checking execution environment
+      try {
+        const executionEnvironment = Constants.executionEnvironment;
+        // StoreClient means Expo Go
+        if (executionEnvironment === Constants.ExecutionEnvironment?.StoreClient) {
+          console.warn(
+            '⚠️ Push notifications are not supported in Expo Go (SDK 53+).\n' +
+            'To test push notifications, use a development build:\n' +
+            '• iOS: npx expo run:ios\n' +
+            '• Android: npx expo run:android\n' +
+            '• Or: eas build --profile development --platform ios/android'
+          );
+          return null;
+        }
+      } catch (e) {
+        // ExecutionEnvironment might not be available in all versions, continue
+      }
+
       // Get permission
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
@@ -43,9 +62,40 @@ class NotificationService {
 
       // Get push token with projectId from app.json
       const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: projectId,
-      });
+      
+      if (!projectId) {
+        console.error('EAS projectId not found in app.json. Push notifications require a projectId.');
+        return null;
+      }
+
+      let tokenData;
+      try {
+        tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: projectId,
+        });
+      } catch (tokenError: any) {
+        // Check if error is about Expo Go (SDK 53+ removed push notifications from Expo Go)
+        const errorMessage = tokenError?.message || String(tokenError);
+        if (
+          errorMessage.includes('Expo Go') || 
+          errorMessage.includes('development build') ||
+          errorMessage.includes('SDK 53') ||
+          errorMessage.includes('remote notifications')
+        ) {
+          console.warn(
+            '⚠️ Push notifications are not supported in Expo Go (SDK 53+).\n' +
+            'To test push notifications, use a development build:\n' +
+            '• iOS: npx expo run:ios\n' +
+            '• Android: npx expo run:android\n' +
+            '• Or: eas build --profile development --platform ios/android\n' +
+            'Read more: https://docs.expo.dev/develop/development-builds/introduction/'
+          );
+          return null;
+        }
+        // Re-throw other errors
+        console.error('Error getting push token:', tokenError);
+        throw tokenError;
+      }
 
       const token = tokenData.data;
 

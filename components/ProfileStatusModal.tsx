@@ -38,10 +38,6 @@ export default function ProfileStatusModal({
         try {
           const result = await profileService.getProfile();
           if (result.success && result.profile) {
-            console.log('ProfileStatusModal: Fetched profile data', {
-              status: result.profile.status,
-              rejectionReason: result.profile.rejection_reason
-            });
             setStatus(result.profile.status);
             setRejectionReason(result.profile.rejection_reason);
           }
@@ -72,10 +68,6 @@ export default function ProfileStatusModal({
         setStatus(newStatus);
         setRejectionReason(newRejectionReason);
         
-        console.log('ProfileStatusModal: Updated state', {
-          newStatus,
-          newRejectionReason
-        });
         
         // Notify parent of status change
         if (onStatusChange && newStatus !== status) {
@@ -114,13 +106,20 @@ export default function ProfileStatusModal({
   const getStatusMessage = () => {
     switch (status) {
       case 'pending':
-        return 'Thank you for submitting your profile! Our team is currently reviewing your information. This usually takes 24-48 hours. We\'ll notify you once your profile is approved.';
+        return 'Your profile changes are currently under review by our admin team. This usually takes 24-48 hours. You cannot use the app until your profile is approved. We\'ll notify you once your profile is approved.';
       case 'approved':
         return 'Congratulations! Your profile has been approved and is now visible to other users. You can now access all features of the app.';
       case 'rejected':
         return rejectionReason || 'Your profile needs some updates. Please review and update your profile information to meet our guidelines.';
     }
   };
+
+  const getStatusClarification = () => {
+    switch (status) {
+      case 'rejected':
+        return 'Please review the following reason/s for rejection and update your profile information to meet our guidelines:';
+  };
+}
 
   const getStatusColor = () => {
     switch (status) {
@@ -134,8 +133,35 @@ export default function ProfileStatusModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
-      <View style={styles.overlay}>
+    <Modal 
+      visible={visible} 
+      transparent 
+      animationType="fade" 
+      statusBarTranslucent
+      presentationStyle="overFullScreen"
+      onRequestClose={() => {
+        // Prevent closing when status is pending - user must wait for approval
+        if (status === 'pending') {
+          return;
+        }
+        if (onClose) {
+          onClose();
+        }
+      }}
+    >
+      <TouchableOpacity 
+        style={styles.overlay}
+        activeOpacity={1}
+        onPress={() => {
+          // Prevent dismissing by tapping outside when status is pending
+          if (status === 'pending') {
+            return;
+          }
+          if (onClose) {
+            onClose();
+          }
+        }}
+      >
         <View style={styles.modal}>
           {initialLoading ? (
             <>
@@ -149,7 +175,7 @@ export default function ProfileStatusModal({
               </View>
 
               <Text style={styles.title}>{getStatusTitle()}</Text>
-              
+              <Text style={styles.message}>{getStatusClarification()}</Text>
               <Text style={styles.message}>{getStatusMessage()}</Text>
 
           {status === 'pending' && (
@@ -191,7 +217,11 @@ export default function ProfileStatusModal({
             {status === 'rejected' && (
               <TouchableOpacity
                 style={[styles.button, { backgroundColor: getStatusColor() }]}
-                onPress={onClose}
+                onPress={() => {
+                  if (onClose) {
+                    onClose();
+                  }
+                }}
               >
                 <Text style={styles.buttonText}>Update Profile</Text>
               </TouchableOpacity>
@@ -200,13 +230,13 @@ export default function ProfileStatusModal({
 
           {status === 'pending' && (
             <Text style={styles.footer}>
-              In the meanwhile, you can only access the Profile tab.
+              You can only access the Profile tab to view or edit your profile until approval.
             </Text>
           )}
             </>
           )}
         </View>
-      </View>
+      </TouchableOpacity>
     </Modal>
   );
 }
@@ -214,10 +244,12 @@ export default function ProfileStatusModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    width: '100%',
+    height: '100%',
   },
   modal: {
     backgroundColor: '#fff',

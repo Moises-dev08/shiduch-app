@@ -24,6 +24,7 @@ export default function ProfileDetailsScreen() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<DBProfile | null>(null);
+  const [rawProfileData, setRawProfileData] = useState<any>(null); // Store raw data to check if fields have values
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [showPictureViewer, setShowPictureViewer] = useState(false);
@@ -40,7 +41,11 @@ export default function ProfileDetailsScreen() {
   const [showProfileGridModal, setShowProfileGridModal] = useState(false);
   const [selectedProfileForSetup, setSelectedProfileForSetup] = useState<Profile | null>(null);
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showSendConfirmationModal, setShowSendConfirmationModal] = useState(false);
   const [suggestionNote, setSuggestionNote] = useState('');
+  const [useSameNote, setUseSameNote] = useState(true); // true = same note, false = different notes
+  const [profileOneNote, setProfileOneNote] = useState('');
+  const [profileTwoNote, setProfileTwoNote] = useState('');
   const [isSubmittingSuggestion, setIsSubmittingSuggestion] = useState(false);
 
   // Info request states
@@ -102,6 +107,9 @@ export default function ProfileDetailsScreen() {
         router.back();
         return;
       }
+
+      // Store raw data to check if fields have values
+      setRawProfileData(data);
 
       // Transform to display profile - RESPECTING PRIVACY SETTINGS
       const fieldPrivacy = data.field_privacy || {};
@@ -253,7 +261,7 @@ export default function ProfileDetailsScreen() {
         } else if (existingRequest.status === 'approved') {
           Alert.alert(
             'Request Approved',
-            'This request has already been approved. Reload the profile to see the information.',
+            'This request has already been approved. Go to the Connect tab to see the information.',
             [
               { text: 'Cancel' },
               { text: 'Reload', onPress: () => loadProfileData() }
@@ -353,8 +361,8 @@ export default function ProfileDetailsScreen() {
           {
             text: 'OK',
             onPress: () => {
-              // Navigate to Connect tab
-              router.push('/(tabs)/connect');
+              // Navigate to Connect tab - You Liked section
+              router.push('/(tabs)/connect?section=liked');
             },
           },
         ]
@@ -375,28 +383,61 @@ export default function ProfileDetailsScreen() {
   const handleProfileSelected = (selectedProfile: Profile) => {
     setSelectedProfileForSetup(selectedProfile);
     setShowProfileGridModal(false);
-    // Open note modal
+    // Reset note states
+    setSuggestionNote('');
+    setProfileOneNote('');
+    setProfileTwoNote('');
+    setUseSameNote(true);
+    // Open note modal (step 1)
     setShowNoteModal(true);
   };
 
-  const handleSubmitSuggestion = async () => {
+  const handleNoteModalSkip = () => {
+    // Close note modal and proceed to confirmation
+    setShowNoteModal(false);
+    setShowSendConfirmationModal(true);
+  };
+
+  const handleNoteModalAddNote = () => {
+    // Close note modal and proceed to confirmation
+    setShowNoteModal(false);
+    setShowSendConfirmationModal(true);
+  };
+
+  const handleSendSuggestion = async () => {
     if (!selectedProfileForSetup || !profile) return;
 
     setIsSubmittingSuggestion(true);
     try {
-      const result = await suggestionService.createSuggestion(
-        profile.id,
-        selectedProfileForSetup.id,
-        suggestionNote.trim() || undefined
-      );
+      let result;
+      if (useSameNote) {
+        // Use same note for both (legacy behavior)
+        result = await suggestionService.createSuggestion(
+          profile.id,
+          selectedProfileForSetup.id,
+          suggestionNote.trim() || undefined
+        );
+      } else {
+        // Use different notes
+        result = await suggestionService.createSuggestion(
+          profile.id,
+          selectedProfileForSetup.id,
+          undefined, // legacy note
+          profileOneNote.trim() || undefined, // profile_one_note
+          profileTwoNote.trim() || undefined  // profile_two_note
+        );
+      }
 
       if (!result.success) {
         Alert.alert('Error', result.error || 'Failed to create suggestion');
         return;
       }
 
-      setShowNoteModal(false);
+      setShowSendConfirmationModal(false);
       setSuggestionNote('');
+      setProfileOneNote('');
+      setProfileTwoNote('');
+      setUseSameNote(true);
       setSelectedProfileForSetup(null);
 
       Alert.alert(
@@ -406,7 +447,8 @@ export default function ProfileDetailsScreen() {
           {
             text: 'OK',
             onPress: () => {
-              router.push('/(tabs)/connect');
+              // Navigate to Connect tab - You Liked section
+              router.push('/(tabs)/connect?section=liked');
             },
           },
         ]
@@ -444,11 +486,23 @@ export default function ProfileDetailsScreen() {
     return profile?.field_privacy?.[fieldName] === true;
   };
 
+  // Helper to check if a field has a value in the database (before privacy filtering)
+  const hasFieldValue = (fieldName: string): boolean => {
+    if (!rawProfileData) return false;
+    const value = rawProfileData[fieldName];
+    return value !== null && value !== undefined && value !== '';
+  };
+
   // Helper component for rendering a detail row with "Ask me" button
   const renderDetailRow = (label: string, value: any, fieldName: string) => {
+    // Only render if field has a value in the database
+    if (!hasFieldValue(fieldName)) {
+      return null;
+    }
+
     const isPrivate = isFieldPrivate(fieldName);
     
-    if (isPrivate || !value) {
+    if (isPrivate) {
       return (
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>{label}:</Text>
@@ -579,12 +633,14 @@ export default function ProfileDetailsScreen() {
         </View>
 
         {/* Location Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location 📍</Text>
-          {renderDetailRow('City', profile.location_city, 'location_city')}
-          {renderDetailRow('State', profile.location_state, 'location_state')}
-          {renderDetailRow('Country', profile.location_country, 'location_country')}
-        </View>
+        {(hasFieldValue('location_city') || hasFieldValue('location_state') || hasFieldValue('location_country')) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Location 📍</Text>
+            {renderDetailRow('City', profile.location_city, 'location_city')}
+            {renderDetailRow('State', profile.location_state, 'location_state')}
+            {renderDetailRow('Country', profile.location_country, 'location_country')}
+          </View>
+        )}
 
         {/* Languages & Background */}
         <View style={styles.section}>
@@ -863,6 +919,9 @@ export default function ProfileDetailsScreen() {
         onRequestClose={() => {
           setShowNoteModal(false);
           setSuggestionNote('');
+          setProfileOneNote('');
+          setProfileTwoNote('');
+          setUseSameNote(true);
           setSelectedProfileForSetup(null);
         }}
       >
@@ -870,8 +929,6 @@ export default function ProfileDetailsScreen() {
           <View style={styles.noteModalHeader}>
             <TouchableOpacity onPress={() => {
               setShowNoteModal(false);
-              setSuggestionNote('');
-              setSelectedProfileForSetup(null);
             }}>
               <Ionicons name="close" size={28} color="#333" />
             </TouchableOpacity>
@@ -883,33 +940,188 @@ export default function ProfileDetailsScreen() {
             <Text style={styles.noteModalLabel}>
               Add a note for {profile?.name} and {selectedProfileForSetup?.name}
             </Text>
-            <TextInput
-              style={styles.noteTextInput}
-              placeholder="Why do you think they would be a good match?"
-              value={suggestionNote}
-              onChangeText={setSuggestionNote}
-              multiline
-              numberOfLines={6}
-              textAlignVertical="top"
-              autoFocus
-            />
 
-            <Text style={styles.noteModalHint}>
-              This note will be visible to both profiles when they receive your suggestion.
-            </Text>
+            {/* Note Mode Toggle */}
+            <View style={styles.noteModeToggle}>
+              <TouchableOpacity
+                style={[styles.noteModeOption, useSameNote && styles.noteModeOptionActive]}
+                onPress={() => setUseSameNote(true)}
+              >
+                <Ionicons 
+                  name={useSameNote ? "radio-button-on" : "radio-button-off"} 
+                  size={20} 
+                  color={useSameNote ? "#03a9f4" : "#999"} 
+                />
+                <Text style={[styles.noteModeText, useSameNote && styles.noteModeTextActive]}>
+                  Same note for both
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.noteModeOption, !useSameNote && styles.noteModeOptionActive]}
+                onPress={() => setUseSameNote(false)}
+              >
+                <Ionicons 
+                  name={!useSameNote ? "radio-button-on" : "radio-button-off"} 
+                  size={20} 
+                  color={!useSameNote ? "#03a9f4" : "#999"} 
+                />
+                <Text style={[styles.noteModeText, !useSameNote && styles.noteModeTextActive]}>
+                  Different notes
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {useSameNote ? (
+              <>
+                <TextInput
+                  style={styles.noteTextInput}
+                  placeholder="Why do you think they would be a good match?"
+                  value={suggestionNote}
+                  onChangeText={setSuggestionNote}
+                  multiline
+                  numberOfLines={6}
+                  textAlignVertical="top"
+                  autoFocus
+                />
+                <Text style={styles.noteModalHint}>
+                  This note will be visible to both profiles when they receive your suggestion.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.separateNoteLabel}>
+                  Note for {profile?.name}:
+                </Text>
+                <TextInput
+                  style={styles.noteTextInput}
+                  placeholder={`Why do you think ${profile?.name} would be a good match?`}
+                  value={profileOneNote}
+                  onChangeText={setProfileOneNote}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  autoFocus
+                />
+                <Text style={styles.separateNoteLabel}>
+                  Note for {selectedProfileForSetup?.name}:
+                </Text>
+                <TextInput
+                  style={styles.noteTextInput}
+                  placeholder={`Why do you think ${selectedProfileForSetup?.name} would be a good match?`}
+                  value={profileTwoNote}
+                  onChangeText={setProfileTwoNote}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+                <Text style={styles.noteModalHint}>
+                  Each profile will only see their own note when they receive your suggestion.
+                </Text>
+              </>
+            )}
           </ScrollView>
 
           <View style={styles.noteModalActions}>
             <TouchableOpacity
               style={[styles.noteModalButton, styles.skipButton]}
-              onPress={handleSubmitSuggestion}
-              disabled={isSubmittingSuggestion}
+              onPress={handleNoteModalSkip}
             >
               <Text style={styles.skipButtonText}>Skip</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              style={[styles.noteModalButton, styles.addNoteButton]}
+              onPress={handleNoteModalAddNote}
+            >
+              <Text style={styles.addNoteButtonText}>Add Note</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Send Confirmation Modal */}
+      <Modal
+        visible={showSendConfirmationModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setShowSendConfirmationModal(false);
+        }}
+      >
+        <View style={styles.noteModalContainer}>
+          <View style={styles.noteModalHeader}>
+            <TouchableOpacity onPress={() => {
+              setShowSendConfirmationModal(false);
+            }}>
+              <Ionicons name="close" size={28} color="#333" />
+            </TouchableOpacity>
+            <Text style={styles.noteModalTitle}>Send Suggestion</Text>
+            <View style={{ width: 28 }} />
+          </View>
+
+          <ScrollView style={styles.noteModalContent}>
+            <Text style={styles.noteModalLabel}>
+              You are about to suggest {profile?.name} and {selectedProfileForSetup?.name} to each other.
+            </Text>
+
+            {/* Show note preview if notes were added */}
+            {(() => {
+              const hasSameNote = useSameNote && suggestionNote.trim();
+              const hasDifferentNotes = !useSameNote && (profileOneNote.trim() || profileTwoNote.trim());
+              
+              if (hasSameNote) {
+                return (
+                  <View style={styles.notePreviewSection}>
+                    <Text style={styles.notePreviewLabel}>Your note:</Text>
+                    <View style={styles.notePreviewCard}>
+                      <Text style={styles.notePreviewText}>{suggestionNote}</Text>
+                    </View>
+                  </View>
+                );
+              } else if (hasDifferentNotes) {
+                return (
+                  <View style={styles.notePreviewSection}>
+                    <Text style={styles.notePreviewLabel}>Your notes:</Text>
+                    {profileOneNote.trim() && (
+                      <>
+                        <Text style={styles.notePreviewSubLabel}>For {profile?.name}:</Text>
+                        <View style={styles.notePreviewCard}>
+                          <Text style={styles.notePreviewText}>{profileOneNote}</Text>
+                        </View>
+                      </>
+                    )}
+                    {profileTwoNote.trim() && (
+                      <>
+                        <Text style={[styles.notePreviewSubLabel, { marginTop: 12 }]}>For {selectedProfileForSetup?.name}:</Text>
+                        <View style={styles.notePreviewCard}>
+                          <Text style={styles.notePreviewText}>{profileTwoNote}</Text>
+                        </View>
+                      </>
+                    )}
+                  </View>
+                );
+              } else {
+                return (
+                  <View style={styles.noNoteSection}>
+                    <Ionicons name="document-text-outline" size={32} color="#ccc" />
+                    <Text style={styles.noNoteText}>No note added</Text>
+                  </View>
+                );
+              }
+            })()}
+          </ScrollView>
+
+          <View style={styles.noteModalActions}>
+            <TouchableOpacity
+              style={[styles.noteModalButton, styles.cancelButton]}
+              onPress={() => {
+                setShowSendConfirmationModal(false);
+              }}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.noteModalButton, styles.sendButton]}
-              onPress={handleSubmitSuggestion}
+              onPress={handleSendSuggestion}
               disabled={isSubmittingSuggestion}
             >
               {isSubmittingSuggestion ? (
@@ -1126,6 +1338,49 @@ const styles = StyleSheet.create({
     color: '#666',
     fontStyle: 'italic',
     lineHeight: 20,
+    marginTop: 8,
+  },
+  noteModeToggle: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+    padding: 4,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+  },
+  noteModeOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  noteModeOptionActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  noteModeText: {
+    fontSize: 14,
+    color: '#999',
+    fontWeight: '500',
+  },
+  noteModeTextActive: {
+    color: '#03a9f4',
+    fontWeight: '600',
+  },
+  separateNoteLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+    marginTop: 8,
   },
   noteModalActions: {
     flexDirection: 'row',
@@ -1212,6 +1467,62 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#03a9f4',
+  },
+  addNoteButton: {
+    backgroundColor: '#03a9f4',
+  },
+  addNoteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  notePreviewSection: {
+    marginTop: 20,
+  },
+  notePreviewLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  notePreviewSubLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+    marginBottom: 8,
+  },
+  notePreviewCard: {
+    backgroundColor: '#FFF9C4',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFF176',
+    marginBottom: 16,
+  },
+  notePreviewText: {
+    fontSize: 15,
+    color: '#333',
+    lineHeight: 22,
+  },
+  noNoteSection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    marginTop: 20,
+  },
+  noNoteText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 12,
+    fontStyle: 'italic',
   },
 });
 

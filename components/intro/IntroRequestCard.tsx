@@ -323,9 +323,6 @@ console.log('contactInfo', contactInfo);
             <Text style={styles.profileName}>
               {otherProfile.first_name} {otherProfile.last_name}
             </Text>
-            <Text style={styles.profileDetails}>
-              {otherProfile.age} • {otherProfile.gender}
-            </Text>
           </View>
         </View>
         <View style={styles.statusContainer}>
@@ -611,7 +608,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

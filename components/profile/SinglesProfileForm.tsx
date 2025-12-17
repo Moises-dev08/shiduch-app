@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { resumeService } from '../../lib/resumeService';
 
 interface SinglesProfileFormProps {
   initialData?: any;
@@ -107,12 +108,73 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
   // Basic Required
   const [firstName, setFirstName] = useState(initialData?.firstName || '');
   const [lastName, setLastName] = useState(initialData?.lastName || '');
-  const [dob, setDob] = useState(initialData?.dob ? new Date(initialData.dob) : new Date());
+  // Calculate maximum date (18 years ago from today)
+  const getMaxDate = () => {
+    const today = new Date();
+    const maxDate = new Date();
+    maxDate.setFullYear(today.getFullYear() - 18);
+    return maxDate;
+  };
+
+  const getMinDate = () => {
+    const today = new Date();
+    const minDate = new Date();
+    minDate.setFullYear(today.getFullYear() - 80);
+    return minDate;
+  };
+
+  const [dob, setDob] = useState(initialData?.dob ? new Date(initialData.dob) : getMaxDate());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dobError, setDobError] = useState<string>('');
+
+  // Validate age when DOB changes
+  const validateDOB = (selectedDate: Date) => {
+    const today = new Date();
+    let age = today.getFullYear() - selectedDate.getFullYear();
+    const monthDiff = today.getMonth() - selectedDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < selectedDate.getDate())) {
+      age--;
+    }
+    
+    if (age < 18) {
+      setDobError('You must be at least 18 years old');
+      return false;
+    } else if (age > 80) {
+      setDobError('You cannot be more than 80 years old');
+      return false;
+    } else {
+      setDobError('');
+      return true;
+    }
+  };
+
+  // Validate DOB on initial load
+  useEffect(() => {
+    if (dob) {
+      validateDOB(dob);
+    }
+  }, [dob]); // Only run on mount
   const [showHeightPicker, setShowHeightPicker] = useState(false);
   const [bio, setBio] = useState(initialData?.bio || '');
   const [whatLookingFor, setWhatLookingFor] = useState(initialData?.whatLookingFor || '');
   const [phone, setPhone] = useState(initialData?.phone || '');
+  const [email, setEmail] = useState(initialData?.email || '');
+  const [whatsapp, setWhatsapp] = useState(initialData?.whatsapp || '');
+
+  // Handler to allow only numbers in phone field
+  const handlePhoneChange = (text: string) => {
+    // Remove all non-numeric characters
+    const numericOnly = text.replace(/[^0-9]/g, '');
+    setPhone(numericOnly);
+  };
+
+  // Handler to allow only numbers in WhatsApp field
+  const handleWhatsAppChange = (text: string) => {
+    // Remove all non-numeric characters
+    const numericOnly = text.replace(/[^0-9]/g, '');
+    setWhatsapp(numericOnly);
+  };
 
   // Optional fields
   const [heightFeet, setHeightFeet] = useState<string>(() => {
@@ -261,7 +323,11 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
   };
 
   const handlePickResume = async () => {
-    const { resumeService } = await import('../../lib/resumeService');
+    if (!resumeService) {
+      Alert.alert('Error', 'Resume service is not available. Please try again.');
+      return;
+    }
+    
     setUploadingResume(true);
     
     try {
@@ -303,7 +369,11 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const { resumeService } = await import('../../lib/resumeService');
+            if (!resumeService) {
+              Alert.alert('Error', 'Resume service is not available. Please try again.');
+              return;
+            }
+            
             setUploadingResume(true);
             
             try {
@@ -377,6 +447,35 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       return;
     }
 
+    // Validate age - must be between 18 and 80 years old
+    const today = new Date();
+    const birthDate = new Date(dob);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    // Adjust if birthday hasn't occurred yet this year
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    if (age < 18) {
+      Alert.alert(
+        'Age Requirement',
+        'You must be at least 18 years old to create an account. Please enter a valid date of birth.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    if (age > 80) {
+      Alert.alert(
+        'Age Requirement',
+        'You cannot be more than 80 years old. Please enter a valid date of birth.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     // Prepare data
     const formData = {
       firstName,
@@ -385,6 +484,8 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       bio,
       whatLookingFor,
       phone,
+      email: email.trim() || undefined,
+      whatsapp: whatsapp.trim() || undefined,
       pictures,
       picturePrivacy,
       height: heightFeet && heightInches ? `${heightFeet}'${heightInches}"` : undefined,
@@ -545,10 +646,14 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Date of Birth *</Text>
+          <Text style={styles.helpText}>You must be at least 18 years old</Text>
           <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
             <Text style={styles.dateText}>{dob.toLocaleDateString()}</Text>
             <Ionicons name="calendar" size={20} color="#666" />
           </TouchableOpacity>
+          {dobError ? (
+            <Text style={styles.errorText}>{dobError}</Text>
+          ) : null}
         </View>
 
         <View style={styles.inputGroup}>
@@ -574,20 +679,52 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
             numberOfLines={4}
           />
         </View>
+      </View>
+
+      {/* 3. Contact Information */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Contact Information</Text>
+        <Text style={styles.sectionSubtitle}>
+          This information will only be shared with your matchmaker and people you match with (if you choose to continue by yourself after a successful match).
+        </Text>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Phone *</Text>
+          <Text style={styles.label}>Phone Number *</Text>
           <TextInput
             style={styles.input}
             value={phone}
-            onChangeText={setPhone}
+            onChangeText={handlePhoneChange}
             placeholder="Enter phone number"
+            keyboardType="phone-pad"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Personal Email</Text>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Enter your email (optional)"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>WhatsApp Number</Text>
+          <TextInput
+            style={styles.input}
+            value={whatsapp}
+            onChangeText={handleWhatsAppChange}
+            placeholder="Enter WhatsApp number (optional)"
             keyboardType="phone-pad"
           />
         </View>
       </View>
 
-      {/* 3. Additional Information */}
+      {/* 4. Additional Information */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Additional Information *</Text>
         <Text style={styles.sectionSubtitle}>
@@ -1348,9 +1485,13 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
                 mode="date"
                 display="spinner"
                 onChange={(event, selectedDate) => {
-                  if (selectedDate) setDob(selectedDate);
+                  if (selectedDate) {
+                    setDob(selectedDate);
+                    validateDOB(selectedDate);
+                  }
                 }}
-                maximumDate={new Date()}
+                maximumDate={getMaxDate()}
+                minimumDate={getMinDate()}
                 style={styles.datePicker}
               />
             </View>
@@ -1364,9 +1505,13 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
             display="default"
             onChange={(event, selectedDate) => {
               setShowDatePicker(false);
-              if (selectedDate) setDob(selectedDate);
+              if (selectedDate) {
+                setDob(selectedDate);
+                validateDOB(selectedDate);
+              }
             }}
-            maximumDate={new Date()}
+            maximumDate={getMaxDate()}
+            minimumDate={getMinDate()}
           />
         )
       )}
@@ -1523,6 +1668,12 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 8,
     fontStyle: 'italic',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#f44336',
+    marginTop: 4,
+    marginBottom: 8,
   },
   dateButton: {
     flexDirection: 'row',

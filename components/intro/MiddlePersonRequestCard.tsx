@@ -4,15 +4,16 @@ import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
-  Image,
-  Linking,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    Image,
+    Linking,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { IntroRequest, introService } from '../../lib/introService';
+import { calculateAge } from '../../lib/utils';
 
 interface MiddlePersonRequestCardProps {
   request: IntroRequest;
@@ -176,7 +177,7 @@ export default function MiddlePersonRequestCard({ request, currentUserProfileId 
               {requester.first_name} {requester.last_name}
             </Text>
             <Text style={styles.participantDetails}>
-              {requester.age} • {requester.gender}
+              {requester.dob ? calculateAge(requester.dob) : 'N/A'} • {requester.gender}
             </Text>
             {isRequesterMiddlePerson && (
               <View style={styles.yourClientBadge}>
@@ -219,7 +220,7 @@ export default function MiddlePersonRequestCard({ request, currentUserProfileId 
               {requested.first_name} {requested.last_name}
             </Text>
             <Text style={styles.participantDetails}>
-              {requested.age} • {requested.gender}
+              {requested.dob ? calculateAge(requested.dob) : 'N/A'} • {requested.gender}
             </Text>
             {isRequestedMiddlePerson && (
               <View style={styles.yourClientBadge}>
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

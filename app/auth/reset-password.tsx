@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
 export default function ResetPasswordScreen() {
+  const params = useLocalSearchParams();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [displayPassword, setDisplayPassword] = useState('');
@@ -12,6 +13,77 @@ export default function ResetPasswordScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(true);
+
+  // Handle the token from the email link
+  useEffect(() => {
+    const handlePasswordReset = async () => {
+      // Check if we have access_token and refresh_token in the URL params
+      // These are provided by Supabase when the user clicks the email link
+      const accessToken = params.access_token as string | undefined;
+      const refreshToken = params.refresh_token as string | undefined;
+      const type = params.type as string | undefined;
+
+      // If we have tokens from the email link, exchange them for a session
+      if (accessToken && refreshToken && type === 'recovery') {
+        setVerifying(true);
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) {
+            Alert.alert(
+              'Invalid Link',
+              'This password reset link is invalid or has expired. Please request a new one.',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => router.replace('/auth/forgot-password'),
+                },
+              ]
+            );
+            return;
+          }
+
+          // Session is now set, user can reset password
+          setVerifying(false);
+        } catch (error) {
+          console.error('Error setting session:', error);
+          Alert.alert(
+            'Error',
+            'Failed to verify reset link. Please try again.',
+            [
+              {
+                text: 'OK',
+                onPress: () => router.replace('/auth/forgot-password'),
+              },
+            ]
+          );
+        }
+      } else {
+        // No tokens in URL - check if user already has a valid session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          Alert.alert(
+            'No Reset Link',
+            'Please use the link from your email to reset your password.',
+            [
+              {
+                text: 'OK',
+                onPress: () => router.replace('/auth/forgot-password'),
+              },
+            ]
+          );
+          return;
+        }
+        setVerifying(false);
+      }
+    };
+
+    handlePasswordReset();
+  }, [params]);
 
   const handlePasswordChange = (text: string) => {
     setPassword(text);
@@ -93,6 +165,23 @@ export default function ResetPasswordScreen() {
       setLoading(false);
     }
   };
+
+  if (verifying) {
+    return (
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <ActivityIndicator size="large" color="#03a9f4" />
+            <Text style={styles.title}>Verifying Reset Link</Text>
+            <Text style={styles.subtitle}>Please wait...</Text>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView 

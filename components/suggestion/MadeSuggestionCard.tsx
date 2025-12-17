@@ -168,13 +168,17 @@ export default function MadeSuggestionCard({ suggestion }: MadeSuggestionCardPro
       </View>
 
       {/* Note Section */}
-      {suggestion.note && (
+      {(suggestion.note || suggestion.profile_one_note || suggestion.profile_two_note) && (
         <TouchableOpacity 
           style={styles.noteButton}
           onPress={() => setShowNoteModal(true)}
         >
           <Ionicons name="document-text" size={16} color="#03a9f4" />
-          <Text style={styles.noteButtonText}>View Your Note</Text>
+          <Text style={styles.noteButtonText}>
+            {suggestion.profile_one_note && suggestion.profile_two_note 
+              ? 'View Your Notes' 
+              : 'View Your Note'}
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -191,7 +195,7 @@ export default function MadeSuggestionCard({ suggestion }: MadeSuggestionCardPro
       </View>
 
       {/* Note Modal */}
-      {suggestion.note && (
+      {(suggestion.note || suggestion.profile_one_note || suggestion.profile_two_note) && (
         <Modal
           visible={showNoteModal}
           animationType="slide"
@@ -203,14 +207,39 @@ export default function MadeSuggestionCard({ suggestion }: MadeSuggestionCardPro
               <TouchableOpacity onPress={() => setShowNoteModal(false)}>
                 <Ionicons name="close" size={28} color="#333" />
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>Your Note</Text>
+              <Text style={styles.modalTitle}>
+                {suggestion.profile_one_note && suggestion.profile_two_note 
+                  ? 'Your Notes' 
+                  : 'Your Note'}
+              </Text>
               <View style={{ width: 28 }} />
             </View>
 
             <ScrollView style={styles.modalContent}>
-              <View style={styles.noteCard}>
-                <Text style={styles.noteText}>{suggestion.note}</Text>
-              </View>
+              {suggestion.profile_one_note && suggestion.profile_two_note ? (
+                // Show both separate notes
+                <>
+                  <Text style={styles.noteLabel}>
+                    Note for {profileOne.first_name} {profileOne.last_name}:
+                  </Text>
+                  <View style={styles.noteCard}>
+                    <Text style={styles.noteText}>{suggestion.profile_one_note}</Text>
+                  </View>
+                  <Text style={[styles.noteLabel, { marginTop: 20 }]}>
+                    Note for {profileTwo.first_name} {profileTwo.last_name}:
+                  </Text>
+                  <View style={styles.noteCard}>
+                    <Text style={styles.noteText}>{suggestion.profile_two_note}</Text>
+                  </View>
+                </>
+              ) : (
+                // Show single note (legacy or same note)
+                <View style={styles.noteCard}>
+                  <Text style={styles.noteText}>
+                    {suggestion.profile_one_note || suggestion.profile_two_note || suggestion.note}
+                  </Text>
+                </View>
+              )}
             </ScrollView>
           </View>
         </Modal>
@@ -223,7 +252,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -320,10 +349,12 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: '#FFF0F5',
+    backgroundColor: '#E3F2FD',
     marginHorizontal: 16,
     marginBottom: 12,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#03a9f4',
   },
   noteButtonText: {
     fontSize: 14,
@@ -368,6 +399,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#FFF176',
+  },
+  noteLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
   },
   noteText: {
     fontSize: 15,

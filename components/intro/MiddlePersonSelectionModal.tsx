@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -15,6 +14,7 @@ import {
 import { profileService } from '../../lib/profileService';
 import { supabase } from '../../lib/supabase';
 import { calculateAge } from '../../lib/utils';
+import MatchmakerFilterModal, { MatchmakerFilterState } from './MatchmakerFilterModal';
 
 interface Profile {
   id: string;
@@ -36,9 +36,6 @@ interface MiddlePersonSelectionModalProps {
   onCancel: () => void;
 }
 
-type FilterGender = 'all' | 'male' | 'female';
-type FilterRole = 'all' | 'single' | 'matchmaker';
-
 export default function MiddlePersonSelectionModal({
   visible,
   excludedProfileId,
@@ -52,19 +49,28 @@ export default function MiddlePersonSelectionModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   
-  // Filters
-  const [ageMin, setAgeMin] = useState('');
-  const [ageMax, setAgeMax] = useState('');
-  const [filterGender, setFilterGender] = useState<FilterGender>('all');
-  const [filterRole, setFilterRole] = useState<FilterRole>('all');
-  const [filterHashkafa, setFilterHashkafa] = useState('');
+  // Filter state based on matchmaker profile form
+  const [filterState, setFilterState] = useState<MatchmakerFilterState>({
+    selectedAgeOption: null,
+    minAge: null,
+    maxAge: null,
+    exactAge: null,
+    selectedCountries: [],
+    selectedStates: [],
+    selectedCities: [],
+    selectedHashkafa: [],
+    selectedCulturalOrigin: [],
+    selectedLanguages: [],
+    filterGender: 'all',
+    filterRole: 'all',
+  });
 
   const loadProfiles = useCallback(async () => {
     setLoading(true);
     try {
       let query = supabase
         .from('profiles')
-        .select('id, first_name, last_name, dob, gender, role, hashkafa_type, pictures, picture_privacy')
+        .select('id, first_name, last_name, dob, gender, role, hashkafa_type, pictures, picture_privacy, location_country, location_state, location_city, languages, cultural_origin')
         .eq('status', 'approved')
         .eq('is_active', true);
 
@@ -102,33 +108,98 @@ export default function MiddlePersonSelectionModal({
     }
 
     // Age filter
-    if (ageMin) {
-      filtered = filtered.filter(p => calculateAge(p.dob) >= parseInt(ageMin));
-    }
-    if (ageMax) {
-      filtered = filtered.filter(p => calculateAge(p.dob) <= parseInt(ageMax));
+    if (filterState.selectedAgeOption) {
+      const [min, max] = filterState.selectedAgeOption === '36+' 
+        ? [36, 999]
+        : filterState.selectedAgeOption.split('-').map(Number);
+      
+      filtered = filtered.filter(p => {
+        if (!p.dob) return false;
+        const age = calculateAge(p.dob);
+        return age >= min && age <= max;
+      });
+    } else if (filterState.exactAge !== null) {
+      filtered = filtered.filter(p => {
+        if (!p.dob) return false;
+        const age = calculateAge(p.dob);
+        return age === filterState.exactAge;
+      });
+    } else if (filterState.minAge !== null || filterState.maxAge !== null) {
+      filtered = filtered.filter(p => {
+        if (!p.dob) return false;
+        const age = calculateAge(p.dob);
+        const min = filterState.minAge ?? 0;
+        const max = filterState.maxAge ?? 999;
+        return age >= min && age <= max;
+      });
     }
 
-    // Gender filter
-    if (filterGender !== 'all') {
-      filtered = filtered.filter(p => p.gender === filterGender);
+    // Location filters
+    if (filterState.selectedCountries.length > 0) {
+      filtered = filtered.filter(p => {
+        const country = (p as any).location_country;
+        return country && filterState.selectedCountries.includes(country);
+      });
     }
 
-    // Role filter
-    if (filterRole !== 'all') {
-      filtered = filtered.filter(p => p.role === filterRole);
+    if (filterState.selectedStates.length > 0) {
+      filtered = filtered.filter(p => {
+        const state = (p as any).location_state;
+        return state && filterState.selectedStates.includes(state);
+      });
+    }
+
+    if (filterState.selectedCities.length > 0) {
+      filtered = filtered.filter(p => {
+        const city = (p as any).location_city?.toLowerCase();
+        return city && filterState.selectedCities.some(c => city.includes(c.toLowerCase()));
+      });
     }
 
     // Hashkafa filter
-    if (filterHashkafa.trim()) {
-      const query = filterHashkafa.toLowerCase();
-      filtered = filtered.filter(p =>
-        p?.hashkafa_type?.toLowerCase().includes(query)
+    if (filterState.selectedHashkafa.length > 0) {
+      filtered = filtered.filter(p => 
+        p.hashkafa_type && filterState.selectedHashkafa.includes(p.hashkafa_type)
       );
     }
 
+    // Cultural Origin filter
+    if (filterState.selectedCulturalOrigin.length > 0) {
+      filtered = filtered.filter(p => {
+        const culturalOrigin = (p as any).cultural_origin;
+        if (!culturalOrigin) return false;
+        // cultural_origin can be comma-separated string
+        const origins = typeof culturalOrigin === 'string' 
+          ? culturalOrigin.split(',').map(o => o.trim())
+          : Array.isArray(culturalOrigin) 
+            ? culturalOrigin 
+            : [];
+        return filterState.selectedCulturalOrigin.some(co => origins.includes(co));
+      });
+    }
+
+    // Languages filter
+    if (filterState.selectedLanguages.length > 0) {
+      filtered = filtered.filter(p => {
+        const languages = (p as any).languages;
+        if (!languages) return false;
+        const langArray = Array.isArray(languages) ? languages : [];
+        return filterState.selectedLanguages.some(lang => langArray.includes(lang));
+      });
+    }
+
+    // Gender filter
+    if (filterState.filterGender !== 'all') {
+      filtered = filtered.filter(p => p.gender === filterState.filterGender);
+    }
+
+    // Role filter
+    if (filterState.filterRole !== 'all') {
+      filtered = filtered.filter(p => p.role === filterState.filterRole);
+    }
+
     setFilteredProfiles(filtered);
-  }, [profiles, searchQuery, ageMin, ageMax, filterGender, filterRole, filterHashkafa]);
+  }, [profiles, searchQuery, filterState]);
 
   useEffect(() => {
     if (visible) {
@@ -141,12 +212,116 @@ export default function MiddlePersonSelectionModal({
   }, [applyFilters]);
 
   const clearFilters = () => {
-    setAgeMin('');
-    setAgeMax('');
-    setFilterGender('all');
-    setFilterRole('all');
-    setFilterHashkafa('');
+    setFilterState({
+      selectedAgeOption: null,
+      minAge: null,
+      maxAge: null,
+      exactAge: null,
+      selectedCountries: [],
+      selectedStates: [],
+      selectedCities: [],
+      selectedHashkafa: [],
+      selectedCulturalOrigin: [],
+      selectedLanguages: [],
+      filterGender: 'all',
+      filterRole: 'all',
+    });
     setSearchQuery('');
+  };
+
+  // Get active filters for display
+  const getActiveFilters = useMemo(() => {
+    const activeFilters: { label: string; removeKey: string }[] = [];
+
+    // Age filters
+    if (filterState.selectedAgeOption) {
+      activeFilters.push({ label: `Age: ${filterState.selectedAgeOption}`, removeKey: 'selectedAgeOption' });
+    } else if (filterState.exactAge !== null) {
+      activeFilters.push({ label: `Age: ${filterState.exactAge}`, removeKey: 'exactAge' });
+    } else if (filterState.minAge !== null || filterState.maxAge !== null) {
+      const min = filterState.minAge ?? '';
+      const max = filterState.maxAge ?? '';
+      activeFilters.push({ label: `Age: ${min}-${max}`, removeKey: 'customAge' });
+    }
+
+    // Location filters
+    if (filterState.selectedCountries.length > 0) {
+      activeFilters.push({ label: `Country: ${filterState.selectedCountries[0]}`, removeKey: 'selectedCountries' });
+    }
+    if (filterState.selectedStates.length > 0) {
+      filterState.selectedStates.forEach(state => {
+        activeFilters.push({ label: `State: ${state}`, removeKey: `state_${state}` });
+      });
+    }
+    if (filterState.selectedCities.length > 0) {
+      filterState.selectedCities.forEach(city => {
+        activeFilters.push({ label: `City: ${city}`, removeKey: `city_${city}` });
+      });
+    }
+
+    // Hashkafa
+    filterState.selectedHashkafa.forEach(hashkafa => {
+      activeFilters.push({ label: hashkafa, removeKey: `hashkafa_${hashkafa}` });
+    });
+
+    // Cultural Origin
+    filterState.selectedCulturalOrigin.forEach(origin => {
+      activeFilters.push({ label: origin, removeKey: `culturalOrigin_${origin}` });
+    });
+
+    // Languages
+    filterState.selectedLanguages.forEach(language => {
+      activeFilters.push({ label: language, removeKey: `language_${language}` });
+    });
+
+    // Gender
+    if (filterState.filterGender !== 'all') {
+      activeFilters.push({ label: `Gender: ${filterState.filterGender}`, removeKey: 'filterGender' });
+    }
+
+    // Role
+    if (filterState.filterRole !== 'all') {
+      activeFilters.push({ label: `Role: ${filterState.filterRole}`, removeKey: 'filterRole' });
+    }
+
+    return activeFilters;
+  }, [filterState]);
+
+  // Remove a specific filter
+  const removeFilter = (removeKey: string) => {
+    const newFilterState = { ...filterState };
+
+    if (removeKey === 'selectedAgeOption') {
+      newFilterState.selectedAgeOption = null;
+    } else if (removeKey === 'exactAge') {
+      newFilterState.exactAge = null;
+    } else if (removeKey === 'customAge') {
+      newFilterState.minAge = null;
+      newFilterState.maxAge = null;
+    } else if (removeKey === 'selectedCountries') {
+      newFilterState.selectedCountries = [];
+    } else if (removeKey.startsWith('state_')) {
+      const state = removeKey.replace('state_', '');
+      newFilterState.selectedStates = newFilterState.selectedStates.filter(s => s !== state);
+    } else if (removeKey.startsWith('city_')) {
+      const city = removeKey.replace('city_', '');
+      newFilterState.selectedCities = newFilterState.selectedCities.filter(c => c !== city);
+    } else if (removeKey.startsWith('hashkafa_')) {
+      const hashkafa = removeKey.replace('hashkafa_', '');
+      newFilterState.selectedHashkafa = newFilterState.selectedHashkafa.filter(h => h !== hashkafa);
+    } else if (removeKey.startsWith('culturalOrigin_')) {
+      const origin = removeKey.replace('culturalOrigin_', '');
+      newFilterState.selectedCulturalOrigin = newFilterState.selectedCulturalOrigin.filter(o => o !== origin);
+    } else if (removeKey.startsWith('language_')) {
+      const language = removeKey.replace('language_', '');
+      newFilterState.selectedLanguages = newFilterState.selectedLanguages.filter(l => l !== language);
+    } else if (removeKey === 'filterGender') {
+      newFilterState.filterGender = 'all';
+    } else if (removeKey === 'filterRole') {
+      newFilterState.filterRole = 'all';
+    }
+
+    setFilterState(newFilterState);
   };
 
   const handleSelectProfile = (profile: Profile) => {
@@ -194,92 +369,42 @@ export default function MiddlePersonSelectionModal({
           </TouchableOpacity>
         </View>
 
+        {/* Active Filters Summary */}
+        {getActiveFilters.length > 0 && (
+          <View style={styles.filtersSummary}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filtersScrollContent}
+            >
+              {getActiveFilters.map((filter, index) => (
+                <View key={index} style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>{filter.label}</Text>
+                  <TouchableOpacity
+                    onPress={() => removeFilter(filter.removeKey)}
+                    style={styles.filterBadgeRemove}
+                  >
+                    <Ionicons name="close-circle" size={16} color="#666" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Results Count */}
         <View style={styles.resultsCount}>
           <Text style={styles.resultsText}>{filteredProfiles.length} people available</Text>
         </View>
 
-        {/* Profile List */}
+        {/* Profile Grid */}
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#03a9f4" />
           </View>
         ) : (
           <ScrollView style={styles.profileList}>
-            {filteredProfiles.map(profile => (
-              <View key={profile.id} style={styles.profileItem}>
-                <TouchableOpacity
-                  style={styles.profileItemContent}
-                  onPress={() => handleSelectProfile(profile)}
-                  activeOpacity={0.7}
-                >
-                  <TouchableOpacity
-                    style={styles.profileImageContainer}
-                    onPress={() => {
-                      onCancel(); // Close the modal first
-                      // Use setTimeout to ensure modal closes before navigation
-                      setTimeout(() => {
-                        router.push(`/profile-details?id=${profile.id}&hideActions=true`);
-                      }, 100);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    {(() => {
-                      const pictures = profile.pictures;
-                      const picturePrivacy = profile.picture_privacy || 'none';
-                      const firstPicture = Array.isArray(pictures) && pictures.length > 0 
-                        ? pictures[0] 
-                        : typeof pictures === 'string' 
-                          ? pictures 
-                          : null;
-                      
-                      // Determine if we should show the image based on privacy settings
-                      const showImage = firstPicture && (picturePrivacy === 'always' || picturePrivacy === 'private' || picturePrivacy === 'one_time');
-                      const isBlurred = picturePrivacy === 'private';
-                      
-                      if (showImage) {
-                        return (
-                          <View style={styles.imageWrapper}>
-                            <Image
-                              source={{ uri: profileService.getImageUrl(firstPicture) }}
-                              style={styles.profileImage}
-                              blurRadius={isBlurred ? 15 : 0}
-                            />
-                            {isBlurred && (
-                              <View style={styles.blurOverlay}>
-                                <Ionicons name="lock-closed" size={16} color="#fff" />
-                              </View>
-                            )}
-                          </View>
-                        );
-                      } else {
-                        return (
-                          <View style={styles.profileImagePlaceholder}>
-                            <Ionicons name="person" size={30} color="#ccc" />
-                          </View>
-                        );
-                      }
-                    })()}
-                  </TouchableOpacity>
-                  
-                  <View style={styles.profileDetails}>
-                    <Text style={styles.profileName}>
-                      {profile.first_name} {profile.last_name}
-                    </Text>
-                    <Text style={styles.profileInfo}>
-                      {calculateAge(profile.dob)} • {profile.gender} • {profile.role}
-                    </Text>
-                    <Text style={styles.profileHashkafa} numberOfLines={1}>
-                      {profile.hashkafa_type || 'Not specified'}
-                    </Text>
-                  </View>
-
-                  <Ionicons name="chevron-forward" size={20} color="#ccc" />
-                </TouchableOpacity>
-              </View>
-            ))}
-
-            {filteredProfiles.length === 0 && !loading && (
+            {filteredProfiles.length === 0 && !loading ? (
               <View style={styles.emptyState}>
                 <Ionicons name="people-outline" size={64} color="#ccc" />
                 <Text style={styles.emptyTitle}>No Profiles Found</Text>
@@ -287,144 +412,75 @@ export default function MiddlePersonSelectionModal({
                   Try adjusting your filters or search query
                 </Text>
               </View>
+            ) : (
+              <View style={styles.profilesGrid}>
+                {filteredProfiles.map(profile => {
+                  const pictures = profile.pictures;
+                  const picturePrivacy = profile.picture_privacy || 'none';
+                  const firstPicture = Array.isArray(pictures) && pictures.length > 0 
+                    ? pictures[0] 
+                    : typeof pictures === 'string' 
+                      ? pictures 
+                      : null;
+                  
+                  const showImage = firstPicture && (picturePrivacy === 'always' || picturePrivacy === 'private' || picturePrivacy === 'one_time');
+                  const isBlurred = picturePrivacy === 'private';
+                  const age = calculateAge(profile.dob);
+                  const fullName = `${profile.first_name} ${profile.last_name}`;
+
+                  return (
+                    <TouchableOpacity
+                      key={profile.id}
+                      style={styles.profileCard}
+                      onPress={() => handleSelectProfile(profile)}
+                      activeOpacity={0.7}
+                    >
+                      {showImage ? (
+                        <View style={styles.imageContainer}>
+                          <Image
+                            source={{ uri: profileService.getImageUrl(firstPicture) }}
+                            style={styles.profileImage}
+                            blurRadius={isBlurred ? 15 : 0}
+                          />
+                          {isBlurred && (
+                            <View style={styles.blurOverlay}>
+                              <Ionicons name="lock-closed" size={24} color="#fff" />
+                            </View>
+                          )}
+                          <View style={styles.nameBadge}>
+                            <Text style={styles.nameText} numberOfLines={1}>{fullName}</Text>
+                          </View>
+                          <View style={styles.ageBadge}>
+                            <Text style={styles.ageText}>{age} y/o</Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={[styles.profileImage, styles.placeholderImage]}>
+                          <Ionicons name="person" size={40} color="#ccc" />
+                          <View style={styles.nameBadge}>
+                            <Text style={styles.nameText} numberOfLines={1}>{fullName}</Text>
+                          </View>
+                          <View style={styles.ageBadge}>
+                            <Text style={styles.ageText}>{age} y/o</Text>
+                          </View>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             )}
           </ScrollView>
         )}
       </View>
 
       {/* Filter Modal */}
-      <Modal
+      <MatchmakerFilterModal
         visible={showFilters}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowFilters(false)}
-      >
-        <View style={styles.filterModalContainer}>
-          {/* Filter Modal Header */}
-          <View style={styles.filterModalHeader}>
-            <TouchableOpacity onPress={() => setShowFilters(false)}>
-              <Ionicons name="close" size={28} color="#333" />
-            </TouchableOpacity>
-            <Text style={styles.filterModalTitle}>Filters</Text>
-            <TouchableOpacity onPress={() => setShowFilters(false)}>
-              <Text style={styles.doneButton}>Done</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.filterModalContent}>
-            {/* Age Range */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Age Range</Text>
-              <View style={styles.ageInputs}>
-                <TextInput
-                  style={styles.ageInput}
-                  placeholder="Min"
-                  value={ageMin}
-                  onChangeText={setAgeMin}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.ageSeparator}>-</Text>
-                <TextInput
-                  style={styles.ageInput}
-                  placeholder="Max"
-                  value={ageMax}
-                  onChangeText={setAgeMax}
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-
-            {/* Gender Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Gender</Text>
-              <View style={styles.chipContainer}>
-                <TouchableOpacity
-                  style={[styles.chip, filterGender === 'all' && styles.chipActive]}
-                  onPress={() => setFilterGender('all')}
-                >
-                  <Text style={[styles.chipText, filterGender === 'all' && styles.chipTextActive]}>
-                    All
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.chip, filterGender === 'male' && styles.chipActive]}
-                  onPress={() => setFilterGender('male')}
-                >
-                  <Text style={[styles.chipText, filterGender === 'male' && styles.chipTextActive]}>
-                    Male
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.chip, filterGender === 'female' && styles.chipActive]}
-                  onPress={() => setFilterGender('female')}
-                >
-                  <Text style={[styles.chipText, filterGender === 'female' && styles.chipTextActive]}>
-                    Female
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Role Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Role</Text>
-              <View style={styles.chipContainer}>
-                <TouchableOpacity
-                  style={[styles.chip, filterRole === 'all' && styles.chipActive]}
-                  onPress={() => setFilterRole('all')}
-                >
-                  <Text style={[styles.chipText, filterRole === 'all' && styles.chipTextActive]}>
-                    All
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.chip, filterRole === 'single' && styles.chipActive]}
-                  onPress={() => setFilterRole('single')}
-                >
-                  <Text style={[styles.chipText, filterRole === 'single' && styles.chipTextActive]}>
-                    Single
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.chip, filterRole === 'matchmaker' && styles.chipActive]}
-                  onPress={() => setFilterRole('matchmaker')}
-                >
-                  <Text style={[styles.chipText, filterRole === 'matchmaker' && styles.chipTextActive]}>
-                    Matchmaker
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Hashkafa Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Hashkafa</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter hashkafa..."
-                value={filterHashkafa}
-                onChangeText={setFilterHashkafa}
-                autoCapitalize="words"
-              />
-            </View>
-
-            {/* Clear Filters Button */}
-            <TouchableOpacity
-              style={styles.clearFiltersButton}
-              onPress={() => {
-                setAgeMin('');
-                setAgeMax('');
-                setFilterGender('all');
-                setFilterRole('all');
-                setFilterHashkafa('');
-              }}
-            >
-              <Ionicons name="close-circle" size={18} color="#666" />
-              <Text style={styles.clearFiltersText}>Clear All Filters</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </Modal>
+        filterState={filterState}
+        onClose={() => setShowFilters(false)}
+        onFilterChange={setFilterState}
+      />
     </Modal>
   );
 }
@@ -566,34 +622,67 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  profileItem: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  profileItemContent: {
+  profilesGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     padding: 16,
   },
-  profileImageContainer: {
-    marginRight: 12,
-    position: 'relative',
+  profileCard: {
+    width: '31%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  imageWrapper: {
+  imageContainer: {
     position: 'relative',
   },
   profileImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-  },
-  profileImagePlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: '100%',
+    height: 200,
     backgroundColor: '#f0f0f0',
+  },
+  placeholderImage: {
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+    height: 200,
+  },
+  nameBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    right: 8,
+    backgroundColor: '#87CEEB',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  nameText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  ageBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#03a9f4',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  ageText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#fff',
   },
   blurOverlay: {
     position: 'absolute',
@@ -602,27 +691,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  profileDetails: {
-    flex: 1,
-  },
-  profileName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  profileInfo: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  profileHashkafa: {
-    fontSize: 13,
-    color: '#999',
   },
   emptyState: {
     paddingVertical: 60,
@@ -640,58 +710,33 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
-  filterModalContainer: {
-    flex: 1,
+  filtersSummary: {
     backgroundColor: '#fff',
-  },
-  filterModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-  },
-  filterModalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  doneButton: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#03a9f4',
-  },
-  filterModalContent: {
-    flex: 1,
-    padding: 16,
-  },
-  filterSection: {
-    marginBottom: 24,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
     paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
   },
-  clearFiltersButton: {
+  filtersScrollContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  filterBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
     backgroundColor: '#f0f0f0',
-    borderRadius: 12,
-    marginTop: 16,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    gap: 6,
   },
-  clearFiltersText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-    marginLeft: 8,
+  filterBadgeText: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
+  },
+  filterBadgeRemove: {
+    padding: 2,
   },
 });
 

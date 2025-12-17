@@ -30,7 +30,6 @@ class RealtimeService {
           table: 'profiles',
         },
         (payload) => {
-          console.log('🔔 Profile change detected:', payload.eventType, payload.new);
           callback(payload);
         }
       )

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -124,7 +125,11 @@ export default function SignupScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
           <View style={styles.header}>
-            <Ionicons name="heart" size={60} color="#03a9f4" />
+            <Image 
+              source={require('../../logo.jpeg')} 
+              style={styles.logo}
+              contentFit="contain"
+            />
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Join our dating community</Text>
           </View>
@@ -240,6 +245,13 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 30,
+  },
+  logo: {
+    width: 200,
+    height: 200,
+    marginBottom: 16,
+    borderRadius: 30,
+    overflow: 'hidden',
   },
   title: {
     fontSize: 28,

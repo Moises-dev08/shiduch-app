@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { adminService } from '../../lib/adminService';
 import { supabase } from '../../lib/supabase';
 
@@ -88,9 +89,14 @@ export default function LoginScreen() {
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.content}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.content}>
         <View style={styles.header}>
-          <Ionicons name="heart" size={60} color="#03a9f4" />
+          <Image 
+            source={require('../../logo.jpeg')} 
+            style={styles.logo}
+            contentFit="contain"
+          />
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Login to your account</Text>
         </View>
@@ -105,7 +111,8 @@ export default function LoginScreen() {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
-
+              returnKeyType="next"
+              blurOnSubmit={false}
             />
           </View>
 
@@ -121,7 +128,8 @@ export default function LoginScreen() {
               autoComplete="off"
               secureTextEntry={!showPassword}
               textContentType="oneTimeCode"
-
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
             />
             <TouchableOpacity 
               onPress={togglePasswordVisibility}
@@ -158,7 +166,8 @@ export default function LoginScreen() {
             <Text style={styles.signupLink}>Sign Up</Text>
           </TouchableOpacity>
         </View>
-      </View>
+        </View>
+      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }
@@ -176,6 +185,13 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 40,
+  },
+  logo: {
+    width: 200,
+    height: 200,
+    marginBottom: 16,
+    borderRadius: 18,
+    overflow: 'hidden',
   },
   title: {
     fontSize: 28,

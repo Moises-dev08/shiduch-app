@@ -1,3 +1,4 @@
+import { notificationService } from './notificationService';
 import { supabase } from './supabase';
 
 export interface IntroRequest {
@@ -74,6 +75,59 @@ class IntroService {
         return { success: false, error: error.message };
       }
 
+      // Send push notifications
+      try {
+        // Get profile information for notifications
+        const { data: requestedProfile } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .eq('id', requestedProfileId)
+          .single();
+
+        const { data: requesterProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', profile.id)
+          .single();
+
+        const { data: matchmakerProfile } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .eq('id', requesterMiddlePersonId)
+          .single();
+
+        // Notify the requested profile owner
+        if (requestedProfile && requesterProfile) {
+          await notificationService.sendNotification(
+            requestedProfile.user_id,
+            'New Intro Request',
+            `${requesterProfile.first_name} ${requesterProfile.last_name} requested an introduction with you`,
+            {
+              type: 'intro_request',
+              requestId: data.id,
+              requesterId: profile.id,
+            }
+          );
+        }
+
+        // Notify the matchmaker
+        if (matchmakerProfile && requesterProfile) {
+          await notificationService.sendNotification(
+            matchmakerProfile.user_id,
+            'You\'ve been selected as a Matchmaker',
+            `${requesterProfile.first_name} ${requesterProfile.last_name} selected you as their matchmaker for an intro request`,
+            {
+              type: 'matchmaker_selected',
+              requestId: data.id,
+              requesterId: profile.id,
+            }
+          );
+        }
+      } catch (notifError) {
+        console.error('Error sending notifications:', notifError);
+        // Don't fail the request if notification fails
+      }
+
       return { success: true, request: data };
     } catch (error: any) {
       console.error('Error in createIntroRequest:', error);
@@ -118,6 +172,74 @@ class IntroService {
       if (error) {
         console.error('Error responding to intro request:', error);
         return { success: false, error: error.message };
+      }
+
+      // Send notifications if rejected
+      if (response === 'rejected') {
+        try {
+          // Get the full request with profile information
+          const { data: request } = await supabase
+            .from('intro_requests')
+            .select(`
+              *,
+              requester_profile:profiles!intro_requests_requester_id_fkey(id, user_id, first_name, last_name),
+              requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, user_id, first_name, last_name),
+              requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, user_id, first_name, last_name)
+            `)
+            .eq('id', requestId)
+            .single();
+
+          if (request) {
+            // Get current user's profile to determine who rejected
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const { data: currentProfile } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name')
+                .eq('user_id', user.id)
+                .single();
+
+              if (currentProfile) {
+                const isRequester = request.requester_id === currentProfile.id;
+                const otherProfile = isRequester ? request.requested_profile : request.requester_profile;
+                const requesterProfile = request.requester_profile;
+                const requestedProfile = request.requested_profile;
+                const matchmaker = request.requester_middle_person;
+
+                // Notify the other party (the one who didn't reject)
+                if (otherProfile && otherProfile.user_id) {
+                  await notificationService.sendNotification(
+                    otherProfile.user_id,
+                    'Intro Request Declined',
+                    `${currentProfile.first_name} ${currentProfile.last_name} declined your intro request${note ? ': ' + note : '.'}`,
+                    {
+                      type: 'intro_request_rejected',
+                      requestId: requestId,
+                      rejectedBy: currentProfile.id,
+                    }
+                  );
+                }
+
+                // Notify the matchmaker if they were involved
+                if (matchmaker && matchmaker.user_id) {
+                  await notificationService.sendNotification(
+                    matchmaker.user_id,
+                    'Intro Request Declined',
+                    `${currentProfile.first_name} ${currentProfile.last_name} declined the intro request between ${requesterProfile?.first_name} ${requesterProfile?.last_name} and ${requestedProfile?.first_name} ${requestedProfile?.last_name}${note ? ': ' + note : '.'}`,
+                    {
+                      type: 'intro_request_rejected',
+                      requestId: requestId,
+                      rejectedBy: currentProfile.id,
+                    }
+                  );
+                }
+              }
+            }
+          }
+        } catch (notifError) {
+          console.error('Error sending rejection notifications:', notifError);
+          // Don't fail the rejection if notification fails
+        }
       }
 
       // Check if both have chosen continuation - if so, mark as completed
@@ -251,31 +373,34 @@ class IntroService {
         return { success: false, error: 'Profile not found' };
       }
 
-      // Get requests where I'm the requester
-      const { data: sentRequests, error: sentError } = await supabase
-        .from('intro_requests')
-        .select(`
-          *,
-          requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, resume_url),
-          requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
-          requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
-          requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
-        `)
-        .eq('requester_id', profile.id)
-        .order('created_at', { ascending: false });
+      // Parallelize sent and received requests queries
+      const [sentRequestsQuery, receivedRequestsQuery] = await Promise.all([
+        supabase
+          .from('intro_requests')
+          .select(`
+            *,
+            requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, resume_url),
+            requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
+            requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
+            requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
+          `)
+          .eq('requester_id', profile.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('intro_requests')
+          .select(`
+            *,
+            requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
+            requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, resume_url),
+            requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
+            requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
+          `)
+          .eq('requested_profile_id', profile.id)
+          .order('created_at', { ascending: false }),
+      ]);
 
-      // Get requests where I'm the requested person
-      const { data: receivedRequests, error: receivedError } = await supabase
-        .from('intro_requests')
-        .select(`
-          *,
-          requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
-          requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, resume_url),
-          requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
-          requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
-        `)
-        .eq('requested_profile_id', profile.id)
-        .order('created_at', { ascending: false });
+      const { data: sentRequests, error: sentError } = sentRequestsQuery;
+      const { data: receivedRequests, error: receivedError } = receivedRequestsQuery;
 
       if (sentError || receivedError) {
         console.error('Error fetching intro requests:', sentError || receivedError);

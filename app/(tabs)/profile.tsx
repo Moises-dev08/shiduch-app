@@ -152,6 +152,8 @@ export default function ProfileScreen() {
       dob: profile.dob,
       bio: profile.bio,
       phone: profile.phone,
+      email: profile.email,
+      whatsapp: profile.whatsapp,
       pictures: pictureUrls,
       picturePrivacy: profile.picture_privacy,
       whatLookingFor: profile.what_looking_for,
@@ -163,6 +165,8 @@ export default function ProfileScreen() {
       nationality: profile.nationality,
       isCohen: profile.is_cohen,
       hashkafaType: profile.hashkafa_type,
+      religiousLevel: profile.religious_level,
+      culturalOrigin: profile.cultural_origin,
       torahLearning: profile.torah_learning,
       praying: profile.praying,
       educationLevel: profile.education_level,
@@ -213,23 +217,33 @@ export default function ProfileScreen() {
         // Determine success message
         const isNewProfile = !existingProfile;
         const wasResubmitted = result.wasResubmitted;
+        const isUpdate = existingProfile && !wasResubmitted;
         
         let title = 'Success!';
         let message = '';
         
         if (wasResubmitted) {
           title = 'Profile Resubmitted! 📝';
-          message = 'Your profile has been updated and resubmitted for admin review. We\'ll notify you once it\'s approved!';
+          message = 'Your profile has been updated and resubmitted for admin review. You cannot use the app until it\'s approved. We\'ll notify you once it\'s reviewed!';
         } else if (isNewProfile) {
           title = 'Profile Created! 🎉';
-          message = 'Your profile has been created successfully and is now pending admin approval. You\'ll be notified once it\'s reviewed!';
-        } else {
+          message = 'Your profile has been created successfully and is now pending admin approval. You cannot use the app until it\'s approved. You\'ll be notified once it\'s reviewed!';
+        } else if (isUpdate) {
           title = 'Profile Updated! ✨';
-          message = 'Your profile has been updated successfully! ✨';
+          message = 'Your profile has been updated successfully! Your changes are now pending admin approval. You cannot use the app until your profile is approved again.';
         }
         
         setSuccessMessage({ title, message });
         setShowSuccessModal(true);
+        
+        // If status is pending after update, ensure status modal will be shown
+        // and immediately update local state to block navigation
+        if (result.profile.status === 'pending') {
+          setProfileStatus('pending');
+          setShowStatusModal(true);
+          // Reload profile to ensure we have latest status
+          await loadProfile();
+        }
       } else {
         Alert.alert('Error', result.error || 'Failed to save profile');
       }
@@ -247,9 +261,8 @@ export default function ProfileScreen() {
     // If profile was just approved, navigate to home
     if (profileStatus === 'approved') {
       router.replace('/(tabs)');
-    }
-    // Otherwise, if profile is not approved, show the status modal
-    else if (existingProfile && existingProfile.status !== 'approved') {
+    } else {
+      // Otherwise, if profile is not approved (pending or rejected), show the status modal
       setShowStatusModal(true);
     }
   };
@@ -341,12 +354,14 @@ export default function ProfileScreen() {
             loading={loading}
           />
         ) : (
-          <MatchmakerProfileForm
-            initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
-            onSubmit={handleFormSubmit}
-            gender={selectedGender}
-            loading={loading}
-          />
+          <>
+            <MatchmakerProfileForm
+              initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
+              onSubmit={handleFormSubmit}
+              gender={selectedGender}
+              loading={loading}
+            />
+          </>
         )
       ) : null}
 
@@ -470,7 +485,7 @@ export default function ProfileScreen() {
         status={profileStatus}
         rejectionReason={rejectionReason}
         onClose={() => {
-
+          setShowStatusModal(false);
           if (profileStatus === 'approved') {
             router.replace('/(tabs)');
           }

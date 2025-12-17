@@ -1,5 +1,5 @@
 import { decode } from 'base64-arraybuffer';
-import * as DocumentPicker from 'expo-document-picker';
+import { getDocumentAsync } from 'expo-document-picker';
 import { readAsStringAsync } from 'expo-file-system/legacy';
 import * as Linking from 'expo-linking';
 import { supabase } from './supabase';
@@ -12,7 +12,8 @@ class ResumeService {
    */
   async pickDocument(): Promise<{ success: boolean; uri?: string; name?: string; type?: string; error?: string }> {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
+     
+      const result = await getDocumentAsync({
         type: ['application/pdf', 'image/*'],
         copyToCacheDirectory: true,
       });

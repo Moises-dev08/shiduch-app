@@ -61,8 +61,27 @@ export interface Profile {
 }
 
 export interface FilterState {
+  // Age filter (from DOB)
   selectedAgeOption: string | null;
+  minAge: number | null;
+  maxAge: number | null;
+  exactAge: number | null;
+  
+  // Location filters
+  selectedCountries: string[];
+  selectedStates: string[];
+  selectedCities: string[];
+  
+  // Profile form fields
   selectedHashkafa: string[];
-  selectedLocation: string[];
+  selectedNationality: string[];
+  selectedMaritalStatus: string[];
+  hasChildren: boolean | null; // null = any, true = has children, false = no children
+  selectedEducation: string[];
+  selectedOccupation: string[];
+  minHeightFeet: number | null;
+  minHeightInches: number | null;
+  maxHeightFeet: number | null;
+  maxHeightInches: number | null;
 }
 

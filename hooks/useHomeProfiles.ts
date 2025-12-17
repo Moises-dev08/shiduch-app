@@ -17,8 +17,22 @@ export function useHomeProfiles() {
 
   const [filterState, setFilterState] = useState<FilterState>({
     selectedAgeOption: null,
+    minAge: null,
+    maxAge: null,
+    exactAge: null,
+    selectedCountries: [],
+    selectedStates: [],
+    selectedCities: [],
     selectedHashkafa: [],
-    selectedLocation: [],
+    selectedNationality: [],
+    selectedMaritalStatus: [],
+    hasChildren: null,
+    selectedEducation: [],
+    selectedOccupation: [],
+    minHeightFeet: null,
+    minHeightInches: null,
+    maxHeightFeet: null,
+    maxHeightInches: null,
   });
 
   // Transform database profile to display profile
@@ -57,6 +71,9 @@ export function useHomeProfiles() {
       pictures: allPictures,
       hashkafa_type: fieldPrivacy.hashkafa_type ? undefined : dbProfile.hashkafa_type,
       location,
+      location_city: fieldPrivacy.location_city ? undefined : dbProfile.location_city,
+      location_state: fieldPrivacy.location_state ? undefined : dbProfile.location_state,
+      location_country: fieldPrivacy.location_country ? undefined : dbProfile.location_country,
       bio: dbProfile.bio || 'No bio available',
       role: dbProfile.role,
       gender: dbProfile.gender,
@@ -65,6 +82,10 @@ export function useHomeProfiles() {
       whatsapp: fieldPrivacy.whatsapp ? undefined : dbProfile.whatsapp,
       height: fieldPrivacy.height ? undefined : dbProfile.height,
       hasChildren: fieldPrivacy.hasChildren ? undefined : dbProfile.has_children,
+      nationality: fieldPrivacy.nationality ? undefined : dbProfile.nationality,
+      marital_status: fieldPrivacy.marital_status ? undefined : dbProfile.marital_status,
+      education_level: fieldPrivacy.education_level ? undefined : dbProfile.education_level,
+      current_occupation_study: fieldPrivacy.current_occupation_study ? undefined : dbProfile.current_occupation_study,
       picturePrivacy,
       field_privacy: fieldPrivacy,
     };
@@ -111,34 +132,32 @@ export function useHomeProfiles() {
         isSilentRefetchRef.current = true;
       }
       
-      // Get current user profile
-      const currentProfileResult = await profileService.getProfile();
+      // Parallelize independent operations: profile fetch, profiles query, and viewed profiles
+      const [currentProfileResult, profilesQuery, viewedResult] = await Promise.all([
+        profileService.getProfile(),
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('status', 'approved')
+          .eq('is_active', true) // Only show active (not frozen) profiles
+          .eq('role', 'single'), // Show single profiles only
+        pictureViewService.getViewedProfiles(),
+      ]);
 
-      
       if (currentProfileResult.success && currentProfileResult.profile) {
         setCurrentUserProfile(currentProfileResult.profile);
-
       }
 
-      // Get all approved single profiles from database (exclude matchmaker-only and frozen)
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('status', 'approved')
-        .eq('is_active', true) // Only show active (not frozen) profiles
-        .eq('role', 'single'); // Show single profiles only
+      const { data, error } = profilesQuery;
 
       if (error) {
         console.error('Error fetching profiles:', error);
         return;
       }
 
-      // Get viewed profile IDs for one-time picture privacy
-      const viewedResult = await pictureViewService.getViewedProfiles();
       const viewedProfileIds = viewedResult.success ? viewedResult.viewedProfileIds : [];
 
       const transformedProfiles = data?.map(p => transformProfile(p, viewedProfileIds)) || [];
-
 
       setAllProfiles(transformedProfiles);
 
@@ -207,8 +226,45 @@ export function useHomeProfiles() {
         : filterState.selectedAgeOption.split('-').map(Number);
       
       filtered = filtered.filter(p => {
+        if (!p.dob) return false;
         const age = calculateAge(p.dob);
         return age >= min && age <= max;
+      });
+    } else if (filterState.exactAge !== null) {
+      filtered = filtered.filter(p => {
+        if (!p.dob) return false;
+        const age = calculateAge(p.dob);
+        return age === filterState.exactAge;
+      });
+    } else if (filterState.minAge !== null || filterState.maxAge !== null) {
+      filtered = filtered.filter(p => {
+        if (!p.dob) return false;
+        const age = calculateAge(p.dob);
+        const min = filterState.minAge ?? 0;
+        const max = filterState.maxAge ?? 999;
+        return age >= min && age <= max;
+      });
+    }
+
+    // Apply location filters
+    if (filterState.selectedCountries.length > 0) {
+      filtered = filtered.filter(p => {
+        const country = p.location_country;
+        return country && filterState.selectedCountries.includes(country);
+      });
+    }
+
+    if (filterState.selectedStates.length > 0) {
+      filtered = filtered.filter(p => {
+        const state = p.location_state;
+        return state && filterState.selectedStates.includes(state);
+      });
+    }
+
+    if (filterState.selectedCities.length > 0) {
+      filtered = filtered.filter(p => {
+        const city = p.location_city?.toLowerCase();
+        return city && filterState.selectedCities.some(c => city.includes(c.toLowerCase()));
       });
     }
 
@@ -219,11 +275,80 @@ export function useHomeProfiles() {
       );
     }
 
-    // Apply location filter
-    if (filterState.selectedLocation.length > 0) {
+    // Apply nationality filter
+    if (filterState.selectedNationality.length > 0) {
+      filtered = filtered.filter(p => {
+        if (!p.nationality || !Array.isArray(p.nationality)) return false;
+        return filterState.selectedNationality.some(nat => p.nationality!.includes(nat));
+      });
+    }
+
+    // Apply marital status filter
+    if (filterState.selectedMaritalStatus.length > 0) {
       filtered = filtered.filter(p => 
-        filterState.selectedLocation.some(loc => p.location.includes(loc))
+        p.marital_status && filterState.selectedMaritalStatus.includes(p.marital_status)
       );
+    }
+
+    // Apply has children filter
+    if (filterState.hasChildren !== null) {
+      filtered = filtered.filter(p => {
+        if (filterState.hasChildren === true) {
+          return p.hasChildren === true;
+        } else {
+          return p.hasChildren === false || p.hasChildren === undefined;
+        }
+      });
+    }
+
+    // Apply education filter
+    if (filterState.selectedEducation.length > 0) {
+      filtered = filtered.filter(p => {
+        if (!p.education_level) return false;
+        // Education level can be comma-separated, so check if any selected education matches
+        const educationLevels = p.education_level.split(',').map(e => e.trim());
+        return filterState.selectedEducation.some(edu => educationLevels.includes(edu));
+      });
+    }
+
+    // Apply occupation filter
+    if (filterState.selectedOccupation.length > 0) {
+      filtered = filtered.filter(p => 
+        p.current_occupation_study && filterState.selectedOccupation.includes(p.current_occupation_study)
+      );
+    }
+
+    // Apply height filter
+    if (filterState.minHeightFeet !== null || filterState.minHeightInches !== null ||
+        filterState.maxHeightFeet !== null || filterState.maxHeightInches !== null) {
+      filtered = filtered.filter(p => {
+        if (!p.height) return false;
+        // Parse height from format like "5'10""
+        const match = p.height.match(/(\d+)'(\d+)"/);
+        if (!match) return false;
+        const profileFeet = parseInt(match[1]);
+        const profileInches = parseInt(match[2]);
+        const profileTotalInches = profileFeet * 12 + profileInches;
+
+        // Calculate min and max total inches
+        const minFeet = filterState.minHeightFeet ?? 0;
+        const minInches = filterState.minHeightInches ?? 0;
+        const minTotalInches = minFeet * 12 + minInches;
+
+        const maxFeet = filterState.maxHeightFeet ?? 8;
+        const maxInches = filterState.maxHeightInches ?? 11;
+        const maxTotalInches = maxFeet * 12 + maxInches;
+
+        // If no min specified, use 0. If no max specified, use a very high number
+        const actualMin = (filterState.minHeightFeet !== null || filterState.minHeightInches !== null) 
+          ? minTotalInches 
+          : 0;
+        const actualMax = (filterState.maxHeightFeet !== null || filterState.maxHeightInches !== null)
+          ? maxTotalInches
+          : 999;
+
+        return profileTotalInches >= actualMin && profileTotalInches <= actualMax;
+      });
     }
 
     setFilteredProfiles(filtered);

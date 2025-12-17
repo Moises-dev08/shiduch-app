@@ -1,6 +1,6 @@
 import { decode } from 'base64-arraybuffer';
 import { readAsStringAsync } from 'expo-file-system/legacy';
-// import { notificationService } from './notificationService';
+import { notificationService } from './notificationService';
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 
 export interface ProfileData {
@@ -34,6 +34,8 @@ export interface ProfileData {
   
   // Hashkafa / Religious
   hashkafaType?: string; // Specific type
+  religiousLevel?: string; // For matchmakers
+  culturalOrigin?: string; // For matchmakers
   torahLearning?: string; // Male only
   praying?: string; // Male only
   
@@ -104,6 +106,8 @@ export interface Profile {
   
   // Hashkafa / Religious
   hashkafa_type?: string;
+  religious_level?: string;
+  cultural_origin?: string;
   torah_learning?: string;
   praying?: string;
   
@@ -141,6 +145,24 @@ export interface Profile {
   email?: string;
   whatsapp?: string;
   has_children?: boolean;
+
+  // Admin fields
+  account_status?: 'active' | 'frozen' | 'suspended' | 'removed';
+  suspension_reason?: string;
+  suspended_until?: string;
+  
+  // Admin metadata (added by edge functions)
+  is_update?: boolean; // True if this is a profile update (previously approved)
+  last_approved_at?: string; // When the profile was last approved (before this update)
+  pending_changes?: {
+    summary: string;
+    changes: {field: string, oldValue: any, newValue: any, displayName: string}[];
+    updated_at: string;
+  };
+  last_viewed_singles_at?: string;
+  last_viewed_intro_requests_at?: string;
+  last_viewed_matches_at?: string;
+  last_viewed_suggestions_at?: string;
 }
 
 class ProfileService {
@@ -374,6 +396,8 @@ class ProfileService {
           
           // Hashkafa / Religious
           hashkafa_type: profileData.hashkafaType || null,
+          religious_level: profileData.religiousLevel || null,
+          cultural_origin: profileData.culturalOrigin || null,
           torah_learning: profileData.torahLearning || null,
           praying: profileData.praying || null,
           
@@ -421,6 +445,33 @@ class ProfileService {
       if (error) {
         console.error('Profile creation error:', error);
         return { success: false, error: error.message };
+      }
+
+      // Notify matchmaker if they were selected
+      if (matchmakerId) {
+        try {
+          const { data: matchmakerProfile } = await supabase
+            .from('profiles')
+            .select('user_id, first_name, last_name')
+            .eq('id', matchmakerId)
+            .single();
+
+          if (matchmakerProfile) {
+            await notificationService.sendNotification(
+              matchmakerProfile.user_id,
+              'You\'ve been selected as a Matchmaker',
+              `${profileData.firstName} ${profileData.lastName} selected you as their matchmaker`,
+              {
+                type: 'matchmaker_selected',
+                profileId: data.id,
+                singleUserId: user.id,
+              }
+            );
+          }
+        } catch (notifError) {
+          console.error('Error sending matchmaker notification:', notifError);
+          // Don't fail profile creation if notification fails
+        }
       }
 
       // Notify all admins about new profile submission
@@ -525,15 +576,20 @@ class ProfileService {
         }
       }
 
-      // Check current profile status
+      // Get current profile to compare changes
       const { data: currentProfile } = await supabase
         .from('profiles')
-        .select('status')
+        .select('*, matchmaker_id')
         .eq('user_id', user.id)
         .single();
 
-      // If profile was rejected, reset to pending for re-review
-      const shouldResetStatus = currentProfile?.status === 'rejected';
+      // Always set status to pending when profile is updated (for admin review)
+      // This ensures any changes require admin approval before user can use the app
+      const shouldResetStatus = currentProfile?.status === 'rejected' || currentProfile?.status === 'approved';
+      
+      // Preserve approved_at if it exists (to identify this as an update, not a new profile)
+      // We only clear it if the profile was never approved (new profile)
+      const preserveApprovedAt = currentProfile?.approved_at || null;
 
       const updateData: any = {
         first_name: profileData.firstName,
@@ -562,6 +618,8 @@ class ProfileService {
         
         // Hashkafa / Religious
         hashkafa_type: profileData.hashkafaType || null,
+        religious_level: profileData.religiousLevel || null,
+        cultural_origin: profileData.culturalOrigin || null,
         torah_learning: profileData.torahLearning || null,
         praying: profileData.praying || null,
         
@@ -603,11 +661,32 @@ class ProfileService {
         matchmaker_id: matchmakerId,
       };
 
-      // Reset status to pending if it was rejected
-      if (shouldResetStatus) {
-        updateData.status = 'pending';
-        updateData.rejection_reason = null;
+      // Always reset status to pending when profile is updated (requires admin approval)
+      // Clear rejection reason if it exists
+      updateData.status = 'pending';
+      updateData.rejection_reason = null;
+      
+      // Preserve approved_at if it exists (so we can identify this as an update)
+      // This allows the admin dashboard to distinguish between new profiles and updates
+      if (preserveApprovedAt) {
+        updateData.approved_at = preserveApprovedAt;
       }
+
+      // Detect and track changes for admin review
+      if (currentProfile) {
+        const changes = this.detectChanges(currentProfile, updateData, picturePaths);
+        if (changes.length > 0) {
+          updateData.pending_changes = {
+            summary: this.formatChangeSummary(changes),
+            changes: changes,
+            updated_at: new Date().toISOString()
+          };
+        }
+      }
+
+      // Check if matchmaker changed to notify the new matchmaker
+      const oldMatchmakerId = currentProfile?.matchmaker_id || null;
+      const newMatchmakerId = matchmakerId;
 
       const { data, error } = await supabase
         .from('profiles')
@@ -618,6 +697,39 @@ class ProfileService {
 
       if (error) {
         return { success: false, error: error.message };
+      }
+
+      // Notify matchmaker if they were newly selected (different from before)
+      if (newMatchmakerId && newMatchmakerId !== oldMatchmakerId) {
+        try {
+          const { data: matchmakerProfile } = await supabase
+            .from('profiles')
+            .select('user_id, first_name, last_name')
+            .eq('id', newMatchmakerId)
+            .single();
+
+          const { data: singleProfile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('user_id', user.id)
+            .single();
+
+          if (matchmakerProfile && singleProfile) {
+            await notificationService.sendNotification(
+              matchmakerProfile.user_id,
+              'You\'ve been selected as a Matchmaker',
+              `${singleProfile.first_name} ${singleProfile.last_name} selected you as their matchmaker`,
+              {
+                type: 'matchmaker_selected',
+                profileId: data.id,
+                singleUserId: user.id,
+              }
+            );
+          }
+        } catch (notifError) {
+          console.error('Error sending matchmaker notification:', notifError);
+          // Don't fail profile update if notification fails
+        }
       }
 
       // Add a flag if profile was resubmitted
@@ -775,6 +887,535 @@ class ProfileService {
       console.error('Error in deleteAccount:', error);
       return { success: false, error: 'An unexpected error occurred' };
     }
+  }
+
+  /**
+   * Detect changes between old and new profile data
+   */
+  private detectChanges(oldProfile: any, newData: any, newPictures: string[]): {field: string, oldValue: any, newValue: any, displayName: string}[] {
+    const changes: {field: string, oldValue: any, newValue: any, displayName: string}[] = [];
+
+    // Field mappings for display names
+    const fieldNames: Record<string, string> = {
+      first_name: 'First Name',
+      last_name: 'Last Name',
+      bio: 'Bio',
+      phone: 'Phone',
+      email: 'Email',
+      whatsapp: 'WhatsApp',
+      dob: 'Date of Birth',
+      height: 'Height',
+      what_looking_for: 'What Looking For',
+      location_city: 'City',
+      location_state: 'State',
+      location_country: 'Country',
+      languages: 'Languages',
+      nationality: 'Nationality',
+      is_cohen: 'Is Cohen',
+      hashkafa_type: 'Hashkafa Type',
+      religious_level: 'Religious Level',
+      cultural_origin: 'Cultural Origin',
+      torah_learning: 'Torah Learning',
+      praying: 'Praying',
+      education_level: 'Education Level',
+      post_high_school_path: 'Post High School Path',
+      current_occupation_study: 'Current Occupation/Study',
+      plan_after_marriage: 'Plan After Marriage',
+      marital_status: 'Marital Status',
+      dress_style: 'Dress Style',
+      wears_black_hat: 'Wears Black Hat',
+      head_covering: 'Head Covering',
+      smoking: 'Smoking',
+      alcohol_consumption: 'Alcohol Consumption',
+      has_children: 'Has Children',
+      resume_url: 'Resume',
+      picture_privacy: 'Picture Privacy',
+      matchmaker_id: 'Matchmaker',
+    };
+
+    // Helper to normalize values for comparison
+    const normalize = (value: any): any => {
+      if (value === null || value === undefined || value === '') return null;
+      if (Array.isArray(value)) return value.sort().join(',');
+      return String(value).trim();
+    };
+
+    // Check text fields
+    const textFields = [
+      'first_name', 'last_name', 'bio', 'phone', 'email', 'whatsapp', 'dob',
+      'height', 'what_looking_for', 'location_city', 'location_state', 'location_country',
+      'hashkafa_type', 'religious_level', 'cultural_origin', 'torah_learning', 'praying',
+      'education_level', 'post_high_school_path', 'current_occupation_study',
+      'plan_after_marriage', 'marital_status', 'dress_style', 'head_covering',
+      'smoking', 'alcohol_consumption', 'resume_url', 'picture_privacy'
+    ];
+
+    for (const field of textFields) {
+      const oldVal = normalize(oldProfile[field]);
+      const newVal = normalize(newData[field]);
+      if (oldVal !== newVal) {
+        changes.push({
+          field,
+          oldValue: oldProfile[field],
+          newValue: newData[field],
+          displayName: fieldNames[field] || field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        });
+      }
+    }
+
+    // Check array fields
+    const arrayFields = ['languages', 'nationality'];
+    for (const field of arrayFields) {
+      const oldVal = normalize(oldProfile[field]);
+      const newVal = normalize(newData[field]);
+      if (oldVal !== newVal) {
+        changes.push({
+          field,
+          oldValue: oldProfile[field],
+          newValue: newData[field],
+          displayName: fieldNames[field] || field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        });
+      }
+    }
+
+    // Check boolean fields
+    const booleanFields = ['is_cohen', 'wears_black_hat', 'has_children'];
+    for (const field of booleanFields) {
+      const oldVal = oldProfile[field];
+      const newVal = newData[field];
+      if (oldVal !== newVal && (oldVal !== null || newVal !== null)) {
+        changes.push({
+          field,
+          oldValue: oldVal === null ? 'Not specified' : (oldVal ? 'Yes' : 'No'),
+          newValue: newVal === null ? 'Not specified' : (newVal ? 'Yes' : 'No'),
+          displayName: fieldNames[field] || field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        });
+      }
+    }
+
+    // Check pictures
+    const oldPictures = Array.isArray(oldProfile.pictures) ? oldProfile.pictures : [];
+    const oldPictureCount = oldPictures.length;
+    const newPictureCount = newPictures.length;
+    
+    // Normalize picture paths for comparison
+    const oldPaths = oldPictures.map((p: string) => this.extractStoragePath(p)).sort();
+    const newPaths = newPictures.map((p: string) => this.extractStoragePath(p)).sort();
+    const picturesChanged = JSON.stringify(oldPaths) !== JSON.stringify(newPaths);
+    
+    if (picturesChanged) {
+      let pictureChangeText = '';
+      if (newPictureCount > oldPictureCount) {
+        const added = newPictureCount - oldPictureCount;
+        pictureChangeText = `${added} image${added !== 1 ? 's' : ''} ${added === 1 ? 'was' : 'were'} added`;
+      } else if (newPictureCount < oldPictureCount) {
+        const removed = oldPictureCount - newPictureCount;
+        pictureChangeText = `${removed} image${removed !== 1 ? 's' : ''} ${removed === 1 ? 'was' : 'were'} removed`;
+      } else {
+        pictureChangeText = `${newPictureCount} image${newPictureCount !== 1 ? 's' : ''} ${newPictureCount === 1 ? 'was' : 'were'} changed`;
+      }
+      
+      changes.push({
+        field: 'pictures',
+        oldValue: `${oldPictureCount} image${oldPictureCount !== 1 ? 's' : ''}`,
+        newValue: `${newPictureCount} image${newPictureCount !== 1 ? 's' : ''}`,
+        displayName: pictureChangeText
+      });
+    }
+
+    // Check field_privacy changes
+    const oldPrivacy = oldProfile.field_privacy || {};
+    const newPrivacy = newData.field_privacy || {};
+    const privacyChanged = JSON.stringify(oldPrivacy) !== JSON.stringify(newPrivacy);
+    if (privacyChanged) {
+      changes.push({
+        field: 'field_privacy',
+        oldValue: Object.keys(oldPrivacy).length > 0 ? `${Object.keys(oldPrivacy).length} private field(s)` : 'No private fields',
+        newValue: Object.keys(newPrivacy).length > 0 ? `${Object.keys(newPrivacy).length} private field(s)` : 'No private fields',
+        displayName: 'Privacy Settings'
+      });
+    }
+
+    return changes;
+  }
+
+  /**
+   * Get all singles who selected this user as their matchmaker
+   * Works for both singles and matchmakers (since singles can also be selected as matchmakers)
+   * Checks both:
+   * 1. Profiles with matchmaker_id set to this user
+   * 2. Intro requests where this user is the requester_middle_person_id or requested_middle_person_id
+   */
+  async getMySingles(): Promise<{ success: boolean; singles?: Profile[]; error?: string }> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Get current user's profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        return { success: false, error: 'Profile not found' };
+      }
+
+      // Parallelize independent queries: profile singles and intro requests
+      const [profileSinglesQuery, introRequestsQuery] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('matchmaker_id', profile.id)
+          .eq('role', 'single')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('intro_requests')
+          .select('requester_id, requested_profile_id, requester_middle_person_id, requested_middle_person_id')
+          .or(`requester_middle_person_id.eq.${profile.id},requested_middle_person_id.eq.${profile.id}`),
+      ]);
+
+      const { data: profileSingles, error: profileSinglesError } = profileSinglesQuery;
+      const { data: introRequests, error: introError } = introRequestsQuery;
+
+      if (profileSinglesError) {
+        console.error('Error fetching singles from profiles:', profileSinglesError);
+      }
+
+      if (introError) {
+        console.error('Error fetching intro requests:', introError);
+      }
+
+      // Collect unique profile IDs from intro requests - only count profiles that selected this user as matchmaker
+      const introRequestProfileIds = new Set<string>();
+      if (introRequests) {
+        introRequests.forEach(req => {
+          // If requester selected this user as matchmaker, count the requester
+          if (req.requester_middle_person_id === profile.id && req.requester_id) {
+            introRequestProfileIds.add(req.requester_id);
+          }
+          // If requested person selected this user as matchmaker, count the requested person
+          if (req.requested_middle_person_id === profile.id && req.requested_profile_id) {
+            introRequestProfileIds.add(req.requested_profile_id);
+          }
+        });
+      }
+
+      // Get profiles for intro request singles
+      let introRequestSingles: Profile[] = [];
+      if (introRequestProfileIds.size > 0) {
+        const { data: introSingles, error: introSinglesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', Array.from(introRequestProfileIds))
+          .eq('role', 'single')
+          .order('created_at', { ascending: false });
+
+        if (introSinglesError) {
+          console.error('Error fetching intro request singles:', introSinglesError);
+        } else {
+          introRequestSingles = introSingles || [];
+        }
+      }
+
+      // Combine and deduplicate by profile ID
+      const allSinglesMap = new Map<string, Profile>();
+      
+      // Add profile-based singles
+      if (profileSingles) {
+        profileSingles.forEach(single => {
+          allSinglesMap.set(single.id, single);
+        });
+      }
+
+      // Add intro request singles
+      introRequestSingles.forEach(single => {
+        allSinglesMap.set(single.id, single);
+      });
+
+      // Convert map to array and sort by created_at
+      const allSingles = Array.from(allSinglesMap.values()).sort((a, b) => {
+        const dateA = new Date(a.created_at || 0).getTime();
+        const dateB = new Date(b.created_at || 0).getTime();
+        return dateB - dateA;
+      });
+
+      return { success: true, singles: allSingles };
+    } catch (error) {
+      console.error('Unexpected error fetching singles:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Mark singles as viewed by updating the last_viewed_singles_at timestamp
+   */
+  async markSinglesAsViewed(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Update the profile with current timestamp
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          last_viewed_singles_at: new Date().toISOString() 
+        })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        console.error('Error marking singles as viewed:', updateError);
+        return { success: false, error: updateError.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Unexpected error marking singles as viewed:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Mark intro requests as viewed by updating the last_viewed_intro_requests_at timestamp
+   */
+  async markIntroRequestsAsViewed(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Update the profile with current timestamp
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          last_viewed_intro_requests_at: new Date().toISOString() 
+        })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        console.error('Error marking intro requests as viewed:', updateError);
+        return { success: false, error: updateError.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Unexpected error marking intro requests as viewed:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Mark matches as viewed by updating the last_viewed_matches_at timestamp
+   */
+  async markMatchesAsViewed(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Update the profile with current timestamp
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          last_viewed_matches_at: new Date().toISOString() 
+        })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        console.error('Error marking matches as viewed:', updateError);
+        return { success: false, error: updateError.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Unexpected error marking matches as viewed:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Mark suggestions as viewed by updating the last_viewed_suggestions_at timestamp
+   */
+  async markSuggestionsAsViewed(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Update the profile with current timestamp
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          last_viewed_suggestions_at: new Date().toISOString() 
+        })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        console.error('Error marking suggestions as viewed:', updateError);
+        return { success: false, error: updateError.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Unexpected error marking suggestions as viewed:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Get count of new singles (created after last viewed timestamp)
+   * Used for notification badges
+   * Checks both profiles with matchmaker_id and intro requests
+   */
+  async getNewSinglesCount(): Promise<{ success: boolean; count?: number; error?: string }> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Get current user's profile with last_viewed_singles_at
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, last_viewed_singles_at')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        return { success: false, error: 'Profile not found' };
+      }
+
+      // Use last_viewed_singles_at if available, otherwise use 24 hours ago as fallback
+      let cutoffDate: Date;
+      if (profile.last_viewed_singles_at) {
+        cutoffDate = new Date(profile.last_viewed_singles_at);
+      } else {
+        cutoffDate = new Date();
+        cutoffDate.setHours(cutoffDate.getHours() - 24);
+      }
+
+      // Parallelize independent queries: profile singles and intro requests
+      const [profileSinglesQuery, recentIntroRequestsQuery] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id')
+          .eq('matchmaker_id', profile.id)
+          .eq('role', 'single')
+          .gte('created_at', cutoffDate.toISOString()),
+        supabase
+          .from('intro_requests')
+          .select('requester_id, requested_profile_id, requester_middle_person_id, requested_middle_person_id, created_at')
+          .or(`requester_middle_person_id.eq.${profile.id},requested_middle_person_id.eq.${profile.id}`)
+          .gte('created_at', cutoffDate.toISOString()),
+      ]);
+
+      const { data: profileSingles, error: profileCountError } = profileSinglesQuery;
+      const { data: recentIntroRequests, error: introError } = recentIntroRequestsQuery;
+
+      if (profileCountError) {
+        console.error('Error counting new singles from profiles:', profileCountError);
+      }
+
+      if (introError) {
+        console.error('Error counting new intro requests:', introError);
+      }
+
+      // Collect unique profile IDs from both sources
+      const allProfileIds = new Set<string>();
+      
+      // Add profile-based singles
+      if (profileSingles) {
+        profileSingles.forEach(p => {
+          if (p.id) allProfileIds.add(p.id);
+        });
+      }
+
+      // Add intro request profile IDs - only count the profile that selected this user as matchmaker
+      if (recentIntroRequests) {
+        recentIntroRequests.forEach(req => {
+          // If requester selected this user as matchmaker, count the requester
+          if (req.requester_middle_person_id === profile.id && req.requester_id) {
+            allProfileIds.add(req.requester_id);
+          }
+          // If requested person selected this user as matchmaker, count the requested person
+          if (req.requested_middle_person_id === profile.id && req.requested_profile_id) {
+            allProfileIds.add(req.requested_profile_id);
+          }
+        });
+      }
+
+      // Get count of unique singles from all sources
+      let totalCount = 0;
+      if (allProfileIds.size > 0) {
+        const { count, error: countError } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .in('id', Array.from(allProfileIds))
+          .eq('role', 'single');
+
+        if (countError) {
+          console.error('Error counting unique singles:', countError);
+        } else {
+          totalCount = count || 0;
+        }
+      }
+
+      return { success: true, count: totalCount };
+    } catch (error) {
+      console.error('Unexpected error counting new singles:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Format change summary for display
+   */
+  private formatChangeSummary(changes: {field: string, oldValue: any, newValue: any, displayName: string}[]): string {
+    if (changes.length === 0) return 'No changes detected';
+    
+    const summaries: string[] = [];
+    
+    // Group changes by category
+    const nameChanges = changes.filter(c => c.field === 'first_name' || c.field === 'last_name');
+    const pictureChanges = changes.filter(c => c.field === 'pictures');
+    const otherChanges = changes.filter(c => c.field !== 'first_name' && c.field !== 'last_name' && c.field !== 'pictures');
+    
+    // Name changes
+    if (nameChanges.length > 0) {
+      if (nameChanges.length === 2) {
+        summaries.push(`Name changed from "${nameChanges.find(c => c.field === 'first_name')?.oldValue} ${nameChanges.find(c => c.field === 'last_name')?.oldValue}" to "${nameChanges.find(c => c.field === 'first_name')?.newValue} ${nameChanges.find(c => c.field === 'last_name')?.newValue}"`);
+      } else {
+        nameChanges.forEach(change => {
+          summaries.push(`${change.displayName} changed`);
+        });
+      }
+    }
+    
+    // Picture changes
+    if (pictureChanges.length > 0) {
+      const picChange = pictureChanges[0];
+      // The displayName already contains the formatted change text
+      summaries.push(picChange.displayName);
+    }
+    
+    // Other changes
+    if (otherChanges.length > 0) {
+      if (otherChanges.length === 1) {
+        summaries.push(`${otherChanges[0].displayName} was changed`);
+      } else {
+        summaries.push(`${otherChanges.length} other field${otherChanges.length !== 1 ? 's' : ''} were changed`);
+      }
+    }
+    
+    return summaries.join(', ');
   }
 }
 

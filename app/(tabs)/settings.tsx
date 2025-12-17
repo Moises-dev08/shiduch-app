@@ -136,11 +136,11 @@ export default function SettingsScreen() {
   const handleInviteFriend = async () => {
     try {
       const inviteLink = 'https://shiduchim.app/invite'; // TODO: Update with actual app link
-      const message = `Join Shiduchim App! A modern matchmaking platform to find your perfect match. Download here: ${inviteLink}`;
+      const message = `Join Zivug Mishamayim App! A modern matchmaking platform to find your perfect match. Download here: ${inviteLink}`;
       
       await Share.share({
         message: message,
-        title: 'Invite Friends to Shiduchim App',
+        title: 'Invite Friends to Zivug Mishamayim App',
       });
     } catch (error: any) {
       if (error.message !== 'User did not share') {

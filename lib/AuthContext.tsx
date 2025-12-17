@@ -1,7 +1,7 @@
 import { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { notificationService } from './notificationService';
 import { supabase } from './supabase';
-// import { notificationService } from './notificationService';
 
 interface AuthContextType {
   session: Session | null;
@@ -38,11 +38,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
       
       // Register for push notifications if logged in
-      // if (session?.user) {
-      //   notificationService.registerForPushNotifications().catch((error) => {
-      //     console.error('Failed to register for notifications:', error);
-      //   });
-      // }
+      if (session?.user) {
+        notificationService.registerForPushNotifications().catch((error) => {
+          console.error('Failed to register for notifications:', error);
+        });
+      }
     });
 
     // Listen for auth changes
@@ -54,11 +54,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
       
       // Register for push notifications when user signs in
-      // if (session?.user) {
-      //   notificationService.registerForPushNotifications().catch((error) => {
-      //     console.error('Failed to register for notifications:', error);
-      //   });
-      // }
+      if (session?.user) {
+        notificationService.registerForPushNotifications().catch((error) => {
+          console.error('Failed to register for notifications:', error);
+        });
+      }
     });
 
     return () => subscription.unsubscribe();
