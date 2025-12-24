@@ -435,9 +435,14 @@ export default function MatchmakerProfileForm({ initialData, onSubmit, gender, l
       {/* Contact Information */}
 
         <Text style={styles.sectionTitle}>Contact Information</Text>
-        <Text style={styles.sectionSubtitle}>
-          This information will only be shared with singles who selected you as their matchmaker and people you suggest matches to (if they choose to continue with a matchmaker after a successful match).
-        </Text>
+        <View style={styles.infoTile}>
+          <View style={styles.infoTileIcon}>
+            <Ionicons name="people" size={20} color="#9C27B0" />
+          </View>
+          <Text style={styles.infoTileText}>
+            This information will only be shared with singles who selected you as their matchmaker and people you suggest matches to (if they choose to continue with a matchmaker after a successful match).
+          </Text>
+        </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Phone Number *</Text>
@@ -745,6 +750,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 16,
+  },
+  infoTile: {
+    flexDirection: 'row',
+    backgroundColor: '#f3e5f5',
+    borderLeftWidth: 4,
+    borderLeftColor: '#9C27B0',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  infoTileIcon: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  infoTileText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#6a1b9a',
+    lineHeight: 20,
+    fontWeight: '500',
   },
   inputGroup: {
     marginBottom: 16,

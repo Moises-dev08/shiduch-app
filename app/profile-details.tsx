@@ -1,12 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AskForInfoModal from '../components/AskForInfoModal';
+import EngagementButton from '../components/EngagementButton';
 import PictureViewerModal from '../components/home/PictureViewerModal';
+import ReportProfileModal from '../components/home/ReportProfileModal';
 import ContinuationChoiceModal from '../components/intro/ContinuationChoiceModal';
 import MiddlePersonSelectionModal from '../components/intro/MiddlePersonSelectionModal';
+import PreviousSuggestionWarningModal from '../components/suggestion/PreviousSuggestionWarningModal';
 import ProfileGridSelectionModal from '../components/suggestion/ProfileGridSelectionModal';
 import { infoRequestService } from '../lib/infoRequestService';
 import { introService } from '../lib/introService';
@@ -33,7 +37,10 @@ export default function ProfileDetailsScreen() {
   // Intro request flow states
   const [showMiddlePersonModal, setShowMiddlePersonModal] = useState(false);
   const [selectedMiddlePerson, setSelectedMiddlePerson] = useState<any>(null);
-  const [showContinuationModal, setShowContinuationModal] = useState(false);
+  const [showContinuationChoiceModal, setShowContinuationChoiceModal] = useState(false);
+  const [requesterContinuationChoice, setRequesterContinuationChoice] = useState<'by_themselves' | 'with_middle_person' | null>(null);
+  const [showConfirmIntroModal, setShowConfirmIntroModal] = useState(false);
+  const [showIntroSuccessModal, setShowIntroSuccessModal] = useState(false);
   const [isSubmittingIntro, setIsSubmittingIntro] = useState(false);
   const [existingIntroRequest, setExistingIntroRequest] = useState<any>(null);
 
@@ -47,6 +54,16 @@ export default function ProfileDetailsScreen() {
   const [profileOneNote, setProfileOneNote] = useState('');
   const [profileTwoNote, setProfileTwoNote] = useState('');
   const [isSubmittingSuggestion, setIsSubmittingSuggestion] = useState(false);
+  
+  // Previous suggestion warning modal
+  const [showPreviousSuggestionModal, setShowPreviousSuggestionModal] = useState(false);
+  const [previousSuggestionInfo, setPreviousSuggestionInfo] = useState<{
+    profileOneName: string;
+    profileTwoName: string;
+    profileOneStatus: 'pending' | 'accepted' | 'rejected';
+    profileTwoStatus: 'pending' | 'accepted' | 'rejected';
+    createdAt: string;
+  } | null>(null);
 
   // Info request states
   const [showAskForInfoModal, setShowAskForInfoModal] = useState(false);
@@ -55,6 +72,10 @@ export default function ProfileDetailsScreen() {
   
   // One-time picture view tracking
   const [hasPicturesBeenViewed, setHasPicturesBeenViewed] = useState(false);
+
+  // Report and Share states
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   const loadProfileData = useCallback(async () => {
     try {
@@ -328,45 +349,39 @@ export default function ProfileDetailsScreen() {
   const handleMiddlePersonSelected = (middlePerson: any) => {
     setSelectedMiddlePerson(middlePerson);
     setShowMiddlePersonModal(false);
-    // Ask requester how they want to continue
-    setShowContinuationModal(true);
+    // Show continuation choice modal after selecting matchmaker
+    setShowContinuationChoiceModal(true);
   };
 
-  const handleContinuationChoice = async (choice: 'by_themselves' | 'with_middle_person') => {
-    if (!selectedMiddlePerson || !profile) return;
+  const handleContinuationChoice = (choice: 'by_themselves' | 'with_middle_person') => {
+    setRequesterContinuationChoice(choice);
+    setShowContinuationChoiceModal(false);
+    // Show confirmation modal after choosing continuation
+    setShowConfirmIntroModal(true);
+  };
 
+  const handleConfirmIntro = async () => {
+    if (!profile || !selectedMiddlePerson || !requesterContinuationChoice) return;
+
+    setShowConfirmIntroModal(false);
     setIsSubmittingIntro(true);
+
     try {
-      // Create the intro request
+      // Create the intro request with Ori's continuation choice
       const result = await introService.createIntroRequest(
         profile.id,
-        selectedMiddlePerson.id
+        selectedMiddlePerson.id,
+        requesterContinuationChoice
       );
 
       if (!result.success) {
         Alert.alert('Error', result.error || 'Failed to create intro request');
+        setIsSubmittingIntro(false);
         return;
       }
 
-      // Set the requester's continuation choice
-      if (result.request) {
-        await introService.setContinuationChoice(result.request.id, choice, true);
-      }
-
-      setShowContinuationModal(false);
-      Alert.alert(
-        'Intro Request Sent! 💌',
-        `Your intro request has been sent to ${profile.name}. ${selectedMiddlePerson.first_name} ${selectedMiddlePerson.last_name} will facilitate the introduction.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Navigate to Connect tab - You Liked section
-              router.push('/(tabs)/connect?section=liked');
-            },
-          },
-        ]
-      );
+      // Show success modal
+      setShowIntroSuccessModal(true);
     } catch (error: any) {
       console.error('Error creating intro request:', error);
       Alert.alert('Error', 'Failed to send intro request');
@@ -380,7 +395,7 @@ export default function ProfileDetailsScreen() {
     setShowProfileGridModal(true);
   };
 
-  const handleProfileSelected = (selectedProfile: Profile) => {
+  const handleProfileSelected = async (selectedProfile: Profile) => {
     setSelectedProfileForSetup(selectedProfile);
     setShowProfileGridModal(false);
     // Reset note states
@@ -388,8 +403,46 @@ export default function ProfileDetailsScreen() {
     setProfileOneNote('');
     setProfileTwoNote('');
     setUseSameNote(true);
-    // Open note modal (step 1)
+    
+    // Check for previous suggestions
+    if (profile) {
+      const result = await suggestionService.checkPreviousSuggestion(
+        profile.id,
+        selectedProfile.id
+      );
+      
+      if (result.success && result.hasPrevious && result.previousSuggestion) {
+        // Show warning modal about previous suggestion
+        setPreviousSuggestionInfo({
+          profileOneName: result.previousSuggestion.profileOneName,
+          profileTwoName: result.previousSuggestion.profileTwoName,
+          profileOneStatus: result.previousSuggestion.profileOneStatus,
+          profileTwoStatus: result.previousSuggestion.profileTwoStatus,
+          createdAt: result.previousSuggestion.createdAt,
+        });
+        setShowPreviousSuggestionModal(true);
+      } else {
+        // No previous suggestion, proceed directly to note modal
+        setShowNoteModal(true);
+      }
+    } else {
+      // No profile, just proceed (shouldn't happen but safe fallback)
+      setShowNoteModal(true);
+    }
+  };
+
+  const handlePreviousSuggestionContinue = () => {
+    // User wants to suggest again despite previous suggestion
+    setShowPreviousSuggestionModal(false);
+    setPreviousSuggestionInfo(null);
     setShowNoteModal(true);
+  };
+
+  const handlePreviousSuggestionCancel = () => {
+    // User doesn't want to suggest again
+    setShowPreviousSuggestionModal(false);
+    setPreviousSuggestionInfo(null);
+    setSelectedProfileForSetup(null);
   };
 
   const handleNoteModalSkip = () => {
@@ -458,6 +511,41 @@ export default function ProfileDetailsScreen() {
       Alert.alert('Error', 'Failed to send suggestion');
     } finally {
       setIsSubmittingSuggestion(false);
+    }
+  };
+
+  const handleReportProfile = () => {
+    setShowReportModal(true);
+  };
+
+  const handleShareProfile = async () => {
+    if (!profile) return;
+
+    try {
+      setIsSharing(true);
+      
+      // Create deep link URL for the profile
+      const shareUrl = `shiduchimapp://profile/${profile.id}`;
+      
+      // Create a fallback URL that redirects to App Store if app is not installed
+      const appStoreUrl = 'https://apps.apple.com/app/id6738294076'; // Replace with actual App Store ID
+      const fallbackUrl = `https://shiduchimapp.com/profile/${profile.id}?fallback=${encodeURIComponent(appStoreUrl)}`;
+      
+      const message = `Check out ${profile.name}'s profile on Zivug Mishamayim!\n\n${shareUrl}\n\nIf you don't have the app: ${fallbackUrl}`;
+      
+      const result = await Share.share({
+        message,
+        title: `${profile.name}'s Profile`,
+      });
+
+      if (result.action === Share.sharedAction) {
+        console.log('Profile shared successfully');
+      }
+    } catch (error) {
+      console.error('Error sharing profile:', error);
+      Alert.alert('Error', 'Failed to share profile. Please try again.');
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -803,6 +891,34 @@ export default function ProfileDetailsScreen() {
           </View>
         )}
 
+        {/* Report and Share Buttons */}
+        {!hideActions && profile && currentUserProfile && (
+          <View style={styles.inlineActionsSection}>
+            <TouchableOpacity
+              style={[styles.inlineButton, styles.reportButton]}
+              onPress={handleReportProfile}
+            >
+              <Ionicons name="flag-outline" size={20} color="#f44336" />
+              <Text style={styles.reportButtonText}>Report Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.inlineButton, styles.shareButton]}
+              onPress={handleShareProfile}
+              disabled={isSharing}
+            >
+              {isSharing ? (
+                <ActivityIndicator color="#03a9f4" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="share-outline" size={20} color="#03a9f4" />
+                  <Text style={styles.shareButtonText}>Share Profile</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Bottom padding for action buttons */}
         <View style={{ height: hideActions ? 20 : 100 }} />
       </ScrollView>
@@ -856,6 +972,15 @@ export default function ProfileDetailsScreen() {
               )}
             </TouchableOpacity>
           )}
+
+          {/* Engagement button - for singles with accepted intros */}
+          {currentUserProfile.role === 'single' && existingIntroRequest?.status === 'accepted' && (
+            <EngagementButton
+              otherUserId={profile.id}
+              otherUserName={profile.name}
+              currentUserName={currentUserProfile.first_name}
+            />
+          )}
         </View>
       )}
 
@@ -879,6 +1004,16 @@ export default function ProfileDetailsScreen() {
         isSubmitting={isSubmittingInfoRequest}
       />
 
+      {/* Report Profile Modal */}
+      {profile && (
+        <ReportProfileModal
+          visible={showReportModal}
+          profileId={profile.id}
+          profileName={profile.name}
+          onClose={() => setShowReportModal(false)}
+        />
+      )}
+
       {/* Middle Person Selection Modal */}
       <MiddlePersonSelectionModal
         visible={showMiddlePersonModal}
@@ -888,17 +1023,123 @@ export default function ProfileDetailsScreen() {
         onCancel={() => setShowMiddlePersonModal(false)}
       />
 
-      {/* Continuation Choice Modal */}
-      {profile && (
+      {/* Confirmation Modal before sending intro request */}
+      <Modal
+        visible={showConfirmIntroModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowConfirmIntroModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmModalContent}>
+            <View style={styles.confirmModalHeader}>
+              <Ionicons name="mail" size={48} color="#03a9f4" />
+              <Text style={styles.confirmModalTitle}>Confirm Intro Request</Text>
+            </View>
+            
+            {profile && selectedMiddlePerson && (
+              <View style={styles.confirmModalBody}>
+                <Text style={styles.confirmModalText}>
+                  You're asking <Text style={styles.boldText}>{selectedMiddlePerson.first_name} {selectedMiddlePerson.last_name}</Text> to facilitate an introduction with <Text style={styles.boldText}>{profile.name}</Text>.
+                </Text>
+                <View style={styles.confirmModalInfo}>
+                  <Ionicons name="information-circle" size={20} color="#666" />
+                  <Text style={styles.confirmModalInfoText}>
+                    {selectedMiddlePerson.first_name} will review your request and decide whether to proceed.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.confirmModalActions}>
+              <TouchableOpacity
+                style={[styles.confirmModalButton, styles.confirmCancelButton]}
+                onPress={() => {
+                  setShowConfirmIntroModal(false);
+                  setSelectedMiddlePerson(null);
+                }}
+              >
+                <Text style={styles.confirmCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmModalButton, styles.confirmSendButton]}
+                onPress={handleConfirmIntro}
+                disabled={isSubmittingIntro}
+              >
+                {isSubmittingIntro ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="send" size={20} color="#fff" />
+                    <Text style={styles.confirmSendButtonText}>Send Request</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success Modal after sending intro request */}
+      <Modal
+        visible={showIntroSuccessModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => {
+          setShowIntroSuccessModal(false);
+          setSelectedMiddlePerson(null);
+          router.push('/(tabs)/connect?section=liked');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmModalContent}>
+            <View style={styles.confirmModalHeader}>
+              <Ionicons name="checkmark-circle" size={64} color="#4CAF50" />
+              <Text style={styles.confirmModalTitle}>Intro Request Sent! 💌</Text>
+            </View>
+            
+            {profile && selectedMiddlePerson && (
+              <View style={styles.confirmModalBody}>
+                <Text style={styles.confirmModalText}>
+                  Your request has been sent to <Text style={styles.boldText}>{selectedMiddlePerson.first_name} {selectedMiddlePerson.last_name}</Text>.
+                </Text>
+                <View style={styles.confirmModalInfo}>
+                  <Ionicons name="time" size={20} color="#03a9f4" />
+                  <Text style={styles.confirmModalInfoText}>
+                    They will review and respond soon. You'll be notified of their decision.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.confirmModalActions}>
+              <TouchableOpacity
+                style={[styles.confirmModalButton, styles.confirmSendButton, { width: '100%' }]}
+                onPress={() => {
+                  setShowIntroSuccessModal(false);
+                  setSelectedMiddlePerson(null);
+                  router.push('/(tabs)/connect?section=liked');
+                }}
+              >
+                <Text style={styles.confirmSendButtonText}>Go to Connect</Text>
+                <Ionicons name="arrow-forward" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Continuation Choice Modal - Shown after selecting matchmaker */}
+      {profile && selectedMiddlePerson && (
         <ContinuationChoiceModal
-          visible={showContinuationModal}
-          profileName={profile.name}
+          visible={showContinuationChoiceModal}
+          profileName={`${profile.first_name} ${profile.last_name}`}
           onSelectChoice={handleContinuationChoice}
           onCancel={() => {
-            setShowContinuationModal(false);
+            setShowContinuationChoiceModal(false);
             setSelectedMiddlePerson(null);
+            setRequesterContinuationChoice(null);
           }}
-          loading={isSubmittingIntro}
         />
       )}
 
@@ -910,6 +1151,20 @@ export default function ProfileDetailsScreen() {
         onSelect={handleProfileSelected}
         onCancel={() => setShowProfileGridModal(false)}
       />
+
+      {/* Previous Suggestion Warning Modal */}
+      {previousSuggestionInfo && (
+        <PreviousSuggestionWarningModal
+          visible={showPreviousSuggestionModal}
+          profileOneName={previousSuggestionInfo.profileOneName}
+          profileTwoName={previousSuggestionInfo.profileTwoName}
+          profileOneStatus={previousSuggestionInfo.profileOneStatus}
+          profileTwoStatus={previousSuggestionInfo.profileTwoStatus}
+          createdAt={previousSuggestionInfo.createdAt}
+          onCancel={handlePreviousSuggestionCancel}
+          onContinue={handlePreviousSuggestionContinue}
+        />
+      )}
 
       {/* Note Modal for Suggestion */}
       <Modal
@@ -1272,6 +1527,21 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
   },
+  inlineActionsSection: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    gap: 12,
+  },
+  inlineButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 8,
+    gap: 8,
+    borderWidth: 1,
+  },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
@@ -1295,6 +1565,24 @@ const styles = StyleSheet.create({
   disabledButton: {
     backgroundColor: '#999',
     opacity: 0.7,
+  },
+  reportButton: {
+    backgroundColor: '#ffebee',
+    borderColor: '#ffcdd2',
+  },
+  reportButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#f44336',
+  },
+  shareButton: {
+    backgroundColor: '#e3f2fd',
+    borderColor: '#bbdefb',
+  },
+  shareButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#03a9f4',
   },
   noteModalContainer: {
     flex: 1,
@@ -1523,6 +1811,101 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 12,
     fontStyle: 'italic',
+  },
+  // Confirmation Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  confirmModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  confirmModalHeader: {
+    alignItems: 'center',
+    paddingTop: 32,
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+  },
+  confirmModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#333',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  confirmModalBody: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+  },
+  confirmModalText: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  boldText: {
+    fontWeight: '700',
+    color: '#03a9f4',
+  },
+  confirmModalInfo: {
+    flexDirection: 'row',
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  confirmModalInfoText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  confirmModalActions: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  confirmModalButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  confirmCancelButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  confirmCancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  confirmSendButton: {
+    backgroundColor: '#03a9f4',
+  },
+  confirmSendButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
 

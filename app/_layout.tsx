@@ -8,6 +8,8 @@ export default function RootLayout() {
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="admin" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="filters" options={{ headerShown: false }} />
+        <Stack.Screen name="profile/[id]" options={{ headerShown: false, presentation: 'modal' }} />
       </Stack>
     </AuthProvider>
   );

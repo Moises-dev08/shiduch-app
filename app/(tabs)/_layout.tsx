@@ -1,5 +1,5 @@
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
-import { Tabs, useFocusEffect } from "expo-router";
+import { Tabs, useFocusEffect, usePathname } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, AppState } from "react-native";
 import { useNotificationCount } from "../../hooks/useNotificationCount";
@@ -9,6 +9,7 @@ export default function TabLayout() {
   const [profileStatus, setProfileStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
   const [hasProfile, setHasProfile] = useState<boolean>(false);
   const { counts, refresh: refreshNotifications } = useNotificationCount();
+  const pathname = usePathname();
 
   const checkProfileStatus = useCallback(async () => {
     try {
@@ -85,6 +86,9 @@ export default function TabLayout() {
       refreshNotifications();
     }, [checkProfileStatus, refreshNotifications])
   );
+
+  // Check if Connect tab is currently active
+  const isConnectTabActive = pathname === '/connect';
 
   // Also check status when any tab screen is focused (more frequent checks)
   useEffect(() => {
@@ -178,12 +182,16 @@ export default function TabLayout() {
             />
           ),
           tabBarLabelStyle: isTabDisabled ? { color: "#ccc" } : {},
-          tabBarBadge: counts.total > 0 ? counts.total : undefined,
+          // Only show badge if Connect tab is NOT active and there are notifications
+          tabBarBadge: (!isConnectTabActive && counts.total > 0) ? counts.total : undefined,
         }}
         listeners={{
           tabPress: (e) => {
             if (!handleTabPress('connect')) {
               e.preventDefault();
+            } else {
+              // Refresh notifications immediately when tab is pressed
+              refreshNotifications();
             }
           },
         }}

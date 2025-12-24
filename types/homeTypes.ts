@@ -83,5 +83,16 @@ export interface FilterState {
   minHeightInches: number | null;
   maxHeightFeet: number | null;
   maxHeightInches: number | null;
+  
+  // Sorting and special filters
+  sortBy: 'newest' | 'youngest' | null;
+  hasAskMeFields: boolean;
+  hasPhoto: boolean | null; // null = any, true = has photo, false = no photo
+  
+  // Gender-specific filters
+  selectedTorahLearning: string[];
+  selectedPraying: string[];
+  selectedHeadCovering: string[];
+  wearsBlackHat: boolean | null;
 }
 

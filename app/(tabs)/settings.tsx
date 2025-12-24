@@ -13,22 +13,27 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import FeedbackModal from '../../components/FeedbackModal';
 import HowItWorksCarousel from '../../components/HowItWorksCarousel';
 import TermsModal from '../../components/TermsModal';
 import { useAuth } from '../../lib/AuthContext';
+import { engagementService, EngagementWithProfiles } from '../../lib/engagementService';
 import { profileService } from '../../lib/profileService';
 
 export default function SettingsScreen() {
   const [showFreezeModal, setShowFreezeModal] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [isProfileActive, setIsProfileActive] = useState(true);
   const [loadingProfileStatus, setLoadingProfileStatus] = useState(true);
   const [processingFreeze, setProcessingFreeze] = useState(false);
+  const [myEngagement, setMyEngagement] = useState<EngagementWithProfiles | null>(null);
+  const [loadingEngagement, setLoadingEngagement] = useState(true);
   const { signOut } = useAuth();
 
-  // Fetch profile status when screen is focused
+  // Fetch profile status and engagement when screen is focused
   useFocusEffect(
     useCallback(() => {
       const fetchProfileStatus = async () => {
@@ -40,7 +45,17 @@ export default function SettingsScreen() {
         setLoadingProfileStatus(false);
       };
 
+      const fetchEngagement = async () => {
+        setLoadingEngagement(true);
+        const result = await engagementService.getMyEngagement();
+        if (result.success) {
+          setMyEngagement(result.engagement || null);
+        }
+        setLoadingEngagement(false);
+      };
+
       fetchProfileStatus();
+      fetchEngagement();
     }, [])
   );
 
@@ -156,6 +171,33 @@ export default function SettingsScreen() {
 
   const handleTermsAndConditions = () => {
     setShowTermsModal(true);
+  };
+
+  const handleUndoEngagement = () => {
+    if (!myEngagement) return;
+
+    const partnerName = myEngagement.user1_profile?.first_name || myEngagement.user2_profile?.first_name || 'your partner';
+
+    Alert.alert(
+      'Undo Engagement',
+      `Are you sure you want to undo your engagement with ${partnerName}? This will remove your engagement from the public successful matches list.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Undo Engagement',
+          style: 'destructive',
+          onPress: async () => {
+            const result = await engagementService.undoEngagement(myEngagement.id);
+            if (result.success) {
+              setMyEngagement(null);
+              Alert.alert('Engagement Undone', 'Your engagement has been removed.');
+            } else {
+              Alert.alert('Error', result.error || 'Failed to undo engagement');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleDeleteAccount = () => {
@@ -284,6 +326,17 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>
 
+        {/* Feedback Section */}
+        <Text style={styles.sectionTitle}>Feedback</Text>
+
+        <TouchableOpacity style={styles.settingsItem} onPress={() => setShowFeedbackModal(true)}>
+          <View style={styles.settingsItemLeft}>
+            <Ionicons name="chatbox-ellipses" size={24} color="#03a9f4" />
+            <Text style={styles.settingsItemText}>Give Us Feedback</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#666" />
+        </TouchableOpacity>
+
         {/* Legal Section */}
         <Text style={styles.sectionTitle}>Legal</Text>
 
@@ -297,6 +350,20 @@ export default function SettingsScreen() {
 
         {/* Account Section */}
         <Text style={styles.sectionTitle}>Account</Text>
+
+        {/* Undo Engagement Option - only show if user is engaged */}
+        {!loadingEngagement && myEngagement && (
+          <>
+            <Text style={styles.sectionTitle}>Relationship Status</Text>
+            <TouchableOpacity style={styles.settingsItem} onPress={handleUndoEngagement}>
+              <View style={styles.settingsItemLeft}>
+                <Ionicons name="heart-dislike" size={24} color="#9b59b6" />
+                <Text style={styles.settingsItemText}>Undo Engagement</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#666" />
+            </TouchableOpacity>
+          </>
+        )}
 
         <TouchableOpacity style={styles.settingsItem} onPress={handleDeleteAccount}>
           <View style={styles.settingsItemLeft}>
@@ -326,6 +393,12 @@ export default function SettingsScreen() {
         visible={showTermsModal}
         onDecline={() => setShowTermsModal(false)}
         viewOnly={true}
+      />
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        visible={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
       />
 
       {/* Freeze Profile Confirmation Modal */}

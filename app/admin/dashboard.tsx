@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { adminService } from '../../lib/adminService';
 import { Profile } from '../../lib/profileService';
+import { reportService } from '../../lib/reportService';
 import { supabase } from '../../lib/supabase';
 import { calculateAge } from '../../lib/utils';
 
@@ -23,15 +24,18 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'new' | 'updates'>('all');
+  const [pendingReportsCount, setPendingReportsCount] = useState(0);
 
   useEffect(() => {
     loadProfiles();
+    loadReportsCount();
   }, []);
 
   // Reload profiles when screen comes into focus (e.g., after approving/rejecting)
   useFocusEffect(
     useCallback(() => {
       loadProfiles();
+      loadReportsCount();
     }, [])
   );
 
@@ -45,6 +49,13 @@ export default function AdminDashboard() {
       Alert.alert('Error', result.error || 'Failed to load profiles');
     }
     setLoading(false);
+  };
+
+  const loadReportsCount = async () => {
+    const result = await reportService.getPendingReportsCount();
+    if (result.success && result.count !== undefined) {
+      setPendingReportsCount(result.count);
+    }
   };
 
   const applyFilter = (profilesToFilter: Profile[], currentFilter: 'all' | 'new' | 'updates') => {
@@ -73,7 +84,7 @@ export default function AdminDashboard() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadProfiles();
+    await Promise.all([loadProfiles(), loadReportsCount()]);
     setRefreshing(false);
   };
 
@@ -106,33 +117,69 @@ export default function AdminDashboard() {
             )}
           </Text>
         </View>
-        <TouchableOpacity onPress={() => router.push('/admin/users')} style={{ padding: 8 }}>
-          <Ionicons name="people" size={24} color="#666" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onRefresh}>
-          <Ionicons name="refresh" size={24} color="#666" />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.logoutButton}
-          onPress={() => {
-            Alert.alert(
-              'Logout',
-              'Are you sure you want to logout?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Logout',
-                  onPress: async () => {
-                    await supabase.auth.signOut();
-                    router.replace('/auth/login');
+
+        {/* Action Buttons Row */}
+        <View style={styles.actionsRow}>
+          <TouchableOpacity 
+            onPress={() => router.push('/admin/reports')} 
+            style={styles.actionButton}
+          >
+            <View style={styles.actionButtonContent}>
+              <Ionicons name="flag" size={20} color="#666" />
+              <Text style={styles.actionButtonText}>Reports</Text>
+              {pendingReportsCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{pendingReportsCount}</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={() => router.push('/admin/users')} 
+            style={styles.actionButton}
+          >
+            <View style={styles.actionButtonContent}>
+              <Ionicons name="people" size={20} color="#666" />
+              <Text style={styles.actionButtonText}>Users</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={onRefresh} 
+            style={styles.actionButton}
+          >
+            <View style={styles.actionButtonContent}>
+              <Ionicons name="refresh" size={20} color="#666" />
+              <Text style={styles.actionButtonText}>Refresh</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => {
+              Alert.alert(
+                'Logout',
+                'Are you sure you want to logout?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Logout',
+                    onPress: async () => {
+                      await supabase.auth.signOut();
+                      router.replace('/auth/login');
+                    },
                   },
-                },
-              ]
-            );
-          }}
-        >
-          <Ionicons name="log-out" size={24} color="#666" />
-        </TouchableOpacity>
+                ]
+              );
+            }}
+          >
+            <View style={styles.actionButtonContent}>
+              <Ionicons name="log-out" size={20} color="#666" />
+              <Text style={styles.actionButtonText}>Logout</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Filter Buttons */}
@@ -272,16 +319,13 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
   headerContent: {
-    flex: 1,
+    marginBottom: 16,
   },
   title: {
     fontSize: 24,
@@ -331,8 +375,43 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  logoutButton: {
-    padding: 8,
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  actionButtonContent: {
+    alignItems: 'center',
+    position: 'relative',
+  },
+  actionButtonText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    backgroundColor: '#f44336',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   scrollView: {
     flex: 1,

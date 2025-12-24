@@ -684,9 +684,14 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       {/* 3. Contact Information */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Contact Information</Text>
-        <Text style={styles.sectionSubtitle}>
-          This information will only be shared with your matchmaker and people you match with (if you choose to continue by yourself after a successful match).
-        </Text>
+        <View style={styles.infoTile}>
+          <View style={styles.infoTileIcon}>
+            <Ionicons name="lock-closed" size={20} color="#4CAF50" />
+          </View>
+          <Text style={styles.infoTileText}>
+            This information will be shared only if a successful match is made, either with the matchmaker or directly with the individual, if you choose to continue on your own
+          </Text>
+        </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Phone Number *</Text>
@@ -1245,9 +1250,14 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       {/* 12. Upload Resume */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Upload Resume 📄</Text>
-        <Text style={styles.sectionSubtitle}>
-          Upload a PDF or image of your resume (optional). This will be shared automatically when you match with someone.
-        </Text>
+        <View style={styles.infoTile}>
+          <View style={styles.infoTileIcon}>
+            <Ionicons name="share-social" size={20} color="#03a9f4" />
+          </View>
+          <Text style={styles.infoTileText}>
+            Upload a PDF or image of your resume (optional). This will be shared automatically when you successfully matched with someone.
+          </Text>
+        </View>
 
         {resumeUrl ? (
           <View style={styles.resumeContainer}>
@@ -1538,6 +1548,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 16,
+  },
+  infoTile: {
+    flexDirection: 'row',
+    backgroundColor: '#f0f9ff',
+    borderLeftWidth: 4,
+    borderLeftColor: '#03a9f4',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  infoTileIcon: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  infoTileText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#01579b',
+    lineHeight: 20,
+    fontWeight: '500',
   },
   inputGroup: {
     marginBottom: 16,

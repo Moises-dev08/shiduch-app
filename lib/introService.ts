@@ -5,14 +5,31 @@ export interface IntroRequest {
   id: string;
   requester_id: string;
   requested_profile_id: string;
-  requester_middle_person_id: string;
-  requested_middle_person_id?: string;
+  requester_middle_person_id: string; // The matchmaker
+  requested_middle_person_id?: string; // Optional: if requested person chooses their own matchmaker
+  
+  // Overall status tracking
+  status: 'pending_matchmaker' | 'pending_requested' | 'accepted' | 'rejected' | 'completed';
+  
+  // Step 1: Matchmaker responds to requester
+  matchmaker_status: 'pending' | 'accepted' | 'rejected';
+  matchmaker_note_to_requester?: string;
+  matchmaker_note_to_requested?: string; // Optional note from matchmaker to requested person
+  matchmaker_responded_at?: string;
+  
+  // Step 2: Requested person responds to matchmaker
+  requested_status: 'pending' | 'accepted' | 'rejected';
+  requested_note_to_matchmaker?: string;
+  requested_responded_at?: string;
+  requested_note?: string; // Legacy field
+  
+  // Continuation choices (step 3)
   requester_continuation_choice?: 'by_themselves' | 'with_middle_person';
   requested_continuation_choice?: 'by_themselves' | 'with_middle_person';
-  status: 'pending' | 'accepted' | 'rejected' | 'completed';
-  requested_note?: string;
+  
   created_at: string;
   updated_at: string;
+  
   // Joined profile data
   requester_profile?: any;
   requested_profile?: any;
@@ -22,14 +39,109 @@ export interface IntroRequest {
 
 class IntroService {
   /**
-   * Create a new intro request
+   * NEW FLOW Step 1: Create intro request (goes to matchmaker first)
+   * Example: Ori asks for intro to Shimon, selects Ben as matchmaker
+   * Ori also specifies how she wants to continue if both accept
    */
   async createIntroRequest(
     requestedProfileId: string,
-    requesterMiddlePersonId: string
+    matchmakerId: string,
+    requesterContinuationChoice?: 'by_themselves' | 'with_middle_person'
   ): Promise<{ success: boolean; error?: string; request?: IntroRequest }> {
     try {
-      // Get current user's profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) {
+        return { success: false, error: 'Profile not found' };
+      }
+
+      // Check for existing active request
+      const { data: existing } = await supabase
+        .from('intro_requests')
+        .select('*')
+        .eq('requester_id', profile.id)
+        .eq('requested_profile_id', requestedProfileId)
+        .in('status', ['pending_matchmaker', 'pending_requested', 'accepted'])
+        .single();
+
+      if (existing) {
+        return { success: false, error: 'An intro request already exists for this profile' };
+      }
+
+      // Create the intro request with new flow
+      const insertData: any = {
+        requester_id: profile.id,
+        requested_profile_id: requestedProfileId,
+        requester_middle_person_id: matchmakerId,
+        status: 'pending_matchmaker',
+        matchmaker_status: 'pending',
+        requested_status: 'pending',
+      };
+
+      // Add requester's continuation choice if provided
+      if (requesterContinuationChoice) {
+        insertData.requester_continuation_choice = requesterContinuationChoice;
+      }
+
+      const { data, error } = await supabase
+        .from('intro_requests')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating intro request:', error);
+        return { success: false, error: error.message };
+      }
+
+      // Fetch profile information for notifications
+      const [requestedProfileResult, matchmakerResult] = await Promise.all([
+        supabase.from('profiles').select('user_id, first_name, last_name').eq('id', requestedProfileId).single(),
+        supabase.from('profiles').select('user_id, first_name, last_name').eq('id', matchmakerId).single(),
+      ]);
+
+      // Notify the matchmaker (NEW: only matchmaker gets notified, not requested person yet)
+      if (matchmakerResult.data && requestedProfileResult.data) {
+        await notificationService.sendNotification(
+          matchmakerResult.data.user_id,
+          'New Matchmaking Request',
+          `${profile.first_name} ${profile.last_name} is asking for an intro to ${requestedProfileResult.data.first_name} ${requestedProfileResult.data.last_name} and wants you to be the matchmaker`,
+          {
+            type: 'matchmaker_request',
+            requestId: data.id,
+            requesterId: profile.id,
+            requestedProfileId: requestedProfileId,
+          }
+        );
+      }
+
+      return { success: true, request: data };
+    } catch (error: any) {
+      console.error('Error in createIntroRequest:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * NEW FLOW Step 2: Matchmaker responds to request
+   * Example: Ben accepts/rejects Ori's request with optional notes
+   */
+  async matchmakerRespondToRequest(
+    requestId: string,
+    response: 'accepted' | 'rejected',
+    noteToRequester?: string,
+    noteToRequested?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         return { success: false, error: 'Not authenticated' };
@@ -45,123 +157,43 @@ class IntroService {
         return { success: false, error: 'Profile not found' };
       }
 
-      // Check if there's already an active intro request
-      const { data: existing } = await supabase
+      // Get the request
+      const { data: request } = await supabase
         .from('intro_requests')
         .select('*')
-        .eq('requester_id', profile.id)
-        .eq('requested_profile_id', requestedProfileId)
-        .in('status', ['pending', 'accepted'])
+        .eq('id', requestId)
         .single();
 
-      if (existing) {
-        return { success: false, error: 'An intro request already exists for this profile' };
+      if (!request) {
+        return { success: false, error: 'Request not found' };
       }
 
-      // Create the intro request
-      const { data, error } = await supabase
-        .from('intro_requests')
-        .insert({
-          requester_id: profile.id,
-          requested_profile_id: requestedProfileId,
-          requester_middle_person_id: requesterMiddlePersonId,
-          status: 'pending',
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating intro request:', error);
-        return { success: false, error: error.message };
+      // Verify this user is the matchmaker
+      if (request.requester_middle_person_id !== profile.id) {
+        return { success: false, error: 'You are not the matchmaker for this request' };
       }
 
-      // Send push notifications
-      try {
-        // Get profile information for notifications
-        const { data: requestedProfile } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name')
-          .eq('id', requestedProfileId)
-          .single();
-
-        const { data: requesterProfile } = await supabase
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('id', profile.id)
-          .single();
-
-        const { data: matchmakerProfile } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name')
-          .eq('id', requesterMiddlePersonId)
-          .single();
-
-        // Notify the requested profile owner
-        if (requestedProfile && requesterProfile) {
-          await notificationService.sendNotification(
-            requestedProfile.user_id,
-            'New Intro Request',
-            `${requesterProfile.first_name} ${requesterProfile.last_name} requested an introduction with you`,
-            {
-              type: 'intro_request',
-              requestId: data.id,
-              requesterId: profile.id,
-            }
-          );
-        }
-
-        // Notify the matchmaker
-        if (matchmakerProfile && requesterProfile) {
-          await notificationService.sendNotification(
-            matchmakerProfile.user_id,
-            'You\'ve been selected as a Matchmaker',
-            `${requesterProfile.first_name} ${requesterProfile.last_name} selected you as their matchmaker for an intro request`,
-            {
-              type: 'matchmaker_selected',
-              requestId: data.id,
-              requesterId: profile.id,
-            }
-          );
-        }
-      } catch (notifError) {
-        console.error('Error sending notifications:', notifError);
-        // Don't fail the request if notification fails
-      }
-
-      return { success: true, request: data };
-    } catch (error: any) {
-      console.error('Error in createIntroRequest:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  /**
-   * Respond to an intro request (accept/reject)
-   */
-  async respondToIntroRequest(
-    requestId: string,
-    response: 'accepted' | 'rejected',
-    note?: string,
-    continuationChoice?: 'by_themselves' | 'with_middle_person',
-    middlePersonId?: string
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
+      const now = new Date().toISOString();
       const updateData: any = {
-        status: response,
-        updated_at: new Date().toISOString(),
+        matchmaker_status: response,
+        matchmaker_responded_at: now,
+        updated_at: now,
       };
 
-      if (note) {
-        updateData.requested_note = note;
+      if (noteToRequester) {
+        updateData.matchmaker_note_to_requester = noteToRequester;
       }
 
-      // If responding person is choosing continuation and Matchmaker/Shadchan
-      if (continuationChoice) {
-        updateData.requested_continuation_choice = continuationChoice;
+      if (noteToRequested) {
+        updateData.matchmaker_note_to_requested = noteToRequested;
       }
 
-      if (middlePersonId) {
-        updateData.requested_middle_person_id = middlePersonId;
+      if (response === 'accepted') {
+        // Matchmaker accepted, move to next step: pending_requested
+        updateData.status = 'pending_requested';
+      } else {
+        // Matchmaker rejected, mark overall status as rejected
+        updateData.status = 'rejected';
       }
 
       const { error } = await supabase
@@ -170,175 +202,257 @@ class IntroService {
         .eq('id', requestId);
 
       if (error) {
-        console.error('Error responding to intro request:', error);
+        console.error('Error updating request:', error);
         return { success: false, error: error.message };
       }
 
-      // Send notifications if rejected
-      if (response === 'rejected') {
-        try {
-          // Get the full request with profile information
-          const { data: request } = await supabase
-            .from('intro_requests')
-            .select(`
-              *,
-              requester_profile:profiles!intro_requests_requester_id_fkey(id, user_id, first_name, last_name),
-              requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, user_id, first_name, last_name),
-              requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, user_id, first_name, last_name)
-            `)
-            .eq('id', requestId)
-            .single();
+      // Send notifications
+      try {
+        const [requesterResult, requestedResult] = await Promise.all([
+          supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requester_id).single(),
+          supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requested_profile_id).single(),
+        ]);
 
-          if (request) {
-            // Get current user's profile to determine who rejected
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-              const { data: currentProfile } = await supabase
-                .from('profiles')
-                .select('id, first_name, last_name')
-                .eq('user_id', user.id)
-                .single();
-
-              if (currentProfile) {
-                const isRequester = request.requester_id === currentProfile.id;
-                const otherProfile = isRequester ? request.requested_profile : request.requester_profile;
-                const requesterProfile = request.requester_profile;
-                const requestedProfile = request.requested_profile;
-                const matchmaker = request.requester_middle_person;
-
-                // Notify the other party (the one who didn't reject)
-                if (otherProfile && otherProfile.user_id) {
-                  await notificationService.sendNotification(
-                    otherProfile.user_id,
-                    'Intro Request Declined',
-                    `${currentProfile.first_name} ${currentProfile.last_name} declined your intro request${note ? ': ' + note : '.'}`,
-                    {
-                      type: 'intro_request_rejected',
-                      requestId: requestId,
-                      rejectedBy: currentProfile.id,
-                    }
-                  );
-                }
-
-                // Notify the matchmaker if they were involved
-                if (matchmaker && matchmaker.user_id) {
-                  await notificationService.sendNotification(
-                    matchmaker.user_id,
-                    'Intro Request Declined',
-                    `${currentProfile.first_name} ${currentProfile.last_name} declined the intro request between ${requesterProfile?.first_name} ${requesterProfile?.last_name} and ${requestedProfile?.first_name} ${requestedProfile?.last_name}${note ? ': ' + note : '.'}`,
-                    {
-                      type: 'intro_request_rejected',
-                      requestId: requestId,
-                      rejectedBy: currentProfile.id,
-                    }
-                  );
-                }
-              }
+        // Notify requester about matchmaker's response
+        if (requesterResult.data) {
+          await notificationService.sendNotification(
+            requesterResult.data.user_id,
+            response === 'accepted' ? 'Matchmaker Accepted!' : 'Matchmaker Declined',
+            response === 'accepted'
+              ? `Your matchmaker accepted your intro request${noteToRequester ? ': ' + noteToRequester : ''}`
+              : `Your matchmaker declined your intro request${noteToRequester ? ': ' + noteToRequester : ''}`,
+            {
+              type: 'matchmaker_responded',
+              requestId: requestId,
+              response: response,
             }
-          }
-        } catch (notifError) {
-          console.error('Error sending rejection notifications:', notifError);
-          // Don't fail the rejection if notification fails
+          );
         }
-      }
 
-      // Check if both have chosen continuation - if so, mark as completed
-      if (response === 'accepted' && continuationChoice) {
-        const { data: request } = await supabase
-          .from('intro_requests')
-          .select('*')
-          .eq('id', requestId)
-          .single();
-
-        if (
-          request &&
-          request.requester_continuation_choice &&
-          request.requested_continuation_choice
-        ) {
-          await supabase
-            .from('intro_requests')
-            .update({ status: 'completed' })
-            .eq('id', requestId);
+        // If accepted, notify the requested person
+        if (response === 'accepted' && requestedResult.data && requesterResult.data) {
+          await notificationService.sendNotification(
+            requestedResult.data.user_id,
+            'New Intro Request',
+            `${profile.first_name} ${profile.last_name} is facilitating an intro request from ${requesterResult.data.first_name}`,
+            {
+              type: 'intro_request_from_matchmaker',
+              requestId: requestId,
+              matchmakerId: profile.id,
+            }
+          );
         }
+      } catch (notifError) {
+        console.error('Error sending notifications:', notifError);
       }
 
       return { success: true };
     } catch (error: any) {
-      console.error('Error in respondToIntroRequest:', error);
+      console.error('Error in matchmakerRespondToRequest:', error);
       return { success: false, error: error.message };
     }
   }
 
   /**
-   * Set requested person's Matchmaker/Shadchan choice
+   * NEW FLOW Step 3: Requested person responds to matchmaker
+   * Example: Shimon accepts/rejects with optional note to Ben
    */
-  async setRequestedMiddlePerson(
+  async requestedPersonRespond(
     requestId: string,
-    middlePersonId: string
+    response: 'accepted' | 'rejected',
+    noteToMatchmaker?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
-        .from('intro_requests')
-        .update({
-          requested_middle_person_id: middlePersonId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', requestId);
-
-      if (error) {
-        console.error('Error setting requested Matchmaker/Shadchan:', error);
-        return { success: false, error: error.message };
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, error: 'Not authenticated' };
       }
 
-      return { success: true };
-    } catch (error: any) {
-      console.error('Error in setRequestedMiddlePerson:', error);
-      return { success: false, error: error.message };
-    }
-  }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
 
-  /**
-   * Set continuation choice (by_themselves or with_middle_person)
-   */
-  async setContinuationChoice(
-    requestId: string,
-    choice: 'by_themselves' | 'with_middle_person',
-    isRequester: boolean
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      const field = isRequester
-        ? 'requester_continuation_choice'
-        : 'requested_continuation_choice';
-
-      const { error } = await supabase
-        .from('intro_requests')
-        .update({
-          [field]: choice,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', requestId);
-
-      if (error) {
-        console.error('Error setting continuation choice:', error);
-        return { success: false, error: error.message };
+      if (!profile) {
+        return { success: false, error: 'Profile not found' };
       }
 
-      // Check if both have chosen - if so, mark as completed
+      // Get the request
       const { data: request } = await supabase
         .from('intro_requests')
         .select('*')
         .eq('id', requestId)
         .single();
 
-      if (
-        request &&
-        request.requester_continuation_choice &&
-        request.requested_continuation_choice
-      ) {
-        await supabase
-          .from('intro_requests')
-          .update({ status: 'completed' })
-          .eq('id', requestId);
+      if (!request) {
+        return { success: false, error: 'Request not found' };
+      }
+
+      // Verify this user is the requested person
+      if (request.requested_profile_id !== profile.id) {
+        return { success: false, error: 'This request is not for you' };
+      }
+
+      const now = new Date().toISOString();
+      const updateData: any = {
+        requested_status: response,
+        requested_responded_at: now,
+        updated_at: now,
+      };
+
+      if (noteToMatchmaker) {
+        updateData.requested_note_to_matchmaker = noteToMatchmaker;
+      }
+
+      if (response === 'accepted') {
+        // Both matchmaker and requested accepted, move to accepted status
+        updateData.status = 'accepted';
+      } else {
+        // Requested person rejected, mark overall status as rejected
+        updateData.status = 'rejected';
+      }
+
+      const { error } = await supabase
+        .from('intro_requests')
+        .update(updateData)
+        .eq('id', requestId);
+
+      if (error) {
+        console.error('Error updating request:', error);
+        return { success: false, error: error.message };
+      }
+
+      // Send notifications
+      try {
+        const [matchmakerResult, requesterResult] = await Promise.all([
+          supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requester_middle_person_id).single(),
+          supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requester_id).single(),
+        ]);
+
+        // Notify matchmaker about requested person's response
+        if (matchmakerResult.data) {
+          await notificationService.sendNotification(
+            matchmakerResult.data.user_id,
+            response === 'accepted' ? 'Match Accepted!' : 'Intro Declined',
+            response === 'accepted'
+              ? `${profile.first_name} ${profile.last_name} accepted the intro request${noteToMatchmaker ? ': ' + noteToMatchmaker : ''}`
+              : `${profile.first_name} ${profile.last_name} declined the intro request${noteToMatchmaker ? ': ' + noteToMatchmaker : ''}`,
+            {
+              type: 'requested_responded',
+              requestId: requestId,
+              response: response,
+            }
+          );
+        }
+
+        // If accepted, notify requester too
+        if (response === 'accepted' && requesterResult.data) {
+          await notificationService.sendNotification(
+            requesterResult.data.user_id,
+            'Match Accepted!',
+            `${profile.first_name} ${profile.last_name} accepted your intro request! Choose how you want to continue.`,
+            {
+              type: 'match_accepted',
+              requestId: requestId,
+            }
+          );
+        }
+      } catch (notifError) {
+        console.error('Error sending notifications:', notifError);
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error in requestedPersonRespond:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Set continuation choice for requester or requested person
+   * If one party chooses 'with_middle_person', both must continue with matchmaker
+   */
+  async setContinuationChoice(
+    requestId: string,
+    choice: 'by_themselves' | 'with_middle_person',
+    middlePersonId?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) {
+        return { success: false, error: 'Profile not found' };
+      }
+
+      const { data: request } = await supabase
+        .from('intro_requests')
+        .select('*')
+        .eq('id', requestId)
+        .single();
+
+      if (!request) {
+        return { success: false, error: 'Request not found' };
+      }
+
+      const isRequester = request.requester_id === profile.id;
+      const isRequested = request.requested_profile_id === profile.id;
+
+      if (!isRequester && !isRequested) {
+        return { success: false, error: 'You are not part of this request' };
+      }
+
+      const updateData: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (isRequester) {
+        updateData.requester_continuation_choice = choice;
+        
+        // If requester chooses with_middle_person, set it for both
+        if (choice === 'with_middle_person') {
+          updateData.requested_continuation_choice = 'with_middle_person';
+          if (middlePersonId) {
+            updateData.requested_middle_person_id = middlePersonId;
+          }
+        }
+      } else {
+        updateData.requested_continuation_choice = choice;
+        if (middlePersonId) {
+          updateData.requested_middle_person_id = middlePersonId;
+        }
+        
+        // If requested chooses with_middle_person, set it for both
+        if (choice === 'with_middle_person') {
+          updateData.requester_continuation_choice = 'with_middle_person';
+        }
+      }
+
+      // Check if both have made their continuation choices
+      const requesterChoice = isRequester ? choice : request.requester_continuation_choice;
+      const requestedChoice = isRequested ? choice : request.requested_continuation_choice;
+
+      if (requesterChoice && requestedChoice) {
+        updateData.status = 'completed';
+      }
+
+      const { error } = await supabase
+        .from('intro_requests')
+        .update(updateData)
+        .eq('id', requestId);
+
+      if (error) {
+        console.error('Error setting continuation choice:', error);
+        return { success: false, error: error.message };
       }
 
       return { success: true };
@@ -349,7 +463,7 @@ class IntroService {
   }
 
   /**
-   * Get intro requests for current user
+   * Get all intro requests for the current user (sent and received)
    */
   async getMyIntroRequests(): Promise<{
     success: boolean;
@@ -373,14 +487,13 @@ class IntroService {
         return { success: false, error: 'Profile not found' };
       }
 
-      // Parallelize sent and received requests queries
-      const [sentRequestsQuery, receivedRequestsQuery] = await Promise.all([
+      const [sentQuery, receivedQuery] = await Promise.all([
         supabase
           .from('intro_requests')
           .select(`
             *,
-            requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, resume_url),
-            requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
+            requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+            requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
             requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
             requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
           `)
@@ -390,27 +503,26 @@ class IntroService {
           .from('intro_requests')
           .select(`
             *,
-            requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
-            requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, resume_url),
+            requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+            requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
             requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
             requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
           `)
           .eq('requested_profile_id', profile.id)
+          // Only show to requested person after matchmaker has accepted
+          .in('status', ['pending_requested', 'accepted', 'rejected', 'completed'])
           .order('created_at', { ascending: false }),
       ]);
 
-      const { data: sentRequests, error: sentError } = sentRequestsQuery;
-      const { data: receivedRequests, error: receivedError } = receivedRequestsQuery;
-
-      if (sentError || receivedError) {
-        console.error('Error fetching intro requests:', sentError || receivedError);
-        return { success: false, error: (sentError || receivedError)?.message };
+      if (sentQuery.error || receivedQuery.error) {
+        console.error('Error fetching intro requests:', sentQuery.error || receivedQuery.error);
+        return { success: false, error: (sentQuery.error || receivedQuery.error)?.message };
       }
 
       return {
         success: true,
-        sentRequests: sentRequests || [],
-        receivedRequests: receivedRequests || [],
+        sentRequests: sentQuery.data || [],
+        receivedRequests: receivedQuery.data || [],
       };
     } catch (error: any) {
       console.error('Error in getMyIntroRequests:', error);
@@ -419,12 +531,12 @@ class IntroService {
   }
 
   /**
-   * Get intro requests where current user is the Matchmaker/Shadchan
+   * Get requests where current user is the matchmaker
    */
-  async getMiddlePersonRequests(): Promise<{
+  async getMatchmakerRequests(): Promise<{
     success: boolean;
     error?: string;
-    middlePersonRequests?: IntroRequest[];
+    matchmakerRequests?: IntroRequest[];
   }> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -442,233 +554,47 @@ class IntroService {
         return { success: false, error: 'Profile not found' };
       }
 
-      // Get requests where I'm the Matchmaker/Shadchan (either requester's or requested's Matchmaker/Shadchan)
-      const { data: requests, error } = await supabase
+      const { data, error } = await supabase
         .from('intro_requests')
         .select(`
           *,
-          requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
-          requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
+          requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
+          requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
           requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
           requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
         `)
-        .or(`requester_middle_person_id.eq.${profile.id},requested_middle_person_id.eq.${profile.id}`)
+        .eq('requester_middle_person_id', profile.id)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching Matchmaker/Shadchan requests:', error);
+        console.error('Error fetching matchmaker requests:', error);
         return { success: false, error: error.message };
       }
 
       return {
         success: true,
-        middlePersonRequests: requests || [],
+        matchmakerRequests: data || [],
       };
     } catch (error: any) {
-      console.error('Error in getMiddlePersonRequests:', error);
+      console.error('Error in getMatchmakerRequests:', error);
       return { success: false, error: error.message };
     }
   }
 
   /**
-   * Get contact information for Matchmaker/Shadchan based on continuation choices
+   * Legacy method - kept for backward compatibility but now just calls getMatchmakerRequests
    */
-  getMiddlePersonContactInfo(request: IntroRequest, middlePersonId: string): {
-    shouldShowContact: boolean;
-    contactPerson?: {
-      name: string;
-      phone?: string;
-      email?: string;
-      whatsapp?: string;
-    };
-    message: string;
-  } {
-    // Both must have made their choices
-    if (!request.requester_continuation_choice || !request.requested_continuation_choice) {
-      return {
-        shouldShowContact: false,
-        message: 'Waiting for both parties to choose how to continue...',
-      };
-    }
-
-    const isRequesterMiddlePerson = request.requester_middle_person_id === middlePersonId;
-    const isRequestedMiddlePerson = request.requested_middle_person_id === middlePersonId;
-    
-    const requesterByThemselves = request.requester_continuation_choice === 'by_themselves';
-    const requestedByThemselves = request.requested_continuation_choice === 'by_themselves';
-
-    // Both chose by_themselves - Matchmaker/Shadchan doesn't need to do anything
-    if (requesterByThemselves && requestedByThemselves) {
-      return {
-        shouldShowContact: false,
-        message: 'Both parties chose to continue directly with each other.',
-      };
-    }
-
-    // If I'm the requester's Matchmaker/Shadchan and requester chose me but requested chose by_themselves
-    // I need the requested person's contact info
-    if (isRequesterMiddlePerson && !requesterByThemselves && requestedByThemselves) {
-      const contactProfile = request.requested_profile;
-      return {
-        shouldShowContact: true,
-        contactPerson: {
-          name: `${contactProfile.first_name} ${contactProfile.last_name}`,
-          phone: contactProfile.phone,
-          email: contactProfile.email,
-          whatsapp: contactProfile.whatsapp,
-        },
-        message: `${contactProfile.first_name} chose to continue directly. Contact info:`,
-      };
-    }
-
-    // If I'm the requested person's Matchmaker/Shadchan and requested chose me but requester chose by_themselves
-    // I need the requester's contact info
-    if (isRequestedMiddlePerson && requesterByThemselves && !requestedByThemselves) {
-      const contactProfile = request.requester_profile;
-      return {
-        shouldShowContact: true,
-        contactPerson: {
-          name: `${contactProfile.first_name} ${contactProfile.last_name}`,
-          phone: contactProfile.phone,
-          email: contactProfile.email,
-          whatsapp: contactProfile.whatsapp,
-        },
-        message: `${contactProfile.first_name} chose to continue directly. Contact info:`,
-      };
-    }
-
-    // Both chose  Matchmaker/Shadchan
-    if (!requesterByThemselves && !requestedByThemselves) {
-      // I need to contact the other side's Matchmaker/Shadchan
-      if (isRequesterMiddlePerson) {
-        const otherMiddlePerson = request.requested_middle_person;
-        return {
-          shouldShowContact: true,
-          contactPerson: {
-            name: `${otherMiddlePerson.first_name} ${otherMiddlePerson.last_name}`,
-            phone: otherMiddlePerson.phone,
-            email: otherMiddlePerson.email,
-            whatsapp: otherMiddlePerson.whatsapp,
-          },
-          message: `Contact the other Matchmaker/Shadchan ${otherMiddlePerson.first_name}:`,
-        };
-      } else if (isRequestedMiddlePerson) {
-        const otherMiddlePerson = request.requester_middle_person;
-        return {
-          shouldShowContact: true,
-          contactPerson: {
-            name: `${otherMiddlePerson.first_name} ${otherMiddlePerson.last_name}`,
-            phone: otherMiddlePerson.phone,
-            email: otherMiddlePerson.email,
-            whatsapp: otherMiddlePerson.whatsapp,
-          },
-          message: `Contact the other Matchmaker/Shadchan ${otherMiddlePerson.first_name}:`,
-        };
-      }
-    }
-
-    // Default case
+  async getMiddlePersonRequests(): Promise<{
+    success: boolean;
+    error?: string;
+    middlePersonRequests?: IntroRequest[];
+  }> {
+    const result = await this.getMatchmakerRequests();
     return {
-      shouldShowContact: false,
-      message: 'Waiting for continuation choices...',
-    };
-  }
-
-  /**
-   * Get contact information based on continuation choices
-   */
-  getContactInfo(request: IntroRequest, isRequester: boolean): {
-    shouldShowContact: boolean;
-    contactPerson?: {
-      name: string;
-      phone?: string;
-      email?: string;
-      whatsapp?: string;
-      resumeUrl?: string;
-    };
-    message: string;
-  } {
-    // Both must have made their choices
-    if (!request.requester_continuation_choice || !request.requested_continuation_choice) {
-      return {
-        shouldShowContact: false,
-        message: 'Waiting for both parties to choose how to continue...',
-      };
-    }
-
-    const requesterByThemselves = request.requester_continuation_choice === 'by_themselves';
-    const requestedByThemselves = request.requested_continuation_choice === 'by_themselves';
-
-    // Both chose by_themselves - share direct contact
-    if (requesterByThemselves && requestedByThemselves) {
-      const contactProfile = isRequester ? request.requested_profile : request.requester_profile;
-      return {
-        shouldShowContact: true,
-        contactPerson: {
-          name: `${contactProfile.first_name} ${contactProfile.last_name}`,
-          phone: contactProfile.phone,
-          email: contactProfile.email,
-          whatsapp: contactProfile.whatsapp,
-          resumeUrl: contactProfile.resume_url || undefined,
-        },
-        message: 'Both chose to continue directly. Contact info below:',
-      };
-    }
-
-    // One chose Matchmaker/Shadchan, one chose by_themselves
-    if (requesterByThemselves && !requestedByThemselves) {
-      // Both parties get requested's Matchmaker/Shadchan contact
-      // (The Matchmaker/Shadchan will separately receive the contact of the person who chose by_themselves)
-      const middlePerson = request.requested_middle_person;
-      return {
-        shouldShowContact: true,
-        contactPerson: {
-          name: `${middlePerson.first_name} ${middlePerson.last_name}`,
-          phone: middlePerson.phone,
-          email: middlePerson.email,
-          whatsapp: middlePerson.whatsapp,
-        },
-        message: isRequester 
-          ? `Contact ${middlePerson.first_name} (their Matchmaker/Shadchan):`
-          : `Contact ${middlePerson.first_name} (your Matchmaker/Shadchan):`,
-      };
-    }
-
-    if (!requesterByThemselves && requestedByThemselves) {
-      // Both parties get requester's Matchmaker/Shadchan contact
-      // (The Matchmaker/Shadchan will separately receive the contact of the person who chose by_themselves)
-      const middlePerson = request.requester_middle_person;
-      return {
-        shouldShowContact: true,
-        contactPerson: {
-          name: `${middlePerson.first_name} ${middlePerson.last_name}`,
-          phone: middlePerson.phone,
-          email: middlePerson.email,
-          whatsapp: middlePerson.whatsapp,
-        },
-        message: isRequester 
-          ? `Contact ${middlePerson.first_name} (your Matchmaker/Shadchan):`
-          : `Contact ${middlePerson.first_name} (their Matchmaker/Shadchan):`,
-      };
-    }
-
-    // Both chose Matchmaker/Shadchan
-    const middlePerson = isRequester 
-      ? request.requester_middle_person 
-      : request.requested_middle_person;
-    
-    return {
-      shouldShowContact: true,
-      contactPerson: {
-        name: `${middlePerson.first_name} ${middlePerson.last_name}`,
-        phone: middlePerson.phone,
-        email: middlePerson.email,
-        whatsapp: middlePerson.whatsapp,
-      },
-      message: `Contact your Matchmaker/Shadchan ${middlePerson.first_name}:`,
+      ...result,
+      middlePersonRequests: result.matchmakerRequests,
     };
   }
 }
 
 export const introService = new IntroService();
-

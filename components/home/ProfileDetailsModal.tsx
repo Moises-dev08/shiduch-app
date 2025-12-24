@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { calculateAge } from '../../lib/utils';
@@ -25,7 +25,9 @@ export default function ProfileDetailsModal({
   onAskForInfoPress,
   isSubmittingInfoRequest,
 }: ProfileDetailsModalProps) {
-  const [imageError, setImageError] = React.useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   // Reset image error when profile changes
   React.useEffect(() => {
@@ -36,12 +38,50 @@ export default function ProfileDetailsModal({
   React.useEffect(() => {
     if (!visible) {
       setImageError(false);
+      setShowReportModal(false);
     }
   }, [visible]);
 
   if (!profile) return null;
 
   const age = calculateAge(profile.dob);
+
+  const handleShareProfile = async () => {
+    try {
+      setIsSharing(true);
+      
+      // Create deep link URL for the profile
+      const deepLinkUrl = Linking.createURL(`profile/${profile.id}`);
+      
+      // For iOS, we'll use the custom scheme
+      // The app.json has scheme: "shiduchimapp"
+      const shareUrl = `shiduchimapp://profile/${profile.id}`;
+      
+      // Create a fallback URL that redirects to App Store if app is not installed
+      const appStoreUrl = 'https://apps.apple.com/app/id6738294076'; // Replace with actual App Store ID
+      const fallbackUrl = `https://shiduchimapp.com/profile/${profile.id}?fallback=${encodeURIComponent(appStoreUrl)}`;
+      
+      const message = `Check out ${profile.name}'s profile on Zivug Mishamayim!\n\n${shareUrl}\n\nIf you don't have the app: ${fallbackUrl}`;
+      
+      const result = await Share.share({
+        message,
+        title: `${profile.name}'s Profile`,
+      });
+
+      if (result.action === Share.sharedAction) {
+        console.log('Profile shared successfully');
+      }
+    } catch (error) {
+      console.error('Error sharing profile:', error);
+      Alert.alert('Error', 'Failed to share profile. Please try again.');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleReportProfile = () => {
+    setShowReportModal(true);
+  };
 
   return (
     <Modal 

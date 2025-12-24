@@ -31,6 +31,70 @@ export interface Suggestion {
 
 class SuggestionService {
   /**
+   * Check if two profiles were suggested before
+   */
+  async checkPreviousSuggestion(
+    profileOneId: string,
+    profileTwoId: string
+  ): Promise<{ 
+    success: boolean; 
+    error?: string; 
+    hasPrevious: boolean;
+    previousSuggestion?: {
+      id: string;
+      profileOneStatus: 'pending' | 'accepted' | 'rejected';
+      profileTwoStatus: 'pending' | 'accepted' | 'rejected';
+      profileOneName: string;
+      profileTwoName: string;
+      createdAt: string;
+    };
+  }> {
+    try {
+      // Check for any previous suggestion (in either direction)
+      const { data, error } = await supabase
+        .from('suggestions')
+        .select(`
+          id,
+          profile_one_status,
+          profile_two_status,
+          created_at,
+          profile_one:profiles!suggestions_profile_one_id_fkey(first_name, last_name),
+          profile_two:profiles!suggestions_profile_two_id_fkey(first_name, last_name)
+        `)
+        .or(`and(profile_one_id.eq.${profileOneId},profile_two_id.eq.${profileTwoId}),and(profile_one_id.eq.${profileTwoId},profile_two_id.eq.${profileOneId})`)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error checking previous suggestion:', error);
+        return { success: false, error: error.message, hasPrevious: false };
+      }
+
+      if (!data || data.length === 0) {
+        return { success: true, hasPrevious: false };
+      }
+
+      const prev = data[0] as any;
+      
+      return {
+        success: true,
+        hasPrevious: true,
+        previousSuggestion: {
+          id: prev.id,
+          profileOneStatus: prev.profile_one_status,
+          profileTwoStatus: prev.profile_two_status,
+          profileOneName: `${prev.profile_one.first_name} ${prev.profile_one.last_name}`,
+          profileTwoName: `${prev.profile_two.first_name} ${prev.profile_two.last_name}`,
+          createdAt: prev.created_at,
+        },
+      };
+    } catch (error: any) {
+      console.error('Error in checkPreviousSuggestion:', error);
+      return { success: false, error: error.message, hasPrevious: false };
+    }
+  }
+
+  /**
    * Create a new match suggestion
    */
   async createSuggestion(
@@ -59,18 +123,6 @@ class SuggestionService {
       // Validate that the suggester is not one of the profiles being suggested
       if (profile.id === profileOneId || profile.id === profileTwoId) {
         return { success: false, error: 'You cannot suggest yourself' };
-      }
-
-      // Check if there's already an active suggestion for these profiles
-      const { data: existing } = await supabase
-        .from('suggestions')
-        .select('*')
-        .or(`and(profile_one_id.eq.${profileOneId},profile_two_id.eq.${profileTwoId}),and(profile_one_id.eq.${profileTwoId},profile_two_id.eq.${profileOneId})`)
-        .in('status', ['pending', 'accepted'])
-        .single();
-
-      if (existing) {
-        return { success: false, error: 'A suggestion already exists for these profiles' };
       }
 
       // Create the suggestion

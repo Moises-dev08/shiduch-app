@@ -33,6 +33,13 @@ export function useHomeProfiles() {
     minHeightInches: null,
     maxHeightFeet: null,
     maxHeightInches: null,
+    sortBy: null,
+    hasAskMeFields: false,
+    hasPhoto: null,
+    selectedTorahLearning: [],
+    selectedPraying: [],
+    selectedHeadCovering: [],
+    wearsBlackHat: null,
   });
 
   // Transform database profile to display profile
@@ -348,6 +355,86 @@ export function useHomeProfiles() {
           : 999;
 
         return profileTotalInches >= actualMin && profileTotalInches <= actualMax;
+      });
+    }
+
+    // Apply "Ask Me" filter - show profiles with at least one private field
+    if (filterState.hasAskMeFields) {
+      filtered = filtered.filter(p => {
+        if (!p.field_privacy) return false;
+        // Check if any field is marked as private (value is true)
+        return Object.values(p.field_privacy).some(isPrivate => isPrivate === true);
+      });
+    }
+
+    // Apply photo filter
+    if (filterState.hasPhoto !== null) {
+      filtered = filtered.filter(p => {
+        // Check if profile has a picture (not empty string and not "none" privacy)
+        const hasPhoto = p.picture && p.picture.length > 0 && p.picturePrivacy !== 'none';
+        if (filterState.hasPhoto === true) {
+          return hasPhoto;
+        } else {
+          return !hasPhoto || p.picturePrivacy === 'none';
+        }
+      });
+    }
+
+    // Apply gender-specific filters
+    // Torah Learning (for males - shown to female users)
+    if (filterState.selectedTorahLearning.length > 0) {
+      filtered = filtered.filter(p => {
+        // This filter should only apply to male profiles
+        // Access torah_learning from the original allProfiles data
+        const originalProfile = allProfiles.find(op => op.id === p.id);
+        return originalProfile && (originalProfile as any).torah_learning && 
+               filterState.selectedTorahLearning.includes((originalProfile as any).torah_learning);
+      });
+    }
+
+    // Praying (for males - shown to female users)
+    if (filterState.selectedPraying.length > 0) {
+      filtered = filtered.filter(p => {
+        const originalProfile = allProfiles.find(op => op.id === p.id);
+        return originalProfile && (originalProfile as any).praying && 
+               filterState.selectedPraying.includes((originalProfile as any).praying);
+      });
+    }
+
+    // Wears Black Hat (for males - shown to female users)
+    if (filterState.wearsBlackHat !== null) {
+      filtered = filtered.filter(p => {
+        const originalProfile = allProfiles.find(op => op.id === p.id);
+        return originalProfile && (originalProfile as any).wears_black_hat === filterState.wearsBlackHat;
+      });
+    }
+
+    // Head Covering (for females - shown to male users)
+    if (filterState.selectedHeadCovering.length > 0) {
+      filtered = filtered.filter(p => {
+        const originalProfile = allProfiles.find(op => op.id === p.id);
+        return originalProfile && (originalProfile as any).head_covering && 
+               filterState.selectedHeadCovering.includes((originalProfile as any).head_covering);
+      });
+    }
+
+    // Apply sorting
+    if (filterState.sortBy === 'newest') {
+      // Sort by creation date (newest first)
+      filtered.sort((a, b) => {
+        const aProfile = allProfiles.find(p => p.id === a.id);
+        const bProfile = allProfiles.find(p => p.id === b.id);
+        const aDate = (aProfile as any)?.created_at ? new Date((aProfile as any).created_at).getTime() : 0;
+        const bDate = (bProfile as any)?.created_at ? new Date((bProfile as any).created_at).getTime() : 0;
+        return bDate - aDate; // Newest first
+      });
+    } else if (filterState.sortBy === 'youngest') {
+      // Sort by age (youngest first)
+      filtered.sort((a, b) => {
+        if (!a.dob || !b.dob) return 0;
+        const ageA = calculateAge(a.dob);
+        const ageB = calculateAge(b.dob);
+        return ageA - ageB; // Youngest first
       });
     }
 

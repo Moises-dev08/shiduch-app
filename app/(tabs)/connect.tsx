@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ApprovedInfoRequestCard from '../../components/connect/ApprovedInfoRequestCard';
 import InfoRequestCard from '../../components/connect/InfoRequestCard';
 import IntroRequestCard from '../../components/intro/IntroRequestCard';
-import MiddlePersonRequestCard from '../../components/intro/MiddlePersonRequestCard';
+import MatchmakerRequestCard from '../../components/intro/MatchmakerRequestCard';
 import MadeSuggestionCard from '../../components/suggestion/MadeSuggestionCard';
 import SuggestionCard from '../../components/suggestion/SuggestionCard';
 import { useRealtimeInfoRequests } from '../../hooks/useRealtimeInfoRequests';
@@ -24,7 +24,7 @@ import { InfoRequest, infoRequestService } from '../../lib/infoRequestService';
 import { IntroRequest, introService } from '../../lib/introService';
 import { Profile, profileService } from '../../lib/profileService';
 import { Suggestion, suggestionService } from '../../lib/suggestionService';
-import { calculateAge } from '../../lib/utils';
+import { viewedNotificationService } from '../../lib/viewedNotificationService';
 
 export default function ConnectScreen() {
   const params = useLocalSearchParams();
@@ -36,13 +36,8 @@ export default function ConnectScreen() {
   const [activeSection, setActiveSection] = useState<'action_needed' | 'matches' | 'passed' | 'liked'>(
     (params.section as 'action_needed' | 'matches' | 'passed' | 'liked') || 'action_needed'
   );
-  const [activeForOthersSection, setActiveForOthersSection] = useState<'awaiting' | 'matched' | 'not_matched' | 'my_singles'>('awaiting');
+  const [activeForOthersSection, setActiveForOthersSection] = useState<'awaiting' | 'matched' | 'not_matched'>('awaiting');
   const isSilentUpdateRef = React.useRef(false);
-
-  // My Singles data
-  const [mySingles, setMySingles] = useState<Profile[]>([]);
-  const [loadingSingles, setLoadingSingles] = useState(false);
-  const [newSinglesCount, setNewSinglesCount] = useState(0);
 
   // State for tracking last viewed matches timestamp for matchmakers
   const [lastViewedMatchesForOthersAt, setLastViewedMatchesForOthersAt] = useState<Date | null>(null);
@@ -50,7 +45,7 @@ export default function ConnectScreen() {
   // Real intro requests data
   const [sentIntroRequests, setSentIntroRequests] = useState<IntroRequest[]>([]);
   const [receivedIntroRequests, setReceivedIntroRequests] = useState<IntroRequest[]>([]);
-  const [middlePersonRequests, setMiddlePersonRequests] = useState<IntroRequest[]>([]);
+  const [matchmakerRequests, setMatchmakerRequests] = useState<IntroRequest[]>([]);
 
   // Suggestions data
   const [receivedSuggestions, setReceivedSuggestions] = useState<Suggestion[]>([]);
@@ -66,10 +61,10 @@ export default function ConnectScreen() {
         isSilentUpdateRef.current = true;
       }
 
-      // Parallelize intro requests and middle person requests
-      const [result, middleResult] = await Promise.all([
+      // Parallelize intro requests and matchmaker requests
+      const [result, matchmakerResult] = await Promise.all([
         introService.getMyIntroRequests(),
-        introService.getMiddlePersonRequests(),
+        introService.getMatchmakerRequests(),
       ]);
 
       if (result.success) {
@@ -77,11 +72,11 @@ export default function ConnectScreen() {
         setReceivedIntroRequests(result.receivedRequests || []);
       }
 
-      if (middleResult.success) {
-        setMiddlePersonRequests(middleResult.middlePersonRequests || []);
-        console.log('Loaded middle person requests:', middleResult.middlePersonRequests?.length || 0);
+      if (matchmakerResult.success) {
+        setMatchmakerRequests(matchmakerResult.matchmakerRequests || []);
+        console.log('Loaded matchmaker requests:', matchmakerResult.matchmakerRequests?.length || 0);
       } else {
-        console.error('Error loading middle person requests:', middleResult.error);
+        console.error('Error loading matchmaker requests:', matchmakerResult.error);
       }
     } catch (error) {
       console.error('Error loading intro requests:', error);
@@ -140,49 +135,6 @@ export default function ConnectScreen() {
     }
   }, []);
 
-  const loadMySingles = useCallback(async (silent: boolean = false) => {
-    try {
-      if (!silent) {
-        setLoadingSingles(true);
-      }
-
-      // Parallelize singles loading and count fetching
-      const [result, countResult] = await Promise.all([
-        profileService.getMySingles(),
-        profileService.getNewSinglesCount(),
-      ]);
-
-      if (result.success && result.singles) {
-        setMySingles(result.singles);
-      }
-
-      if (countResult.success && countResult.count !== undefined) {
-        setNewSinglesCount(countResult.count);
-      }
-    } catch (error) {
-      console.error('Error loading singles:', error);
-    } finally {
-      if (!silent) {
-        setLoadingSingles(false);
-      }
-    }
-  }, []);
-
-  // Mark singles as viewed when user views the "My Singles" section
-  useEffect(() => {
-    if (activeCategory === 'for_others' && activeForOthersSection === 'my_singles' && !loadingSingles) {
-      // Mark as viewed when section is displayed (even if empty, to reset the timestamp)
-      profileService.markSinglesAsViewed().then(() => {
-        // Refresh the count after marking as viewed
-        profileService.getNewSinglesCount().then(countResult => {
-          if (countResult.success && countResult.count !== undefined) {
-            setNewSinglesCount(countResult.count);
-          }
-        });
-      });
-    }
-  }, [activeCategory, activeForOthersSection, loadingSingles]);
-
   // Mark intro requests and suggestions as viewed when user views the "Action Needed" section
   useEffect(() => {
     if (activeCategory === 'for_you' && activeSection === 'action_needed' && !loading) {
@@ -220,7 +172,7 @@ export default function ConnectScreen() {
 
   // Mark matches as viewed when matchmaker views the "Matched" section (For Others)
   useEffect(() => {
-    if (activeCategory === 'for_others' && activeForOthersSection === 'matched' && !loading && middlePersonRequests.length > 0) {
+    if (activeCategory === 'for_others' && activeForOthersSection === 'matched' && !loading && matchmakerRequests.length > 0) {
       // Mark as viewed when section is displayed (for anyone who is a matchmaker)
       profileService.markMatchesAsViewed().then(() => {
         // Update local state and reload data
@@ -229,7 +181,7 @@ export default function ConnectScreen() {
         loadSuggestions(true);
       });
     }
-  }, [activeCategory, activeForOthersSection, loading, middlePersonRequests.length, loadIntroRequests, loadSuggestions]);
+  }, [activeCategory, activeForOthersSection, loading, matchmakerRequests.length, loadIntroRequests, loadSuggestions]);
 
   // Mark notifications as viewed when viewing "For You" category
   useEffect(() => {
@@ -257,7 +209,7 @@ export default function ConnectScreen() {
   useEffect(() => {
     if (activeCategory === 'for_others' && !loading) {
       // Mark matches as viewed (for matches notifications)
-      if (middlePersonRequests.length > 0) {
+      if (matchmakerRequests.length > 0) {
         profileService.markMatchesAsViewed().then(() => {
           setLastViewedMatchesForOthersAt(new Date());
           loadIntroRequests(true);
@@ -269,14 +221,8 @@ export default function ConnectScreen() {
       profileService.markSuggestionsAsViewed().then(() => {
         loadSuggestions(true);
       });
-      
-      // Mark singles as viewed (for new singles notifications)
-      profileService.markSinglesAsViewed().then(() => {
-        setNewSinglesCount(0);
-        loadMySingles(true);
-      });
     }
-  }, [activeCategory, loading, middlePersonRequests.length, loadIntroRequests, loadSuggestions, loadMySingles]);
+  }, [activeCategory, loading, matchmakerRequests.length, loadIntroRequests, loadSuggestions]);
 
   const loadData = useCallback(async (silent: boolean = false) => {
     if (!silent) {
@@ -290,7 +236,6 @@ export default function ConnectScreen() {
         loadIntroRequests(silent),
         loadSuggestions(silent),
         loadInfoRequests(silent),
-        loadMySingles(silent),
       ]);
 
       if (profileResult.success && profileResult.profile) {
@@ -319,7 +264,7 @@ export default function ConnectScreen() {
         setLoading(false);
       }
     }
-  }, [loadIntroRequests, loadSuggestions, loadInfoRequests, loadMySingles]);
+  }, [loadIntroRequests, loadSuggestions, loadInfoRequests]);
 
   // Silent refresh callbacks for realtime updates
   const silentRefreshIntroRequests = useCallback(() => loadIntroRequests(true), [loadIntroRequests]);
@@ -335,6 +280,41 @@ export default function ConnectScreen() {
     loadData(false); // Initial load with loading state
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Mark all notifications as viewed when Connect tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      const markNotificationsAsViewed = async () => {
+        // Collect all notification IDs to mark as viewed
+        const notifications: { type: 'intro_request' | 'suggestion' | 'info_request'; id: string }[] = [];
+        
+        // Add intro request IDs
+        sentIntroRequests.forEach(r => notifications.push({ type: 'intro_request', id: r.id }));
+        receivedIntroRequests.forEach(r => notifications.push({ type: 'intro_request', id: r.id }));
+        matchmakerRequests.forEach(r => notifications.push({ type: 'intro_request', id: r.id }));
+        
+        // Add suggestion IDs
+        receivedSuggestions.forEach(s => notifications.push({ type: 'suggestion', id: s.id }));
+        madeSuggestions.forEach(s => notifications.push({ type: 'suggestion', id: s.id }));
+        
+        // Add info request IDs
+        receivedInfoRequests.forEach(r => notifications.push({ type: 'info_request', id: r.id }));
+        sentInfoRequests.forEach(r => notifications.push({ type: 'info_request', id: r.id }));
+        
+        // Mark all as viewed
+        if (notifications.length > 0) {
+          await viewedNotificationService.markMultipleAsViewed(notifications);
+        }
+        
+        // Also mark using old method for backward compatibility
+        profileService.markIntroRequestsAsViewed();
+        profileService.markSuggestionsAsViewed();
+        profileService.markMatchesAsViewed();
+      };
+      
+      markNotificationsAsViewed();
+    }, [sentIntroRequests, receivedIntroRequests, matchmakerRequests, receivedSuggestions, madeSuggestions, receivedInfoRequests, sentInfoRequests])
+  );
 
   // Update activeSection when params change
   useEffect(() => {
@@ -358,8 +338,12 @@ export default function ConnectScreen() {
     if (!lastViewedMatchesAt) {
       // If never viewed, count all current matches as new
       let count = 0;
-      count += sentIntroRequests.filter(r => r.status === 'accepted' || r.status === 'completed').length;
-      count += receivedIntroRequests.filter(r => r.status === 'accepted' || r.status === 'completed').length;
+      count += sentIntroRequests.filter(r => 
+        r.matchmaker_status === 'accepted' && r.requested_status === 'accepted'
+      ).length;
+      count += receivedIntroRequests.filter(r => 
+        r.matchmaker_status === 'accepted' && r.requested_status === 'accepted'
+      ).length;
       if (currentUserProfile) {
         count += receivedSuggestions.filter(s => s.status === 'accepted' || s.status === 'completed').length;
       }
@@ -369,7 +353,7 @@ export default function ConnectScreen() {
     let count = 0;
     // Count sent intro requests that became matches after last viewed
     count += sentIntroRequests.filter(r => {
-      const isMatch = r.status === 'accepted' || r.status === 'completed';
+      const isMatch = r.matchmaker_status === 'accepted' && r.requested_status === 'accepted';
       if (!isMatch) return false;
       const requestUpdatedAt = new Date(r.updated_at);
       return requestUpdatedAt > lastViewedMatchesAt;
@@ -377,7 +361,7 @@ export default function ConnectScreen() {
 
     // Count received intro requests that became matches after last viewed
     count += receivedIntroRequests.filter(r => {
-      const isMatch = r.status === 'accepted' || r.status === 'completed';
+      const isMatch = r.matchmaker_status === 'accepted' && r.requested_status === 'accepted';
       if (!isMatch) return false;
       const requestUpdatedAt = new Date(r.updated_at);
       return requestUpdatedAt > lastViewedMatchesAt;
@@ -420,16 +404,17 @@ export default function ConnectScreen() {
     
     if (lastViewedIntroRequests) {
       count += receivedIntroRequests.filter(r => {
-        const needsResponse = r.status === 'pending' || 
-          (r.status === 'accepted' && (!r.requested_continuation_choice || !r.requester_continuation_choice));
+        const needsResponse = r.requested_status === 'pending' || 
+          (r.requested_status === 'accepted' && !r.requested_continuation_choice);
         if (!needsResponse) return false;
         const requestCreatedAt = new Date(r.created_at);
         return requestCreatedAt > lastViewedIntroRequests;
       }).length;
       
       count += sentIntroRequests.filter(r => {
-        const needsChoice = r.status === 'accepted' && 
-          (!r.requester_continuation_choice || !r.requested_continuation_choice);
+        const needsChoice = r.matchmaker_status === 'accepted' && 
+          r.requested_status === 'accepted' && 
+          !r.requester_continuation_choice;
         if (!needsChoice) return false;
         const requestCreatedAt = new Date(r.created_at);
         return requestCreatedAt > lastViewedIntroRequests;
@@ -437,25 +422,30 @@ export default function ConnectScreen() {
     } else {
       // If never viewed, count all
       count += receivedIntroRequests.filter(r => 
-        r.status === 'pending' || 
-        (r.status === 'accepted' && (!r.requested_continuation_choice || !r.requester_continuation_choice))
+        r.requested_status === 'pending' || 
+        (r.requested_status === 'accepted' && !r.requested_continuation_choice)
       ).length;
       
       count += sentIntroRequests.filter(r => 
-        r.status === 'accepted' && 
-        (!r.requester_continuation_choice || !r.requested_continuation_choice)
+        r.matchmaker_status === 'accepted' && 
+        r.requested_status === 'accepted' && 
+        !r.requester_continuation_choice
       ).length;
     }
     
     // Count received suggestions needing response
     if (currentUserProfile) {
-      count += receivedSuggestions.filter(s => 
-        s.status === 'pending' || 
-        (s.status === 'accepted' && (
-          (s.profile_one_id === currentUserProfile.id && !s.profile_one_continuation_choice) ||
-          (s.profile_two_id === currentUserProfile.id && !s.profile_two_continuation_choice)
-        ))
-      ).length;
+      count += receivedSuggestions.filter(s => {
+        const isProfileOne = s.profile_one_id === currentUserProfile.id;
+        const isProfileTwo = s.profile_two_id === currentUserProfile.id;
+        const myStatus = isProfileOne ? s.profile_one_status : s.profile_two_status;
+        const myContinuationChoice = isProfileOne ? s.profile_one_continuation_choice : s.profile_two_continuation_choice;
+        
+        // Count if I haven't responded yet (pending status)
+        // OR if I accepted but haven't chosen continuation method yet
+        return myStatus === 'pending' || 
+          (myStatus === 'accepted' && !myContinuationChoice);
+      }).length;
     }
     
     // Add new matches count
@@ -467,36 +457,34 @@ export default function ConnectScreen() {
   // Calculate new matches count for "For Others" section (for anyone who is a matchmaker)
   const newMatchesForOthersCount = useMemo(() => {
     // Only show if user has middle person requests (is a matchmaker)
-    if (middlePersonRequests.length === 0) {
+    if (matchmakerRequests.length === 0) {
       return 0;
     }
 
     if (!lastViewedMatchesForOthersAt) {
       // If never viewed, count all current matches as new
-      return middlePersonRequests.filter(r => 
-        r.status === 'completed' || 
-        (r.status === 'accepted' && r.requester_continuation_choice && r.requested_continuation_choice)
+      return matchmakerRequests.filter(r => 
+        r.matchmaker_status === 'accepted' && r.requested_status === 'accepted'
       ).length;
     }
 
     // Count matches that became completed/accepted after last viewed
-    return middlePersonRequests.filter(r => {
-      const isMatch = r.status === 'completed' || 
-        (r.status === 'accepted' && r.requester_continuation_choice && r.requested_continuation_choice);
+    return matchmakerRequests.filter(r => {
+      const isMatch = r.matchmaker_status === 'accepted' && r.requested_status === 'accepted';
       if (!isMatch) return false;
       
       const requestUpdatedAt = new Date(r.updated_at);
       return requestUpdatedAt > lastViewedMatchesForOthersAt;
     }).length;
-  }, [middlePersonRequests, lastViewedMatchesForOthersAt]);
+  }, [matchmakerRequests, lastViewedMatchesForOthersAt]);
 
   const forOthersBadgeCount = useMemo(() => {
     let count = 0;
     
-    // Count Matchmaker/Shadchan requests needing action (for anyone who is a matchmaker, regardless of role)
-    count += middlePersonRequests.filter(r => 
-      r.status === 'pending' || 
-      (r.status === 'accepted' && (!r.requester_continuation_choice || !r.requested_continuation_choice))
+    // Count Matchmaker requests needing action
+    count += matchmakerRequests.filter(r => 
+      r.matchmaker_status === 'pending' || 
+      (r.matchmaker_status === 'accepted' && r.requested_status === 'pending')
     ).length;
     
     // Count made suggestions awaiting response
@@ -505,14 +493,11 @@ export default function ConnectScreen() {
       (s.status === 'accepted' && (!s.profile_one_continuation_choice || !s.profile_two_continuation_choice))
     ).length;
     
-    // Add count of new singles who selected this user as matchmaker
-    count += newSinglesCount;
-    
     // Add new matches count for matchmakers
     count += newMatchesForOthersCount;
     
     return count;
-  }, [middlePersonRequests, madeSuggestions, newSinglesCount, newMatchesForOthersCount]);
+  }, [matchmakerRequests, madeSuggestions, newMatchesForOthersCount]);
 
   const renderEmptyState = (section: string) => {
     const emptyStates = {
@@ -621,16 +606,28 @@ export default function ConnectScreen() {
               Action Needed
             </Text>
             {(() => {
-              const actionCount = 
+              let actionCount = 
                 receivedIntroRequests.filter(r => 
-                  r.status === 'pending' || 
-                  (r.status === 'accepted' && (!r.requested_continuation_choice || !r.requester_continuation_choice))
+                  r.requested_status === 'pending' || 
+                  (r.requested_status === 'accepted' && !r.requested_continuation_choice)
                 ).length +
                 sentIntroRequests.filter(r => 
-                  r.status === 'accepted' && 
-                  (!r.requester_continuation_choice || !r.requested_continuation_choice)
+                  r.matchmaker_status === 'accepted' && 
+                  r.requested_status === 'accepted' && 
+                  !r.requester_continuation_choice
                 ).length +
                 receivedInfoRequests.filter(r => r.status === 'pending').length;
+              
+              // Add suggestions count using the same logic as the main filter
+              if (currentUserProfile) {
+                actionCount += receivedSuggestions.filter(s => {
+                  const isProfileOne = s.profile_one_id === currentUserProfile.id;
+                  const myStatus = isProfileOne ? s.profile_one_status : s.profile_two_status;
+                  const myContinuationChoice = isProfileOne ? s.profile_one_continuation_choice : s.profile_two_continuation_choice;
+                  return myStatus === 'pending' || (myStatus === 'accepted' && !myContinuationChoice);
+                }).length;
+              }
+              
               return actionCount > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{actionCount}</Text>
@@ -742,25 +739,6 @@ export default function ConnectScreen() {
               Did Not Match
             </Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.sectionTab, activeForOthersSection === 'my_singles' && styles.sectionTabActive]}
-            onPress={() => setActiveForOthersSection('my_singles')}
-          >
-            <Ionicons 
-              name="people" 
-              size={18} 
-              color={activeForOthersSection === 'my_singles' ? '#03a9f4' : '#999'} 
-            />
-            <Text style={[styles.sectionTabText, activeForOthersSection === 'my_singles' && styles.sectionTabTextActive]}>
-              My Singles
-            </Text>
-            {newSinglesCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{newSinglesCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
         </ScrollView>
       )}
 
@@ -806,8 +784,8 @@ export default function ConnectScreen() {
             {/* Received Intro Requests (need response OR need continuation choice) */}
             {receivedIntroRequests
               .filter(r => 
-                r.status === 'pending' || 
-                (r.status === 'accepted' && (!r.requested_continuation_choice || !r.requester_continuation_choice))
+                r.requested_status === 'pending' || 
+                (r.requested_status === 'accepted' && !r.requested_continuation_choice)
               )
               .map(request => (
                 <IntroRequestCard
@@ -819,11 +797,12 @@ export default function ConnectScreen() {
                 />
               ))}
 
-            {/* Sent Intro Requests (need to choose continuation) */}
+            {/* Sent Intro Requests (need to choose continuation after both accepted) */}
             {sentIntroRequests
               .filter(r => 
-                r.status === 'accepted' && 
-                (!r.requester_continuation_choice || !r.requested_continuation_choice)
+                r.matchmaker_status === 'accepted' && 
+                r.requested_status === 'accepted' && 
+                !r.requester_continuation_choice
               )
               .map(request => (
                 <IntroRequestCard
@@ -837,13 +816,17 @@ export default function ConnectScreen() {
 
             {/* Received Suggestions (need response OR need continuation choice) */}
             {currentUserProfile && receivedSuggestions
-              .filter(s => 
-                s.status === 'pending' || 
-                (s.status === 'accepted' && (
-                  (s.profile_one_id === currentUserProfile.id && !s.profile_one_continuation_choice) ||
-                  (s.profile_two_id === currentUserProfile.id && !s.profile_two_continuation_choice)
-                ))
-              )
+              .filter(s => {
+                const isProfileOne = s.profile_one_id === currentUserProfile.id;
+                const isProfileTwo = s.profile_two_id === currentUserProfile.id;
+                const myStatus = isProfileOne ? s.profile_one_status : s.profile_two_status;
+                const myContinuationChoice = isProfileOne ? s.profile_one_continuation_choice : s.profile_two_continuation_choice;
+                
+                // Show if I haven't responded yet (pending status)
+                // OR if I accepted but haven't chosen continuation method yet
+                return myStatus === 'pending' || 
+                  (myStatus === 'accepted' && !myContinuationChoice);
+              })
               .map(suggestion => (
                 <SuggestionCard
                   key={suggestion.id}
@@ -856,11 +839,14 @@ export default function ConnectScreen() {
           </>
         )}
 
-        {/* Show accepted and completed requests in Matches section */}
+        {/* Show matched requests in Matches section */}
         {activeCategory === 'for_you' && activeSection === 'matches' && (
           <>
             {sentIntroRequests
-              .filter(r => r.status === 'accepted' || r.status === 'completed')
+              .filter(r => 
+                r.matchmaker_status === 'accepted' && 
+                r.requested_status === 'accepted'
+              )
               .map(request => (
                 <IntroRequestCard
                   key={request.id}
@@ -871,7 +857,10 @@ export default function ConnectScreen() {
               ))}
 
             {receivedIntroRequests
-              .filter(r => r.status === 'accepted' || r.status === 'completed')
+              .filter(r => 
+                r.matchmaker_status === 'accepted' && 
+                r.requested_status === 'accepted'
+              )
               .map(request => (
                 <IntroRequestCard
                   key={request.id}
@@ -915,7 +904,10 @@ export default function ConnectScreen() {
         {activeCategory === 'for_you' && activeSection === 'passed' && (
           <>
             {sentIntroRequests
-              .filter(r => r.status === 'rejected')
+              .filter(r => 
+                r.matchmaker_status === 'rejected' || 
+                (r.matchmaker_status === 'accepted' && r.requested_status === 'rejected')
+              )
               .map(request => (
                 <IntroRequestCard
                   key={request.id}
@@ -926,7 +918,7 @@ export default function ConnectScreen() {
               ))}
 
             {receivedIntroRequests
-              .filter(r => r.status === 'rejected')
+              .filter(r => r.requested_status === 'rejected')
               .map(request => (
                 <IntroRequestCard
                   key={request.id}
@@ -954,20 +946,20 @@ export default function ConnectScreen() {
         {activeCategory === 'for_you' && activeSection === 'action_needed' &&
          sentInfoRequests.filter(r => r.status === 'approved').length === 0 &&
          receivedInfoRequests.filter(r => r.status === 'pending').length === 0 &&
-         sentIntroRequests.filter(r => r.status === 'accepted' && (!r.requester_continuation_choice || !r.requested_continuation_choice)).length === 0 &&
-         receivedIntroRequests.filter(r => r.status === 'pending' || (r.status === 'accepted' && (!r.requested_continuation_choice || !r.requester_continuation_choice))).length === 0 &&
-         receivedSuggestions.filter(s => 
-           s.status === 'pending' || 
-           (s.status === 'accepted' && (
-             (currentUserProfile && s.profile_one_id === currentUserProfile.id && !s.profile_one_continuation_choice) ||
-             (currentUserProfile && s.profile_two_id === currentUserProfile.id && !s.profile_two_continuation_choice)
-           ))
-         ).length === 0 &&
+         sentIntroRequests.filter(r => r.matchmaker_status === 'accepted' && r.requested_status === 'accepted' && !r.requester_continuation_choice).length === 0 &&
+         receivedIntroRequests.filter(r => r.requested_status === 'pending' || (r.requested_status === 'accepted' && !r.requested_continuation_choice)).length === 0 &&
+         receivedSuggestions.filter(s => {
+           if (!currentUserProfile) return false;
+           const isProfileOne = s.profile_one_id === currentUserProfile.id;
+           const myStatus = isProfileOne ? s.profile_one_status : s.profile_two_status;
+           const myContinuationChoice = isProfileOne ? s.profile_one_continuation_choice : s.profile_two_continuation_choice;
+           return myStatus === 'pending' || (myStatus === 'accepted' && !myContinuationChoice);
+         }).length === 0 &&
          renderEmptyState(activeSection)}
 
         {activeCategory === 'for_you' && activeSection === 'matches' &&
-         sentIntroRequests.filter(r => r.status === 'accepted' || r.status === 'completed').length === 0 &&
-         receivedIntroRequests.filter(r => r.status === 'accepted' || r.status === 'completed').length === 0 &&
+         sentIntroRequests.filter(r => r.matchmaker_status === 'accepted' && r.requested_status === 'accepted').length === 0 &&
+         receivedIntroRequests.filter(r => r.matchmaker_status === 'accepted' && r.requested_status === 'accepted').length === 0 &&
          receivedSuggestions.filter(s => s.status === 'accepted' || s.status === 'completed').length === 0 &&
          renderEmptyState(activeSection)}
 
@@ -976,25 +968,25 @@ export default function ConnectScreen() {
          renderEmptyState(activeSection)}
 
         {activeCategory === 'for_you' && activeSection === 'passed' &&
-         sentIntroRequests.filter(r => r.status === 'rejected').length === 0 &&
-         receivedIntroRequests.filter(r => r.status === 'rejected').length === 0 &&
+         sentIntroRequests.filter(r => r.matchmaker_status === 'rejected' || (r.matchmaker_status === 'accepted' && r.requested_status === 'rejected')).length === 0 &&
+         receivedIntroRequests.filter(r => r.requested_status === 'rejected').length === 0 &&
          receivedSuggestions.filter(s => s.status === 'rejected').length === 0 &&
          renderEmptyState(activeSection)}
 
         {/* For Others - Awaiting Response */}
         {activeCategory === 'for_others' && activeForOthersSection === 'awaiting' && (
           <>
-            {/* Show intro requests for anyone who is a matchmaker (regardless of profile role) */}
-            {middlePersonRequests.length > 0 && middlePersonRequests
+            {/* Show intro requests for matchmakers */}
+            {matchmakerRequests.length > 0 && matchmakerRequests
               .filter(r => 
-                r.status === 'pending' || 
-                (r.status === 'accepted' && (!r.requester_continuation_choice || !r.requested_continuation_choice))
+                r.matchmaker_status === 'pending' || 
+                (r.matchmaker_status === 'accepted' && r.requested_status === 'pending')
               )
               .map(request => (
-                <MiddlePersonRequestCard
+                <MatchmakerRequestCard
                   key={request.id}
                   request={request}
-                  currentUserProfileId={currentUserProfile?.id}
+                  onUpdate={loadIntroRequests}
                 />
               ))}
 
@@ -1012,9 +1004,9 @@ export default function ConnectScreen() {
               ))}
 
             {/* Empty state */}
-            {middlePersonRequests.filter(r => 
-                r.status === 'pending' || 
-                (r.status === 'accepted' && (!r.requester_continuation_choice || !r.requested_continuation_choice))
+            {matchmakerRequests.filter(r => 
+                r.matchmaker_status === 'pending' || 
+                (r.matchmaker_status === 'accepted' && r.requested_status === 'pending')
               ).length === 0 &&
              madeSuggestions.filter(s => 
                 s.status === 'pending' || 
@@ -1034,17 +1026,17 @@ export default function ConnectScreen() {
         {/* For Others - Matched */}
         {activeCategory === 'for_others' && activeForOthersSection === 'matched' && (
           <>
-            {/* Show intro requests for anyone who is a matchmaker (regardless of profile role) */}
-            {middlePersonRequests.length > 0 && middlePersonRequests
+            {/* Show matched intro requests for matchmakers */}
+            {matchmakerRequests.length > 0 && matchmakerRequests
               .filter(r => 
-                r.status === 'completed' || 
-                (r.status === 'accepted' && r.requester_continuation_choice && r.requested_continuation_choice)
+                r.matchmaker_status === 'accepted' && 
+                r.requested_status === 'accepted'
               )
               .map(request => (
-                <MiddlePersonRequestCard
+                <MatchmakerRequestCard
                   key={request.id}
                   request={request}
-                  currentUserProfileId={currentUserProfile?.id}
+                  onUpdate={loadIntroRequests}
                 />
               ))}
 
@@ -1062,9 +1054,8 @@ export default function ConnectScreen() {
               ))}
 
             {/* Empty state */}
-            {middlePersonRequests.filter(r => 
-                r.status === 'completed' || 
-                (r.status === 'accepted' && r.requester_continuation_choice && r.requested_continuation_choice)
+            {matchmakerRequests.filter(r => 
+                r.matchmaker_status === 'accepted' && r.requested_status === 'accepted'
               ).length === 0 &&
              madeSuggestions.filter(s => 
                 s.status === 'completed' || 
@@ -1084,14 +1075,17 @@ export default function ConnectScreen() {
         {/* For Others - Did Not Match */}
         {activeCategory === 'for_others' && activeForOthersSection === 'not_matched' && (
           <>
-            {/* Show intro requests for anyone who is a matchmaker (regardless of profile role) */}
-            {middlePersonRequests.length > 0 && middlePersonRequests
-              .filter(r => r.status === 'rejected')
+            {/* Show rejected intro requests for matchmakers */}
+            {matchmakerRequests.length > 0 && matchmakerRequests
+              .filter(r => 
+                r.matchmaker_status === 'rejected' || 
+                (r.matchmaker_status === 'accepted' && r.requested_status === 'rejected')
+              )
               .map(request => (
-                <MiddlePersonRequestCard
+                <MatchmakerRequestCard
                   key={request.id}
                   request={request}
-                  currentUserProfileId={currentUserProfile?.id}
+                  onUpdate={loadIntroRequests}
                 />
               ))}
 
@@ -1106,7 +1100,7 @@ export default function ConnectScreen() {
               ))}
 
             {/* Empty state */}
-            {middlePersonRequests.filter(r => r.status === 'rejected').length === 0 &&
+            {matchmakerRequests.filter(r => r.matchmaker_status === 'rejected' || (r.matchmaker_status === 'accepted' && r.requested_status === 'rejected')).length === 0 &&
              madeSuggestions.filter(s => s.status === 'rejected').length === 0 && (
               <View style={styles.emptyState}>
                 <Ionicons name="close-circle-outline" size={64} color="#ccc" />
@@ -1114,89 +1108,6 @@ export default function ConnectScreen() {
                 <Text style={styles.emptyStateMessage}>
                   Matches that didn&apos;t work out will appear here.
                 </Text>
-              </View>
-            )}
-          </>
-        )}
-
-        {/* For Others - My Singles */}
-        {activeCategory === 'for_others' && activeForOthersSection === 'my_singles' && (
-          <>
-            {loadingSingles ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#03a9f4" />
-                <Text style={styles.loadingText}>Loading...</Text>
-              </View>
-            ) : mySingles.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="people-outline" size={64} color="#ccc" />
-                <Text style={styles.emptyStateTitle}>No Singles Yet</Text>
-                <Text style={styles.emptyStateMessage}>
-                  Singles who select you as their matchmaker will appear here.
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.singlesList}>
-                {mySingles.map((single) => (
-                  <View key={single.id} style={styles.singleCard}>
-                    <View style={styles.singleHeader}>
-                      <Text style={styles.singleName}>
-                        {single.first_name} {single.last_name}
-                      </Text>
-                      {single.dob && (
-                        <Text style={styles.singleAge}>
-                          Age: {calculateAge(single.dob)}
-                        </Text>
-                      )}
-                    </View>
-                    
-                    {single.bio && (
-                      <Text style={styles.singleBio} numberOfLines={2}>
-                        {single.bio}
-                      </Text>
-                    )}
-
-                    <View style={styles.contactInfo}>
-                      <Text style={styles.contactTitle}>Contact Information:</Text>
-                      
-                      {single.phone && (
-                        <View style={styles.contactItem}>
-                          <Ionicons name="call" size={16} color="#4caf50" />
-                          <Text style={styles.contactText}>{single.phone}</Text>
-                        </View>
-                      )}
-                      
-                      {single.email && (
-                        <View style={styles.contactItem}>
-                          <Ionicons name="mail" size={16} color="#2196f3" />
-                          <Text style={styles.contactText}>{single.email}</Text>
-                        </View>
-                      )}
-                      
-                      {single.whatsapp && (
-                        <View style={styles.contactItem}>
-                          <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
-                          <Text style={styles.contactText}>{single.whatsapp}</Text>
-                        </View>
-                      )}
-
-                      {!single.phone && !single.email && !single.whatsapp && (
-                        <Text style={styles.noContactText}>
-                          No contact information provided
-                        </Text>
-                      )}
-                    </View>
-
-                    {single.location_city && single.location_country && (
-                      <View style={styles.singleLocation}>
-                        <Ionicons name="location" size={14} color="#666" />
-                        <Text style={styles.locationText}>
-                          {single.location_city}{single.location_state ? `, ${single.location_state}` : ''}, {single.location_country}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                ))}
               </View>
             )}
           </>
@@ -1351,74 +1262,6 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 22,
-  },
-  // My Singles Styles
-  singlesList: {
-    gap: 16,
-  },
-  singleCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  singleHeader: {
-    marginBottom: 12,
-  },
-  singleName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  singleAge: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  singleBio: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  contactInfo: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  contactTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  contactText: {
-    fontSize: 14,
-    color: '#333',
-    flex: 1,
-  },
-  noContactText: {
-    fontSize: 14,
-    color: '#999',
-    fontStyle: 'italic',
-  },
-  singleLocation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
-  },
-  locationText: {
-    fontSize: 12,
-    color: '#666',
   },
 });
 

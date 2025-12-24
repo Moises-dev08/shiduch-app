@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
@@ -12,7 +13,6 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import FilterModal from '../../components/home/FilterModal';
 import ProfileCard from '../../components/home/ProfileCard';
 import { useHomeProfiles } from '../../hooks/useHomeProfiles';
 import { profileService } from '../../lib/profileService';
@@ -21,7 +21,7 @@ import { Profile } from '../../types/homeTypes';
 export default function HomeScreen() {
   const [profileStatus, setProfileStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
 
-  // Check profile status when screen is focused
+  // Check profile status and pending filters when screen is focused
   useFocusEffect(
     useCallback(() => {
       const checkStatus = async () => {
@@ -34,8 +34,24 @@ export default function HomeScreen() {
           }
         }
       };
+      
+      const checkPendingFilters = async () => {
+        try {
+          const pendingFilters = await AsyncStorage.getItem('pendingFilters');
+          if (pendingFilters) {
+            const newFilters = JSON.parse(pendingFilters);
+            setFilterState(newFilters);
+            // Clear the pending filters
+            await AsyncStorage.removeItem('pendingFilters');
+          }
+        } catch (error) {
+          console.error('Error loading pending filters:', error);
+        }
+      };
+      
       checkStatus();
-    }, [])
+      checkPendingFilters();
+    }, [setFilterState])
   );
   // Profile data and filters
   const {
@@ -49,8 +65,6 @@ export default function HomeScreen() {
     onRefresh,
   } = useHomeProfiles();
 
-  // Modal states
-  const [showFilterModal, setShowFilterModal] = useState(false);
 
   // Handlers
   const handleProfilePress = (profile: Profile) => {
@@ -135,6 +149,49 @@ export default function HomeScreen() {
       activeFilters.push({ label: heightLabel, removeKey: 'height' });
     }
 
+    // Sorting
+    if (filterState.sortBy) {
+      const sortLabel = filterState.sortBy === 'newest' ? 'Newest First' : 'Youngest First';
+      activeFilters.push({ label: `Sort: ${sortLabel}`, removeKey: 'sortBy' });
+    }
+
+    // Ask Me Fields
+    if (filterState.hasAskMeFields) {
+      activeFilters.push({ label: 'Has "Ask Me"', removeKey: 'hasAskMeFields' });
+    }
+
+    // Photo filter
+    if (filterState.hasPhoto !== null) {
+      const photoLabel = filterState.hasPhoto ? 'Has Photo' : 'No Photo';
+      activeFilters.push({ label: photoLabel, removeKey: 'hasPhoto' });
+    }
+
+    // Gender-specific filters
+    if (filterState.selectedTorahLearning) {
+      filterState.selectedTorahLearning.forEach(learning => {
+        activeFilters.push({ label: `Torah: ${learning}`, removeKey: `torahLearning_${learning}` });
+      });
+    }
+
+    if (filterState.selectedPraying) {
+      filterState.selectedPraying.forEach(praying => {
+        activeFilters.push({ label: `Praying: ${praying}`, removeKey: `praying_${praying}` });
+      });
+    }
+
+    if (filterState.selectedHeadCovering) {
+      filterState.selectedHeadCovering.forEach(covering => {
+        activeFilters.push({ label: `Head Covering: ${covering}`, removeKey: `headCovering_${covering}` });
+      });
+    }
+
+    if (filterState.wearsBlackHat !== null) {
+      activeFilters.push({ 
+        label: filterState.wearsBlackHat ? 'Wears Black Hat' : 'No Black Hat', 
+        removeKey: 'wearsBlackHat' 
+      });
+    }
+
     return activeFilters;
   };
 
@@ -179,6 +236,23 @@ export default function HomeScreen() {
       newFilterState.minHeightInches = null;
       newFilterState.maxHeightFeet = null;
       newFilterState.maxHeightInches = null;
+    } else if (removeKey === 'sortBy') {
+      newFilterState.sortBy = null;
+    } else if (removeKey === 'hasAskMeFields') {
+      newFilterState.hasAskMeFields = false;
+    } else if (removeKey === 'hasPhoto') {
+      newFilterState.hasPhoto = null;
+    } else if (removeKey.startsWith('torahLearning_')) {
+      const learning = removeKey.replace('torahLearning_', '');
+      newFilterState.selectedTorahLearning = newFilterState.selectedTorahLearning.filter(l => l !== learning);
+    } else if (removeKey.startsWith('praying_')) {
+      const praying = removeKey.replace('praying_', '');
+      newFilterState.selectedPraying = newFilterState.selectedPraying.filter(p => p !== praying);
+    } else if (removeKey.startsWith('headCovering_')) {
+      const covering = removeKey.replace('headCovering_', '');
+      newFilterState.selectedHeadCovering = newFilterState.selectedHeadCovering.filter(h => h !== covering);
+    } else if (removeKey === 'wearsBlackHat') {
+      newFilterState.wearsBlackHat = null;
     }
 
     setFilterState(newFilterState);
@@ -192,7 +266,16 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>Discover</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Discover</Text>
+            <TouchableOpacity
+              style={styles.successMatchesButton}
+              onPress={() => router.push('/successful-matches')}
+            >
+              <Text style={styles.successMatchesEmoji}>🎉</Text>
+              <Text style={styles.successMatchesText}>Success Stories</Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity 
             style={styles.notificationButton}
             onPress={() => {
@@ -220,7 +303,10 @@ export default function HomeScreen() {
           </View>
           <TouchableOpacity 
             style={styles.filterButton}
-            onPress={() => setShowFilterModal(true)}
+            onPress={() => router.push({ 
+              pathname: '/filters', 
+              params: { filterState: JSON.stringify(filterState) } 
+            })}
           >
             <Ionicons name="options" size={20} color="#03a9f4" />
           </TouchableOpacity>
@@ -290,15 +376,6 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      {/* Filter Modal */}
-      {showFilterModal && (
-        <FilterModal
-          visible={showFilterModal}
-          filterState={filterState}
-          onClose={() => setShowFilterModal(false)}
-          onFilterChange={setFilterState}
-        />
-      )}
     </SafeAreaView>
   );
 }
@@ -322,10 +399,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
+  },
+  successMatchesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#ff6b9d',
+    borderRadius: 20,
+    gap: 6,
+    marginLeft: 12,
+    shadowColor: '#ff6b9d',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  successMatchesEmoji: {
+    fontSize: 16,
+  },
+  successMatchesText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   notificationButton: {
     padding: 8,
