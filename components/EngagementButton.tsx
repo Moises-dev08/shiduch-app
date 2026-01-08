@@ -20,6 +20,18 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
   const [otherUserAuthId, setOtherUserAuthId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Load current user ID on mount
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    loadCurrentUser();
+  }, []);
 
   useEffect(() => {
     loadOtherUserAuthId();
@@ -68,10 +80,25 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
   };
 
   const loadEngagementStatus = async (authId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     const result = await engagementService.getEngagementStatus(authId);
     if (result.success) {
       setEngagement(result.engagement || null);
       console.log('Engagement status loaded:', result.engagement);
+      
+      // Debug: Log which user is which
+      if (result.engagement) {
+        const [user1Id] = [user.id, authId].sort();
+        const isUser1 = user.id === user1Id;
+        console.log('Current user is user1:', isUser1);
+        console.log('Current user confirmed:', isUser1 ? result.engagement.user1_confirmed : result.engagement.user2_confirmed);
+        console.log('Other user confirmed:', isUser1 ? result.engagement.user2_confirmed : result.engagement.user1_confirmed);
+      }
     } else {
       console.error('Error loading engagement status:', result.error);
     }
@@ -165,8 +192,20 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
     );
   }
 
+  // Determine confirmation status
+  let currentUserConfirmed = false;
+  let otherUserConfirmed = false;
+  
+  if (engagement && otherUserAuthId && currentUserId) {
+    const [user1Id] = [currentUserId, otherUserAuthId].sort();
+    const isUser1 = currentUserId === user1Id;
+    
+    currentUserConfirmed = isUser1 ? engagement.user1_confirmed : engagement.user2_confirmed;
+    otherUserConfirmed = isUser1 ? engagement.user2_confirmed : engagement.user1_confirmed;
+  }
+
   // If both confirmed - show engaged status with option to undo
-  if (engagement && engagement.user1_confirmed && engagement.user2_confirmed) {
+  if (engagement && currentUserConfirmed && otherUserConfirmed) {
     return (
       <>
         <TouchableOpacity
@@ -175,10 +214,10 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
           disabled={proposing}
         >
           {proposing ? (
-            <ActivityIndicator size="small" color="#ff4d4d" />
+            <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
-              <Ionicons name="heart" size={20} color="#ff4d4d" />
+              <Ionicons name="heart" size={20} color="#fff" />
               <Text style={styles.engagedText}>Engaged! 💍 </Text>
             </>
           )}
@@ -194,7 +233,7 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Ionicons name="alert-circle" size={48} color="#f39c12" />
+                <Ionicons name="alert-circle" size={48} color="#DAA520" />
                 <Text style={styles.modalTitle}>Undo Engagement?</Text>
               </View>
               
@@ -248,7 +287,7 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
                 <Ionicons 
                   name={successMessage.title.includes('Mazel Tov') ? 'heart-circle' : 'checkmark-circle'} 
                   size={64} 
-                  color={successMessage.title.includes('Mazel Tov') ? '#ff4d4d' : '#9b59b6'} 
+                  color={successMessage.title.includes('Mazel Tov') ? '#DAA520' : '#DAA520'} 
                 />
                 <Text style={styles.modalTitle}>{successMessage.title}</Text>
               </View>
@@ -262,7 +301,7 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
                 onPress={() => setShowSuccessModal(false)}
               >
                 <Text style={styles.confirmButtonText}>
-                  {successMessage.title.includes('Mazel Tov') ? 'Amazing! 🎉' : 'OK'}
+                  {successMessage.title.includes('Mazel Tov') ? 'Amazing 🎉' : 'OK'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -272,22 +311,129 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
     );
   }
 
-  // If pending (one person confirmed, waiting for other)
-  if (engagement && (engagement.user1_confirmed || engagement.user2_confirmed)) {
+  // If other person confirmed but current user hasn't - show confirm button
+  if (engagement && !currentUserConfirmed && otherUserConfirmed) {
+    return (
+      <>
+        <TouchableOpacity
+          style={[styles.button, styles.pendingButton]}
+          onPress={handleProposeEngagement}
+          disabled={proposing}
+        >
+          {proposing ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="heart" size={20} color="#fff" />
+              <Text style={styles.buttonText}>Confirm Engagement</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {/* Confirmation Modal */}
+        <Modal
+          visible={showConfirmModal}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setShowConfirmModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Ionicons name="heart-circle" size={48} color="#DAA520" />
+                <Text style={styles.modalTitle}>Confirm Engagement</Text>
+              </View>
+              
+              <Text style={styles.modalMessage}>
+                <Text style={styles.boldText}>{otherUserName}</Text> has indicated that you both got engaged.
+              </Text>
+              
+              <Text style={styles.modalMessage}>
+                Do you confirm this engagement?
+              </Text>
+              
+              <View style={styles.modalInfo}>
+                <Ionicons name="information-circle" size={20} color="#666" />
+                <Text style={styles.modalInfoText}>
+                  Once both of you confirm, your engagement will be shared with the community.
+                </Text>
+              </View>
+              
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setShowConfirmModal(false)}
+                >
+                  <Ionicons name="close" size={20} color="#666" />
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.confirmButton]}
+                  onPress={handleConfirmEngagement}
+                  disabled={proposing}
+                >
+                  {proposing ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                      <Text style={styles.confirmButtonText}>Yes, Confirm</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Success/Info Modal */}
+        <Modal
+          visible={showSuccessModal}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setShowSuccessModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Ionicons 
+                  name={successMessage.title.includes('Mazel Tov') ? 'heart-circle' : 'checkmark-circle'} 
+                  size={64} 
+                  color={successMessage.title.includes('Mazel Tov') ? '#DAA520' : '#DAA520'} 
+                />
+                <Text style={styles.modalTitle}>{successMessage.title}</Text>
+              </View>
+              
+              <Text style={styles.modalMessage}>{successMessage.message}</Text>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={() => {
+                  setShowSuccessModal(false);
+                  if (otherUserAuthId) {
+                    loadEngagementStatus(otherUserAuthId);
+                  }
+                }}
+              >
+                <Text style={styles.confirmButtonText}>Got it!</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </>
+    );
+  }
+
+  // If current user confirmed but other hasn't - show waiting message
+  if (engagement && currentUserConfirmed && !otherUserConfirmed) {
     return (
       <TouchableOpacity
-        style={[styles.button, styles.pendingButton]}
-        onPress={handleProposeEngagement}
-        disabled={proposing}
+        style={[styles.button, styles.waitingButton]}
+        disabled
       >
-        {proposing ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <>
-            <Ionicons name="time" size={20} color="#fff" />
-            <Text style={styles.buttonText}>Confirm Engagement?</Text>
-          </>
-        )}
+        <Ionicons name="time" size={20} color="#fff" />
+        <Text style={styles.buttonText}>Waiting for {otherUserName}...</Text>
       </TouchableOpacity>
     );
   }
@@ -305,7 +451,7 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
         ) : (
           <>
             <Ionicons name="diamond" size={20} color="#fff" />
-            <Text style={styles.buttonText}>Got Engaged?</Text>
+            <Text style={styles.buttonText}>Got Engaged</Text>
           </>
         )}
       </TouchableOpacity>
@@ -319,10 +465,10 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Ionicons name="diamond" size={48} color="#9b59b6" />
-              <Text style={styles.modalTitle}>Confirm Engagement</Text>
-            </View>
+              <View style={styles.modalHeader}>
+                <Ionicons name="diamond" size={48} color="#DAA520" />
+                <Text style={styles.modalTitle}>Confirm Engagement</Text>
+              </View>
             
             <Text style={styles.modalMessage}>
               Are you sure you want to mark that you and <Text style={styles.boldText}>{otherUserName}</Text> got engaged?
@@ -364,14 +510,14 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Ionicons 
-                name={successMessage.title.includes('Mazel Tov') ? 'heart-circle' : 'checkmark-circle'} 
-                size={64} 
-                color={successMessage.title.includes('Mazel Tov') ? '#ff4d4d' : '#9b59b6'} 
-              />
-              <Text style={styles.modalTitle}>{successMessage.title}</Text>
-            </View>
+              <View style={styles.modalHeader}>
+                <Ionicons 
+                  name={successMessage.title.includes('Mazel Tov') ? 'heart-circle' : 'checkmark-circle'} 
+                  size={64} 
+                  color={successMessage.title.includes('Mazel Tov') ? '#DAA520' : '#DAA520'} 
+                />
+                <Text style={styles.modalTitle}>{successMessage.title}</Text>
+              </View>
             
             <Text style={styles.modalMessage}>
               {successMessage.message}
@@ -382,7 +528,7 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
               onPress={() => setShowSuccessModal(false)}
             >
               <Text style={styles.confirmButtonText}>
-                {successMessage.title.includes('Mazel Tov') ? 'Amazing! 🎉' : 'OK'}
+                {successMessage.title.includes('Mazel Tov') ? 'Amazing 🎉' : 'OK'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -410,15 +556,33 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   proposeButton: {
-    backgroundColor: '#9b59b6',
+    backgroundColor: '#DAA520', // Elegant goldenrod
+    shadowColor: '#DAA520',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   pendingButton: {
-    backgroundColor: '#f39c12',
+    backgroundColor: '#F4C430', // Saffron gold (lighter)
+    shadowColor: '#F4C430',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  waitingButton: {
+    backgroundColor: '#95a5a6',
   },
   engagedButton: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#DAA520', // Elegant goldenrod
+    shadowColor: '#DAA520',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
     borderWidth: 2,
-    borderColor: '#ff4d4d',
+    borderColor: '#B8860B', // Dark goldenrod border
   },
   buttonText: {
     color: '#fff',
@@ -426,7 +590,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   engagedText: {
-    color: '#ff4d4d',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -493,10 +657,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     borderRadius: 12,
     gap: 8,
+    marginBottom: 32,
+    minHeight: 48,
   },
   cancelButton: {
     backgroundColor: '#f0f0f0',
@@ -508,12 +674,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   confirmButton: {
-    backgroundColor: '#9b59b6',
-
+    backgroundColor: '#DAA520',
+    minHeight: 48,
   },
   successButton: {
-    backgroundColor: '#9b59b6',
+    backgroundColor: '#DAA520',
     width: '100%',
+    minHeight: 52,
   },
   undoButton: {
     backgroundColor: '#e74c3c',
@@ -521,8 +688,9 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });
 

@@ -21,6 +21,7 @@ const PRAYING_OPTIONS = ['3 times a day', 'Twice a day', 'Once a day', 'Regularl
 
 // Female-specific filters
 const HEAD_COVERING_OPTIONS = ['Wig', 'Scarf/Tichel', 'Hat', 'Combination', 'Not yet decided', 'Other'];
+const POST_HS_FEMALE_OPTIONS = ['Seminary', 'College', 'Seminary & college', 'Seminary & business', 'Non-traditional (straight to business)', 'Other'];
 
 const COUNTRIES = [
   'United States', 'Israel', 'Canada', 'United Kingdom', 'Australia',
@@ -293,9 +294,11 @@ export default function FiltersScreen() {
         sortBy: null,
         hasAskMeFields: false,
         hasPhoto: null,
+        hasOneTimePhoto: false,
         selectedTorahLearning: [],
         selectedPraying: [],
         selectedHeadCovering: [],
+        selectedPostHighSchool: [],
         wearsBlackHat: null,
       };
     } catch {
@@ -320,9 +323,11 @@ export default function FiltersScreen() {
         sortBy: null,
         hasAskMeFields: false,
         hasPhoto: null,
+        hasOneTimePhoto: false,
         selectedTorahLearning: [],
         selectedPraying: [],
         selectedHeadCovering: [],
+        selectedPostHighSchool: [],
         wearsBlackHat: null,
       };
     }
@@ -512,6 +517,23 @@ export default function FiltersScreen() {
             <TouchableOpacity 
               style={[
                 styles.chip, 
+                filterState.sortBy === 'oldest' && styles.chipSelected
+              ]}
+              onPress={() => setFilterState({
+                ...filterState,
+                sortBy: filterState.sortBy === 'oldest' ? null : 'oldest',
+              })}
+            >
+              <Text style={[
+                styles.chipText, 
+                filterState.sortBy === 'oldest' && styles.chipTextSelected
+              ]}>
+                Oldest First
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[
+                styles.chip, 
                 filterState.sortBy === 'youngest' && styles.chipSelected
               ]}
               onPress={() => setFilterState({
@@ -524,6 +546,40 @@ export default function FiltersScreen() {
                 filterState.sortBy === 'youngest' && styles.chipTextSelected
               ]}>
                 Youngest First
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[
+                styles.chip, 
+                filterState.sortBy === 'pictures_to_none' && styles.chipSelected
+              ]}
+              onPress={() => setFilterState({
+                ...filterState,
+                sortBy: filterState.sortBy === 'pictures_to_none' ? null : 'pictures_to_none',
+              })}
+            >
+              <Text style={[
+                styles.chipText, 
+                filterState.sortBy === 'pictures_to_none' && styles.chipTextSelected
+              ]}>
+                Pictures to No Pictures
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[
+                styles.chip, 
+                filterState.sortBy === 'none_to_pictures' && styles.chipSelected
+              ]}
+              onPress={() => setFilterState({
+                ...filterState,
+                sortBy: filterState.sortBy === 'none_to_pictures' ? null : 'none_to_pictures',
+              })}
+            >
+              <Text style={[
+                styles.chipText, 
+                filterState.sortBy === 'none_to_pictures' && styles.chipTextSelected
+              ]}>
+                No Pictures to Pictures
               </Text>
             </TouchableOpacity>
           </View>
@@ -604,6 +660,32 @@ export default function FiltersScreen() {
                   filterState.hasPhoto === false && styles.chipTextSelected
                 ]}>
                   No Photo
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.chipRow, { marginTop: 8 }]}>
+              <TouchableOpacity 
+                style={[
+                  styles.chip, 
+                  filterState.hasOneTimePhoto && styles.chipSelected
+                ]}
+                onPress={() => setFilterState({
+                  ...filterState,
+                  hasOneTimePhoto: !filterState.hasOneTimePhoto,
+                })}
+              >
+                <Ionicons 
+                  name="eye" 
+                  size={14} 
+                  color={filterState.hasOneTimePhoto ? "#fff" : "#666"} 
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[
+                  styles.chipText, 
+                  filterState.hasOneTimePhoto && styles.chipTextSelected
+                ]}>
+                  One Time Photo
                 </Text>
               </TouchableOpacity>
             </View>
@@ -955,31 +1037,59 @@ export default function FiltersScreen() {
           <>
             {/* Show female-specific filters if user is male */}
             {currentUserGender === 'male' && (
-              <View style={styles.genderSpecificSection}>
-                <Text style={styles.label}>Head Covering:</Text>
-                <View style={styles.chipRow}>
-                  {HEAD_COVERING_OPTIONS.map(option => (
-                    <TouchableOpacity 
-                      key={option}
-                      style={[
-                        styles.chip, 
-                        filterState.selectedHeadCovering.includes(option) && styles.chipSelected
-                      ]}
-                      onPress={() => setFilterState({
-                        ...filterState,
-                        selectedHeadCovering: toggleArrayFilter(filterState.selectedHeadCovering, option),
-                      })}
-                    >
-                      <Text style={[
-                        styles.chipText, 
-                        filterState.selectedHeadCovering.includes(option) && styles.chipTextSelected
-                      ]}>
-                        {option}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+              <>
+                <View style={styles.genderSpecificSection}>
+                  <Text style={styles.label}>Head Covering:</Text>
+                  <View style={styles.chipRow}>
+                    {HEAD_COVERING_OPTIONS.map(option => (
+                      <TouchableOpacity 
+                        key={option}
+                        style={[
+                          styles.chip, 
+                          filterState.selectedHeadCovering.includes(option) && styles.chipSelected
+                        ]}
+                        onPress={() => setFilterState({
+                          ...filterState,
+                          selectedHeadCovering: toggleArrayFilter(filterState.selectedHeadCovering, option),
+                        })}
+                      >
+                        <Text style={[
+                          styles.chipText, 
+                          filterState.selectedHeadCovering.includes(option) && styles.chipTextSelected
+                        ]}>
+                          {option}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
-              </View>
+
+                <View style={styles.genderSpecificSection}>
+                  <Text style={styles.label}>Post-High School Path:</Text>
+                  <View style={styles.chipRow}>
+                    {POST_HS_FEMALE_OPTIONS.map(option => (
+                      <TouchableOpacity 
+                        key={option}
+                        style={[
+                          styles.chip, 
+                          filterState.selectedPostHighSchool.includes(option) && styles.chipSelected
+                        ]}
+                        onPress={() => setFilterState({
+                          ...filterState,
+                          selectedPostHighSchool: toggleArrayFilter(filterState.selectedPostHighSchool, option),
+                        })}
+                      >
+                        <Text style={[
+                          styles.chipText, 
+                          filterState.selectedPostHighSchool.includes(option) && styles.chipTextSelected
+                        ]}>
+                          {option}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </>
             )}
 
             {/* Show male-specific filters if user is female */}

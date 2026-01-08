@@ -15,6 +15,7 @@ interface ContinuationChoiceModalProps {
   onSelectChoice: (choice: 'by_themselves' | 'with_middle_person') => void;
   onCancel: () => void;
   loading?: boolean;
+  otherSideChoice?: 'by_themselves' | 'with_middle_person'; // The other person's continuation choice
 }
 
 export default function ContinuationChoiceModal({
@@ -23,7 +24,11 @@ export default function ContinuationChoiceModal({
   onSelectChoice,
   onCancel,
   loading = false,
+  otherSideChoice,
 }: ContinuationChoiceModalProps) {
+
+
+  console.log('profileName', !profileName);
   return (
     <Modal
       visible={visible}
@@ -39,9 +44,27 @@ export default function ContinuationChoiceModal({
 
           <Text style={styles.title}>How would you like to continue?</Text>
           
+          {!profileName && (
           <Text style={styles.message}>
             Great! You are interested in {profileName}. Choose how you&apos;d like to proceed:
-          </Text>
+          </Text> 
+          )}
+
+          {/* Show other side's choice if available */}
+          {otherSideChoice && (
+            <View style={styles.otherSideChoiceBox}>
+              <Ionicons 
+                name={otherSideChoice === 'by_themselves' ? 'person' : 'people'} 
+                size={18} 
+                color="#9C27B0" 
+              />
+              <Text style={styles.otherSideChoiceText}>
+                {profileName} chose: <Text style={styles.otherSideChoiceBold}>
+                  {otherSideChoice === 'by_themselves' ? 'By myself' : 'With a Matchmaker'}
+                </Text>
+              </Text>
+            </View>
+          )}
 
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -61,6 +84,15 @@ export default function ContinuationChoiceModal({
                     <Text style={styles.buttonDescription}>
                       Connect directly
                     </Text>
+                    {/* Warning if other side chose matchmaker */}
+                    {otherSideChoice === 'with_middle_person' && (
+                      <View style={styles.warningNote}>
+                        <Ionicons name="information-circle" size={14} color="#FFA726" />
+                        <Text style={styles.warningNoteText}>
+                          Note: Since {profileName} chose matchmaker, both will continue with matchmaker
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={24} color="#fff" />
@@ -177,6 +209,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     fontWeight: '500',
+  },
+  otherSideChoiceBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3e5f5',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#ce93d8',
+  },
+  otherSideChoiceText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 18,
+  },
+  otherSideChoiceBold: {
+    fontWeight: '700',
+    color: '#9C27B0',
+  },
+  warningNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 8,
+    gap: 6,
+  },
+  warningNoteText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#fff',
+    lineHeight: 14,
+    fontWeight: '600',
   },
 });
 

@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,13 +14,31 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import EngagementCelebration from '../../components/EngagementCelebration';
 import ProfileCard from '../../components/home/ProfileCard';
+import { useEngagementCelebrations } from '../../hooks/useEngagementCelebrations';
 import { useHomeProfiles } from '../../hooks/useHomeProfiles';
 import { profileService } from '../../lib/profileService';
+import { supabase } from '../../lib/supabase';
 import { Profile } from '../../types/homeTypes';
 
 export default function HomeScreen() {
   const [profileStatus, setProfileStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Get current user ID for engagement celebrations
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    loadCurrentUser();
+  }, []);
+
+  // Engagement celebrations
+  const { showCelebration, celebrationData, closeCelebration } = useEngagementCelebrations(currentUserId);
 
   // Check profile status and pending filters when screen is focused
   useFocusEffect(
@@ -151,7 +170,12 @@ export default function HomeScreen() {
 
     // Sorting
     if (filterState.sortBy) {
-      const sortLabel = filterState.sortBy === 'newest' ? 'Newest First' : 'Youngest First';
+      const sortLabel = filterState.sortBy === 'newest' ? 'Newest First' : 
+                        filterState.sortBy === 'oldest' ? 'Oldest First' : 
+                        filterState.sortBy === 'youngest' ? 'Youngest First' :
+                        filterState.sortBy === 'pictures_to_none' ? 'Pictures to No Pictures' :
+                        filterState.sortBy === 'none_to_pictures' ? 'No Pictures to Pictures' :
+                        '';
       activeFilters.push({ label: `Sort: ${sortLabel}`, removeKey: 'sortBy' });
     }
 
@@ -164,6 +188,11 @@ export default function HomeScreen() {
     if (filterState.hasPhoto !== null) {
       const photoLabel = filterState.hasPhoto ? 'Has Photo' : 'No Photo';
       activeFilters.push({ label: photoLabel, removeKey: 'hasPhoto' });
+    }
+
+    // One-time photo filter
+    if (filterState.hasOneTimePhoto) {
+      activeFilters.push({ label: 'One Time Photo', removeKey: 'hasOneTimePhoto' });
     }
 
     // Gender-specific filters
@@ -182,6 +211,12 @@ export default function HomeScreen() {
     if (filterState.selectedHeadCovering) {
       filterState.selectedHeadCovering.forEach(covering => {
         activeFilters.push({ label: `Head Covering: ${covering}`, removeKey: `headCovering_${covering}` });
+      });
+    }
+
+    if (filterState.selectedPostHighSchool) {
+      filterState.selectedPostHighSchool.forEach(path => {
+        activeFilters.push({ label: `Post-HS: ${path}`, removeKey: `postHighSchool_${path}` });
       });
     }
 
@@ -242,6 +277,8 @@ export default function HomeScreen() {
       newFilterState.hasAskMeFields = false;
     } else if (removeKey === 'hasPhoto') {
       newFilterState.hasPhoto = null;
+    } else if (removeKey === 'hasOneTimePhoto') {
+      newFilterState.hasOneTimePhoto = false;
     } else if (removeKey.startsWith('torahLearning_')) {
       const learning = removeKey.replace('torahLearning_', '');
       newFilterState.selectedTorahLearning = newFilterState.selectedTorahLearning.filter(l => l !== learning);
@@ -251,6 +288,9 @@ export default function HomeScreen() {
     } else if (removeKey.startsWith('headCovering_')) {
       const covering = removeKey.replace('headCovering_', '');
       newFilterState.selectedHeadCovering = newFilterState.selectedHeadCovering.filter(h => h !== covering);
+    } else if (removeKey.startsWith('postHighSchool_')) {
+      const path = removeKey.replace('postHighSchool_', '');
+      newFilterState.selectedPostHighSchool = newFilterState.selectedPostHighSchool.filter(p => p !== path);
     } else if (removeKey === 'wearsBlackHat') {
       newFilterState.wearsBlackHat = null;
     }
@@ -263,6 +303,16 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Engagement Celebration */}
+      {showCelebration && celebrationData && (
+        <EngagementCelebration
+          visible={showCelebration}
+          coupleName1={celebrationData.coupleName1}
+          coupleName2={celebrationData.coupleName2}
+          onClose={closeCelebration}
+        />
+      )}
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>

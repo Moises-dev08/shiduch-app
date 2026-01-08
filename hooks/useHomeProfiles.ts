@@ -36,9 +36,11 @@ export function useHomeProfiles() {
     sortBy: null,
     hasAskMeFields: false,
     hasPhoto: null,
+    hasOneTimePhoto: false,
     selectedTorahLearning: [],
     selectedPraying: [],
     selectedHeadCovering: [],
+    selectedPostHighSchool: [],
     wearsBlackHat: null,
   });
 
@@ -362,8 +364,12 @@ export function useHomeProfiles() {
     if (filterState.hasAskMeFields) {
       filtered = filtered.filter(p => {
         if (!p.field_privacy) return false;
-        // Check if any field is marked as private (value is true)
-        return Object.values(p.field_privacy).some(isPrivate => isPrivate === true);
+        // Get all values from field_privacy
+        const privacyValues = Object.values(p.field_privacy);
+        // Profile must have at least one field set, and at least one field must be marked private (true)
+        if (privacyValues.length === 0) return false;
+        // Check if any field is marked as private (value is explicitly true)
+        return privacyValues.some(isPrivate => isPrivate === true);
       });
     }
 
@@ -378,6 +384,11 @@ export function useHomeProfiles() {
           return !hasPhoto || p.picturePrivacy === 'none';
         }
       });
+    }
+
+    // Apply one-time photo filter
+    if (filterState.hasOneTimePhoto) {
+      filtered = filtered.filter(p => p.picturePrivacy === 'one_time');
     }
 
     // Apply gender-specific filters
@@ -418,6 +429,15 @@ export function useHomeProfiles() {
       });
     }
 
+    // Post-High School Path (for females - shown to male users)
+    if (filterState.selectedPostHighSchool.length > 0) {
+      filtered = filtered.filter(p => {
+        const originalProfile = allProfiles.find(op => op.id === p.id);
+        return originalProfile && (originalProfile as any).post_high_school_path && 
+               filterState.selectedPostHighSchool.includes((originalProfile as any).post_high_school_path);
+      });
+    }
+
     // Apply sorting
     if (filterState.sortBy === 'newest') {
       // Sort by creation date (newest first)
@@ -428,6 +448,15 @@ export function useHomeProfiles() {
         const bDate = (bProfile as any)?.created_at ? new Date((bProfile as any).created_at).getTime() : 0;
         return bDate - aDate; // Newest first
       });
+    } else if (filterState.sortBy === 'oldest') {
+      // Sort by creation date (oldest first)
+      filtered.sort((a, b) => {
+        const aProfile = allProfiles.find(p => p.id === a.id);
+        const bProfile = allProfiles.find(p => p.id === b.id);
+        const aDate = (aProfile as any)?.created_at ? new Date((aProfile as any).created_at).getTime() : 0;
+        const bDate = (bProfile as any)?.created_at ? new Date((bProfile as any).created_at).getTime() : 0;
+        return aDate - bDate; // Oldest first
+      });
     } else if (filterState.sortBy === 'youngest') {
       // Sort by age (youngest first)
       filtered.sort((a, b) => {
@@ -435,6 +464,22 @@ export function useHomeProfiles() {
         const ageA = calculateAge(a.dob);
         const ageB = calculateAge(b.dob);
         return ageA - ageB; // Youngest first
+      });
+    } else if (filterState.sortBy === 'pictures_to_none') {
+      // Sort by picture privacy: always -> one_time -> private -> none
+      const privacyOrder = { 'always': 0, 'one_time': 1, 'private': 2, 'none': 3 };
+      filtered.sort((a, b) => {
+        const aOrder = privacyOrder[a.picturePrivacy] ?? 3;
+        const bOrder = privacyOrder[b.picturePrivacy] ?? 3;
+        return aOrder - bOrder;
+      });
+    } else if (filterState.sortBy === 'none_to_pictures') {
+      // Sort by picture privacy: none -> private -> one_time -> always
+      const privacyOrder = { 'none': 0, 'private': 1, 'one_time': 2, 'always': 3 };
+      filtered.sort((a, b) => {
+        const aOrder = privacyOrder[a.picturePrivacy] ?? 0;
+        const bOrder = privacyOrder[b.picturePrivacy] ?? 0;
+        return aOrder - bOrder;
       });
     }
 

@@ -531,6 +531,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
           onSelectChoice={handleContinuationChoice}
           onCancel={() => setShowContinuationModal(false)}
           loading={isResponding}
+          otherSideChoice={isProfileOne ? suggestion.profile_two_continuation_choice : suggestion.profile_one_continuation_choice}
         />
       )}
     </View>

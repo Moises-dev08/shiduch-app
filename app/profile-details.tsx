@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, Share, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AskForInfoModal from '../components/AskForInfoModal';
 import EngagementButton from '../components/EngagementButton';
@@ -20,7 +19,9 @@ import { suggestionService } from '../lib/suggestionService';
 import { supabase } from '../lib/supabase';
 import { calculateAge } from '../lib/utils';
 import { Profile } from '../types/homeTypes';
+import { profileDetailsStyles } from './styles';
 
+const styles = profileDetailsStyles;
 export default function ProfileDetailsScreen() {
   const params = useLocalSearchParams();
   const profileId = (params.profileId || params.id) as string;
@@ -124,7 +125,7 @@ export default function ProfileDetailsScreen() {
         .single();
 
       if (error || !data) {
-        console.error('Error loading profile:', error);
+
         router.back();
         return;
       }
@@ -174,8 +175,11 @@ export default function ProfileDetailsScreen() {
       }
 
       // Create a function to check if a field should be shown (either not private OR has approved request)
-      const shouldShowField = (fieldName: string): boolean => {
-        return !fieldPrivacy[fieldName] || currentApprovedFields.has(fieldName);
+      // privacyFieldName should be camelCase (as stored in field_privacy)
+      // dbFieldName should be snake_case (for approved fields check)
+      const shouldShowField = (privacyFieldName: string, dbFieldName?: string): boolean => {
+        const dbField = dbFieldName || privacyFieldName; // Default to same name if not mapped
+        return !fieldPrivacy[privacyFieldName] || currentApprovedFields.has(dbField);
       };
 
       const displayProfile: Profile = {
@@ -204,9 +208,9 @@ export default function ProfileDetailsScreen() {
         languages: shouldShowField('languages') ? data.languages : undefined,
         nationality: shouldShowField('nationality') ? data.nationality : undefined,
         is_cohen: shouldShowField('is_cohen') ? data.is_cohen : undefined,
-        torah_learning: shouldShowField('torah_learning') ? data.torah_learning : undefined,
+        torah_learning: shouldShowField('torahLearning', 'torah_learning') ? data.torah_learning : undefined,
         praying: shouldShowField('praying') ? data.praying : undefined,
-        education_level: shouldShowField('education_level') ? data.education_level : undefined,
+        education_level: shouldShowField('educationLevel', 'education_level') ? data.education_level : undefined,
         post_high_school_path: shouldShowField('post_high_school_path') ? data.post_high_school_path : undefined,
         current_occupation_study: shouldShowField('current_occupation_study') ? data.current_occupation_study : undefined,
         plan_after_marriage: shouldShowField('plan_after_marriage') ? data.plan_after_marriage : undefined,
@@ -221,7 +225,7 @@ export default function ProfileDetailsScreen() {
 
       setProfile(displayProfile);
     } catch (error) {
-      console.error('Error loading profile:', error);
+
       router.back();
     } finally {
       setLoading(false);
@@ -319,7 +323,7 @@ export default function ProfileDetailsScreen() {
         Alert.alert('Error', result.error || 'Failed to send request');
       }
     } catch (error) {
-      console.error('Error submitting info request:', error);
+
       Alert.alert('Error', 'Failed to send request');
     } finally {
       setIsSubmittingInfoRequest(false);
@@ -383,7 +387,7 @@ export default function ProfileDetailsScreen() {
       // Show success modal
       setShowIntroSuccessModal(true);
     } catch (error: any) {
-      console.error('Error creating intro request:', error);
+
       Alert.alert('Error', 'Failed to send intro request');
     } finally {
       setIsSubmittingIntro(false);
@@ -507,7 +511,7 @@ export default function ProfileDetailsScreen() {
         ]
       );
     } catch (error: any) {
-      console.error('Error creating suggestion:', error);
+
       Alert.alert('Error', 'Failed to send suggestion');
     } finally {
       setIsSubmittingSuggestion(false);
@@ -538,11 +542,8 @@ export default function ProfileDetailsScreen() {
         title: `${profile.name}'s Profile`,
       });
 
-      if (result.action === Share.sharedAction) {
-        console.log('Profile shared successfully');
-      }
     } catch (error) {
-      console.error('Error sharing profile:', error);
+
       Alert.alert('Error', 'Failed to share profile. Please try again.');
     } finally {
       setIsSharing(false);
@@ -582,13 +583,17 @@ export default function ProfileDetailsScreen() {
   };
 
   // Helper component for rendering a detail row with "Ask me" button
-  const renderDetailRow = (label: string, value: any, fieldName: string) => {
+  // dbFieldName: snake_case field name in database (e.g., 'torah_learning')
+  // privacyFieldName: camelCase field name in field_privacy (e.g., 'torahLearning'), defaults to dbFieldName if not provided
+  const renderDetailRow = (label: string, value: any, dbFieldName: string, privacyFieldName?: string) => {
+    const privacyField = privacyFieldName || dbFieldName;
+    
     // Only render if field has a value in the database
-    if (!hasFieldValue(fieldName)) {
+    if (!hasFieldValue(dbFieldName)) {
       return null;
     }
 
-    const isPrivate = isFieldPrivate(fieldName);
+    const isPrivate = isFieldPrivate(privacyField);
     
     if (isPrivate) {
       return (
@@ -596,7 +601,7 @@ export default function ProfileDetailsScreen() {
           <Text style={styles.detailLabel}>{label}:</Text>
           <TouchableOpacity
             style={styles.askMeButton}
-            onPress={() => handleAskForInfo(fieldName)}
+            onPress={() => handleAskForInfo(privacyField)}
           >
             <Ionicons name="lock-closed" size={14} color="#03a9f4" />
             <Text style={styles.askMeButtonText}>Ask me</Text>
@@ -739,7 +744,7 @@ export default function ProfileDetailsScreen() {
         </View>
 
         {/* Hashkafa / Religious Outlook */}
-        {(profile.hashkafa_type || profile.hashkafa_type || profile.torah_learning || profile.praying) && (
+        {(profile.hashkafa_type || hasFieldValue('torah_learning') || hasFieldValue('praying')) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Religious Outlook ✡️</Text>
             
@@ -750,40 +755,17 @@ export default function ProfileDetailsScreen() {
               </View>
             )}
             
-            {profile.hashkafa_type && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Type:</Text>
-                <Text style={styles.detailValue}>{profile.hashkafa_type}</Text>
-              </View>
-            )}
-            
-            {profile.torah_learning && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Torah Learning:</Text>
-                <Text style={styles.detailValue}>{profile.torah_learning}</Text>
-              </View>
-            )}
-            
-            {profile.praying && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Praying:</Text>
-                <Text style={styles.detailValue}>{profile.praying}</Text>
-              </View>
-            )}
+            {renderDetailRow('Torah Learning', profile.torah_learning, 'torah_learning', 'torahLearning')}
+            {renderDetailRow('Praying', profile.praying, 'praying')}
           </View>
         )}
 
         {/* Education */}
-        {(profile.education_level || profile.post_high_school_path) && (
+        {(hasFieldValue('education_level') || profile.post_high_school_path) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Education 🎓</Text>
             
-            {profile.education_level && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Education Level:</Text>
-                <Text style={styles.detailValue}>{profile.education_level}</Text>
-              </View>
-            )}
+            {renderDetailRow('Education Level', profile.education_level, 'education_level', 'educationLevel')}
             
             {profile.post_high_school_path && (
               <View style={styles.detailRow}>
@@ -1133,7 +1115,9 @@ export default function ProfileDetailsScreen() {
       {profile && selectedMiddlePerson && (
         <ContinuationChoiceModal
           visible={showContinuationChoiceModal}
-          profileName={`${profile.first_name} ${profile.last_name}`}
+          profileName={
+            `${profile.first_name} ${profile.last_name}`
+          }
           onSelectChoice={handleContinuationChoice}
           onCancel={() => {
             setShowContinuationChoiceModal(false);
@@ -1392,520 +1376,4 @@ export default function ProfileDetailsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  placeholder: {
-    width: 24,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    flex: 1,
-  },
-  profileHeader: {
-    flexDirection: 'row',
-    padding: 16,
-    backgroundColor: '#f9f9f9',
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#e0e0e0',
-  },
-  placeholderProfileImage: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileInfo: {
-    marginLeft: 16,
-    justifyContent: 'center',
-    flex: 1,
-  },
-  profileName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  profileAge: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 2,
-  },
-  profileLocation: {
-    fontSize: 14,
-    color: '#999',
-  },
-  section: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  picturesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  pictureThumbnail: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#f0f0f0',
-  },
-  thumbnailImage: {
-    width: '100%',
-    height: '100%',
-  },
-  bioText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#333',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  detailLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#666',
-    width: 120,
-  },
-  detailValue: {
-    fontSize: 15,
-    color: '#333',
-    flex: 1,
-  },
-  lastActiveContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-  },
-  lastActiveText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#666',
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    paddingTop: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  inlineActionsSection: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    gap: 12,
-  },
-  inlineButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-    gap: 8,
-    borderWidth: 1,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-  },
-  setupButton: {
-    backgroundColor: '#FF6B6B',
-  },
-  introButton: {
-    backgroundColor: '#03a9f4',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  disabledButton: {
-    backgroundColor: '#999',
-    opacity: 0.7,
-  },
-  reportButton: {
-    backgroundColor: '#ffebee',
-    borderColor: '#ffcdd2',
-  },
-  reportButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#f44336',
-  },
-  shareButton: {
-    backgroundColor: '#e3f2fd',
-    borderColor: '#bbdefb',
-  },
-  shareButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#03a9f4',
-  },
-  noteModalContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  noteModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  noteModalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  noteModalContent: {
-    flex: 1,
-    padding: 16,
-  },
-  noteModalLabel: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 12,
-    lineHeight: 22,
-  },
-  noteTextInput: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    minHeight: 150,
-    backgroundColor: '#f9f9f9',
-    marginBottom: 16,
-  },
-  noteModalHint: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-    lineHeight: 20,
-    marginTop: 8,
-  },
-  noteModeToggle: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-    padding: 4,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-  },
-  noteModeOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  noteModeOptionActive: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  noteModeText: {
-    fontSize: 14,
-    color: '#999',
-    fontWeight: '500',
-  },
-  noteModeTextActive: {
-    color: '#03a9f4',
-    fontWeight: '600',
-  },
-  separateNoteLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-    marginTop: 8,
-  },
-  noteModalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 26,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  noteModalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  skipButton: {
-    backgroundColor: '#f0f0f0',
-  },
-  skipButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-  },
-  sendButton: {
-    backgroundColor: '#03a9f4',
-  },
-  sendButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  imageWrapper: {
-    position: 'relative',
-  },
-  seeMoreOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 50,
-    gap: 8,
-  },
-  seeMoreText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  pictureNote: {
-    fontSize: 13,
-    color: '#999',
-    textAlign: 'center',
-    marginTop: 12,
-    fontStyle: 'italic',
-  },
-  blurOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  askMeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#e1f5fe',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#03a9f4',
-  },
-  askMeButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#03a9f4',
-  },
-  addNoteButton: {
-    backgroundColor: '#03a9f4',
-  },
-  addNoteButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  cancelButton: {
-    backgroundColor: '#f0f0f0',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-  },
-  notePreviewSection: {
-    marginTop: 20,
-  },
-  notePreviewLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  notePreviewSubLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-    marginBottom: 8,
-  },
-  notePreviewCard: {
-    backgroundColor: '#FFF9C4',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFF176',
-    marginBottom: 16,
-  },
-  notePreviewText: {
-    fontSize: 15,
-    color: '#333',
-    lineHeight: 22,
-  },
-  noNoteSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-    marginTop: 20,
-  },
-  noNoteText: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 12,
-    fontStyle: 'italic',
-  },
-  // Confirmation Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  confirmModalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '100%',
-    maxWidth: 400,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  confirmModalHeader: {
-    alignItems: 'center',
-    paddingTop: 32,
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-  },
-  confirmModalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#333',
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  confirmModalBody: {
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-  },
-  confirmModalText: {
-    fontSize: 16,
-    color: '#333',
-    lineHeight: 24,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  boldText: {
-    fontWeight: '700',
-    color: '#03a9f4',
-  },
-  confirmModalInfo: {
-    flexDirection: 'row',
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  confirmModalInfoText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-  confirmModalActions: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  confirmModalButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-  },
-  confirmCancelButton: {
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  confirmCancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-  },
-  confirmSendButton: {
-    backgroundColor: '#03a9f4',
-  },
-  confirmSendButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-});
 

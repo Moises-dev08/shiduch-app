@@ -63,9 +63,16 @@ class EngagementService {
 
         console.log('Updating engagement - isUser1:', isUser1, 'updateField:', updateField);
 
+        // Check if both will be confirmed after this update
+        const otherConfirmed = isUser1 ? existing.user2_confirmed : existing.user1_confirmed;
+        const updateData: any = { [updateField]: true };
+        if (otherConfirmed) {
+          updateData.confirmed_at = new Date().toISOString();
+        }
+
         const { data, error: updateError } = await supabase
           .from('engagements')
-          .update({ [updateField]: true })
+          .update(updateData)
           .eq('id', existing.id)
           .select()
           .single();
@@ -330,4 +337,3 @@ class EngagementService {
 }
 
 export const engagementService = new EngagementService();
-

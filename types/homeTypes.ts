@@ -1,4 +1,6 @@
 export interface Profile {
+  last_name: any;
+  first_name: any;
   id: string;
   name: string;
   picture: string;
@@ -85,14 +87,16 @@ export interface FilterState {
   maxHeightInches: number | null;
   
   // Sorting and special filters
-  sortBy: 'newest' | 'youngest' | null;
+  sortBy: 'newest' | 'oldest' | 'youngest' | 'pictures_to_none' | 'none_to_pictures' | null;
   hasAskMeFields: boolean;
   hasPhoto: boolean | null; // null = any, true = has photo, false = no photo
+  hasOneTimePhoto: boolean; // Filter for profiles with one-time photo privacy
   
   // Gender-specific filters
   selectedTorahLearning: string[];
   selectedPraying: string[];
   selectedHeadCovering: string[];
+  selectedPostHighSchool: string[]; // For female profiles
   wearsBlackHat: boolean | null;
 }
 

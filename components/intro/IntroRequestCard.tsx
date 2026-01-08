@@ -7,12 +7,11 @@ import {
   Image,
   Linking,
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import EngagementButton from '../../components/EngagementButton';
 import { IntroRequest, introService } from '../../lib/introService';
@@ -389,7 +388,6 @@ export default function IntroRequestCardNew({
                 `${request.requester_profile?.first_name} ${request.requester_profile?.last_name}` : 
                 `${request.requested_profile?.first_name} ${request.requested_profile?.last_name}`
               }
-              onUpdate={onUpdate}
             />
           </View>
         </View>
@@ -608,6 +606,7 @@ export default function IntroRequestCardNew({
         onSelectChoice={isRequester ? handleRequesterContinuationChoice : handleContinuationChoice}
         onCancel={() => setShowContinuationModal(false)}
         loading={isResponding}
+        otherSideChoice={isRequester ? request.requested_continuation_choice : request.requester_continuation_choice}
       />
     </View>
   );
