@@ -4,7 +4,7 @@
     "slug": "shiduchim-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./logo.jpeg",
+    "icon": "./logo-original.png",
     "scheme": "shiduchimapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -17,28 +17,37 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#87CEEB",
-        "foregroundImage": "./logo.jpeg"
+        "backgroundColor": "#1293DA",
+        "foregroundImage": "./logo-original.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./logo.jpeg"
+      "favicon": "./logo-original.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./logo.jpeg",
+          "image": "./logo-original.png",
           "imageWidth": 300,
           "resizeMode": "contain",
-          "backgroundColor": "#87CEEB",
+          "backgroundColor": "#1293DA",
           "dark": {
-            "backgroundColor": "#87CEEB"
+            "backgroundColor": "#0d3b8e"
           }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./logo-original.png",
+          "color": "#1293DA",
+          "defaultChannel": "default",
+          "sounds": []
         }
       ]
     ],
@@ -49,7 +58,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "c6f5ce51-10fc-4c03-9059-63cb696335a3"
+        "projectId": "6fcfce1b-d042-4623-a816-1efb1c6dc774"
       }
     },
     "owner": "moisholino"

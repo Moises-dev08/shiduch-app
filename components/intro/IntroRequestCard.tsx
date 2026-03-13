@@ -184,7 +184,7 @@ export default function IntroRequestCardNew({
         return (
           <View style={[styles.statusBadge, styles.waitingBadge]}>
             <Ionicons name="time" size={16} color="#1976d2" />
-            <Text style={[styles.statusText, { color: '#1976d2' }]}>Waiting for {otherProfile?.first_name}'s Response</Text>
+            <Text style={[styles.statusText, { color: '#1976d2' }]}>Waiting for {otherProfile?.first_name}&apos;s Response</Text>
           </View>
         );
       } else if (request.requested_status === 'rejected') {
@@ -569,12 +569,12 @@ export default function IntroRequestCardNew({
               
               <View style={styles.confirmModalBody}>
                 <Text style={styles.confirmModalText}>
-                  You're about to accept the intro request from <Text style={styles.boldText}>{otherProfile?.first_name}</Text>.
+                  You&apos;re about to accept the intro request from <Text style={styles.boldText}>{otherProfile?.first_name}</Text>.
                 </Text>
                 <View style={styles.confirmModalInfo}>
                   <Ionicons name="information-circle" size={20} color="#666" />
                   <Text style={styles.confirmModalInfoText}>
-                    After accepting, you'll choose how you'd like to continue with the introduction.
+                    After accepting, you&apos;ll choose how you&apos;d like to continue with the introduction.
                   </Text>
                 </View>
               </View>

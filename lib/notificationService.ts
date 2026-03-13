@@ -124,6 +124,37 @@ class NotificationService {
   }
 
   /**
+   * Remove all push tokens for the current device on logout
+   */
+  async removePushToken(): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      let currentToken: string | null = null;
+      try {
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        if (projectId && Device.isDevice) {
+          const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+          currentToken = tokenData.data;
+        }
+      } catch {
+        // Token may not be available (Expo Go, permissions revoked, etc.)
+      }
+
+      if (currentToken) {
+        await supabase
+          .from('push_tokens')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('token', currentToken);
+      }
+    } catch (error) {
+      console.error('Error removing push token:', error);
+    }
+  }
+
+  /**
    * Save push token to database
    */
   async savePushToken(token: string, userId: string): Promise<void> {

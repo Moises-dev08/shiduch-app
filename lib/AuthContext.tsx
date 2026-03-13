@@ -53,7 +53,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(session?.user ?? null);
       setLoading(false);
       
-      // Register for push notifications when user signs in
       if (session?.user) {
         notificationService.registerForPushNotifications().catch((error) => {
           console.error('Failed to register for notifications:', error);
@@ -65,6 +64,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    await notificationService.removePushToken().catch(() => {});
     await supabase.auth.signOut();
   };
 

@@ -399,6 +399,18 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
   };
 
   const validateAndSubmit = () => {
+    // Require at least one photo regardless of privacy setting
+    if (pictures.length === 0) {
+      Alert.alert(
+        'Photo Required',
+        picturePrivacy === 'none'
+          ? 'A photo is required for identity verification, even with "No Photo" selected. Your photo will only be seen by admins and never shown to other users.'
+          : 'Please upload at least one photo to continue.',
+        [{ text: 'Upload Photo', onPress: pickImage }, { text: 'Cancel', style: 'cancel' }]
+      );
+      return;
+    }
+
     // Validate required fields
     const missingFields = [];
     if (!firstName.trim()) missingFields.push('First Name');
@@ -578,43 +590,51 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
             </TouchableOpacity>
           </View>
           <Text style={styles.helpText}>
-            {picturePrivacy === 'none' && 'A generic avatar will be used'}
+            {picturePrivacy === 'none' && 'Your photo will NOT be visible to other users — only to admins for verification.'}
             {picturePrivacy === 'always' && 'Everyone can see your photos'}
             {picturePrivacy === 'private' && 'Photos blurred - users must request access'}
             {picturePrivacy === 'one_time' && 'Photos can be viewed only once per user 👁️'}
           </Text>
         </View>
 
-        {picturePrivacy !== 'none' && (
-          <>
-            <Text style={styles.pictureGuide}>
-              {pictures.length === 0 && 'Add up to 3 photos. The first will be your main photo.'}
-              {pictures.length > 0 && pictures.length < 3 && `You can add ${3 - pictures.length} more photo${3 - pictures.length > 1 ? 's' : ''}.`}
-              {pictures.length === 3 && 'Maximum photos added.'}
+        {picturePrivacy === 'none' && (
+          <View style={styles.securityNotice}>
+            <Ionicons name="shield-checkmark" size={22} color="#1565C0" style={{ marginRight: 10, marginTop: 1 }} />
+            <Text style={styles.securityNoticeText}>
+              <Text style={styles.securityNoticeBold}>Photo required for security. </Text>
+              Even with &quot;No Photo&quot; selected, you must upload at least one photo. It will be used by admins to verify your identity and will never be shown to other users.
             </Text>
-            <View style={styles.picturesContainer}>
-              {pictures.map((picture, index) => (
-                <View key={index} style={styles.pictureWrapper}>
-                  <Image source={{ uri: picture }} style={styles.picture} />
-                  {index === 0 && (
-                    <View style={styles.mainBadge}>
-                      <Text style={styles.mainBadgeText}>MAIN</Text>
-                    </View>
-                  )}
-                  <TouchableOpacity style={styles.removePicture} onPress={() => removePicture(index)}>
-                    <Ionicons name="close" size={16} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-              {pictures.length < 3 && (
-                <TouchableOpacity style={styles.addPicture} onPress={pickImage}>
-                  <Ionicons name="camera" size={24} color="#666" />
-                  <Text style={styles.addPictureText}>Add Photo</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </>
+          </View>
         )}
+
+        <Text style={styles.pictureGuide}>
+          {pictures.length === 0 && 'Add up to 3 photos. The first will be your main photo.'}
+          {pictures.length > 0 && pictures.length < 3 && `You can add ${3 - pictures.length} more photo${3 - pictures.length > 1 ? 's' : ''}.`}
+          {pictures.length === 3 && 'Maximum photos added.'}
+        </Text>
+        <View style={styles.picturesContainer}>
+          {pictures.map((picture, index) => (
+            <View key={index} style={styles.pictureWrapper}>
+              <Image source={{ uri: picture }} style={styles.picture} />
+              {index === 0 && (
+                <View style={styles.mainBadge}>
+                  <Text style={styles.mainBadgeText}>
+                    {picturePrivacy === 'none' ? 'ADMIN ONLY' : 'MAIN'}
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity style={styles.removePicture} onPress={() => removePicture(index)}>
+                <Ionicons name="close" size={16} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ))}
+          {pictures.length < 3 && (
+            <TouchableOpacity style={styles.addPicture} onPress={pickImage}>
+              <Ionicons name="camera" size={24} color="#666" />
+              <Text style={styles.addPictureText}>Add Photo</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* 2. Basic Information */}
@@ -1684,14 +1704,33 @@ const styles = StyleSheet.create({
     top: 4,
     left: 4,
     backgroundColor: '#03a9f4',
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     paddingVertical: 2,
     borderRadius: 4,
   },
   mainBadgeText: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  securityNotice: {
+    flexDirection: 'row',
+    backgroundColor: '#e3f2fd',
+    borderLeftWidth: 4,
+    borderLeftColor: '#1565C0',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 14,
+    alignItems: 'flex-start',
+  },
+  securityNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0d47a1',
+    lineHeight: 19,
+  },
+  securityNoticeBold: {
+    fontWeight: 'bold',
   },
   pictureGuide: {
     fontSize: 13,
