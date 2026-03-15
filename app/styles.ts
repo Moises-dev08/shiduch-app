@@ -163,7 +163,7 @@ export const profileDetailsStyles = StyleSheet.create({
       backgroundColor: '#FF6B6B',
     },
     introButton: {
-      backgroundColor: '#03a9f4',
+      backgroundColor: '#1293DA',
     },
     actionButtonText: {
       color: '#fff',
@@ -175,13 +175,13 @@ export const profileDetailsStyles = StyleSheet.create({
       opacity: 0.7,
     },
     reportButton: {
-      backgroundColor: '#ffebee',
-      borderColor: '#ffcdd2',
+      backgroundColor: '#FFF8E1',
+      borderColor: '#FFE082',
     },
     reportButtonText: {
       fontSize: 15,
       fontWeight: '600',
-      color: '#f44336',
+      color: '#F59E0B',
     },
     shareButton: {
       backgroundColor: '#e3f2fd',
@@ -190,11 +190,19 @@ export const profileDetailsStyles = StyleSheet.create({
     shareButtonText: {
       fontSize: 15,
       fontWeight: '600',
-      color: '#03a9f4',
+      color: '#1293DA',
+    },
+    noteModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      justifyContent: 'flex-end',
     },
     noteModalContainer: {
-      flex: 1,
+      height: '55%',
       backgroundColor: '#fff',
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      overflow: 'hidden',
     },
     noteModalHeader: {
       flexDirection: 'row',
@@ -268,7 +276,7 @@ export const profileDetailsStyles = StyleSheet.create({
       fontWeight: '500',
     },
     noteModeTextActive: {
-      color: '#03a9f4',
+      color: '#1293DA',
       fontWeight: '600',
     },
     separateNoteLabel: {
@@ -303,7 +311,7 @@ export const profileDetailsStyles = StyleSheet.create({
       color: '#666',
     },
     sendButton: {
-      backgroundColor: '#03a9f4',
+      backgroundColor: '#1293DA',
     },
     sendButtonText: {
       fontSize: 16,
@@ -354,18 +362,18 @@ export const profileDetailsStyles = StyleSheet.create({
       gap: 6,
       paddingHorizontal: 12,
       paddingVertical: 6,
-      backgroundColor: '#e1f5fe',
+      backgroundColor: '#E3F2FD',
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: '#03a9f4',
+      borderColor: '#1293DA',
     },
     askMeButtonText: {
       fontSize: 13,
       fontWeight: '600',
-      color: '#03a9f4',
+      color: '#1293DA',
     },
     addNoteButton: {
-      backgroundColor: '#03a9f4',
+      backgroundColor: '#1293DA',
     },
     addNoteButtonText: {
       fontSize: 16,
@@ -466,7 +474,7 @@ export const profileDetailsStyles = StyleSheet.create({
     },
     boldText: {
       fontWeight: '700',
-      color: '#03a9f4',
+      color: '#1293DA',
     },
     confirmModalInfo: {
       flexDirection: 'row',
@@ -508,7 +516,7 @@ export const profileDetailsStyles = StyleSheet.create({
       color: '#666',
     },
     confirmSendButton: {
-      backgroundColor: '#03a9f4',
+      backgroundColor: '#1293DA',
     },
     confirmSendButtonText: {
       fontSize: 16,

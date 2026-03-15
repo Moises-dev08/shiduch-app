@@ -4,6 +4,7 @@ import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   ScrollView,
   Share,
@@ -28,6 +29,7 @@ export default function SettingsScreen() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [isProfileActive, setIsProfileActive] = useState(true);
   const [loadingProfileStatus, setLoadingProfileStatus] = useState(true);
+  const [profileInfo, setProfileInfo] = useState<{ firstName: string; lastName: string; id: string } | null>(null);
   const [processingFreeze, setProcessingFreeze] = useState(false);
   const [myEngagement, setMyEngagement] = useState<EngagementWithProfiles | null>(null);
   const [loadingEngagement, setLoadingEngagement] = useState(true);
@@ -41,6 +43,11 @@ export default function SettingsScreen() {
         const result = await profileService.getProfile();
         if (result.success && result.profile) {
           setIsProfileActive(result.profile.is_active);
+          setProfileInfo({
+            firstName: result.profile.first_name || '',
+            lastName: result.profile.last_name || '',
+            id: result.profile.id || '',
+          });
         }
         setLoadingProfileStatus(false);
       };
@@ -77,21 +84,29 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleReportProblem = () => {
-    Alert.alert(
-      'Report Problem',
-      'This will open your email app to send a report. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Send Report', 
-          onPress: () => {
-            // TODO: Implement email report functionality
-            console.log('Opening email to report problem');
-          }
-        }
-      ]
+  const handleReportProblem = async () => {
+    const subject = encodeURIComponent('Problem Report – Zivug Mishamayim');
+
+    const userLine = profileInfo
+      ? `Name: ${profileInfo.firstName} ${profileInfo.lastName}\nUser ID: ${profileInfo.id}`
+      : '';
+
+    const body = encodeURIComponent(
+      `Please describe the problem you encountered:\n\n\n\n` +
+      `---\n${userLine}`
     );
+
+    const mailtoUrl = `mailto:support@zivugmishamayim.com?subject=${subject}&body=${body}`;
+
+    const canOpen = await Linking.canOpenURL(mailtoUrl);
+    if (canOpen) {
+      Linking.openURL(mailtoUrl);
+    } else {
+      Alert.alert(
+        'No Email App Found',
+        'Please send your report directly to support@zivugmishamayim.com'
+      );
+    }
   };
 
   const handleFreezeProfile = () => {
@@ -287,7 +302,7 @@ export default function SettingsScreen() {
 
         <TouchableOpacity style={styles.settingsItem} onPress={handleInviteFriend}>
           <View style={styles.settingsItemLeft}>
-            <Ionicons name="person-add" size={24} color="#9C27B0" />
+            <Ionicons name="person-add" size={24} color="#1293DA" />
             <Text style={styles.settingsItemText}>Invite a Friend</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#666" />
@@ -331,7 +346,7 @@ export default function SettingsScreen() {
 
         <TouchableOpacity style={styles.settingsItem} onPress={() => setShowFeedbackModal(true)}>
           <View style={styles.settingsItemLeft}>
-            <Ionicons name="chatbox-ellipses" size={24} color="#03a9f4" />
+            <Ionicons name="chatbox-ellipses" size={24} color="#1293DA" />
             <Text style={styles.settingsItemText}>Give Us Feedback</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#666" />

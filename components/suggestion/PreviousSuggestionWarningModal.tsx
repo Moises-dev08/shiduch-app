@@ -44,7 +44,7 @@ export default function PreviousSuggestionWarningModal({
       case 'accepted':
         return { text: 'Accepted ✓', color: '#4CAF50' };
       case 'rejected':
-        return { text: 'Declined ✗', color: '#F44336' };
+        return { text: 'Declined ✗', color: '#F59E0B' };
       case 'pending':
         return { text: 'Pending ⏳', color: '#FF9800' };
       default:
@@ -112,7 +112,7 @@ export default function PreviousSuggestionWarningModal({
               </View>
 
               <View style={styles.warningBox}>
-                <Ionicons name="information-circle" size={20} color="#03a9f4" />
+                <Ionicons name="information-circle" size={20} color="#1293DA" />
                 <Text style={styles.warningText}>
                   Would you like to suggest these profiles to each other again?
                 </Text>
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   continueButton: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
   },
   continueButtonText: {
     fontSize: 16,

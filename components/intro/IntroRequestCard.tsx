@@ -290,7 +290,7 @@ export default function IntroRequestCardNew({
       {!isRequester && request.matchmaker_note_to_requested && (
         <View style={styles.noteContainer}>
           <View style={styles.noteHeader}>
-            <Ionicons name="chatbox" size={16} color="#03a9f4" />
+            <Ionicons name="chatbox" size={16} color="#1293DA" />
             <Text style={styles.noteTitle}>Note from {matchmakerProfile?.first_name}:</Text>
           </View>
           <Text style={styles.noteText}>{request.matchmaker_note_to_requested}</Text>
@@ -352,7 +352,7 @@ export default function IntroRequestCardNew({
                   style={styles.contactItem}
                   onPress={() => Linking.openURL(`tel:${otherProfile.phone}`)}
                 >
-                  <Ionicons name="call" size={18} color="#03a9f4" />
+                  <Ionicons name="call" size={18} color="#1293DA" />
                   <Text style={styles.contactText}>{otherProfile.phone}</Text>
                 </TouchableOpacity>
               )}
@@ -362,7 +362,7 @@ export default function IntroRequestCardNew({
                   style={styles.contactItem}
                   onPress={() => Linking.openURL(`mailto:${otherProfile.email}`)}
                 >
-                  <Ionicons name="mail" size={18} color="#03a9f4" />
+                  <Ionicons name="mail" size={18} color="#1293DA" />
                   <Text style={styles.contactText}>{otherProfile.email}</Text>
                 </TouchableOpacity>
               )}
@@ -400,7 +400,7 @@ export default function IntroRequestCardNew({
          request.requested_continuation_choice === 'with_middle_person')) && (
         <View style={styles.matchmakerContactSection}>
           <View style={styles.matchmakerContactHeader}>
-            <Ionicons name="people" size={20} color="#9C27B0" />
+            <Ionicons name="people" size={20} color="#1293DA" />
             <Text style={styles.matchmakerContactTitle}>Matchmaker Contact Information</Text>
           </View>
           
@@ -419,7 +419,7 @@ export default function IntroRequestCardNew({
                   style={styles.contactItem}
                   onPress={() => Linking.openURL(`tel:${matchmakerProfile.phone}`)}
                 >
-                  <Ionicons name="call" size={18} color="#9C27B0" />
+                  <Ionicons name="call" size={18} color="#1293DA" />
                   <Text style={styles.matchmakerContactText}>{matchmakerProfile.phone}</Text>
                 </TouchableOpacity>
               )}
@@ -429,7 +429,7 @@ export default function IntroRequestCardNew({
                   style={styles.contactItem}
                   onPress={() => Linking.openURL(`mailto:${matchmakerProfile.email}`)}
                 >
-                  <Ionicons name="mail" size={18} color="#9C27B0" />
+                  <Ionicons name="mail" size={18} color="#1293DA" />
                   <Text style={styles.matchmakerContactText}>{matchmakerProfile.email}</Text>
                 </TouchableOpacity>
               )}
@@ -452,7 +452,7 @@ export default function IntroRequestCardNew({
       {isRequester && request.matchmaker_note_to_requester && (
         <View style={styles.noteContainer}>
           <View style={styles.noteHeader}>
-            <Ionicons name="chatbox" size={16} color="#03a9f4" />
+            <Ionicons name="chatbox" size={16} color="#1293DA" />
             <Text style={styles.noteTitle}>Note from {matchmakerProfile?.first_name}:</Text>
           </View>
           <Text style={styles.noteText}>{request.matchmaker_note_to_requester}</Text>
@@ -698,7 +698,7 @@ const styles = StyleSheet.create({
     borderColor: '#81c784',
   },
   rejectedBadge: {
-    backgroundColor: '#ffebee',
+    backgroundColor: '#FFF8E1',
     borderWidth: 1,
     borderColor: '#ef9a9a',
   },
@@ -714,7 +714,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     borderLeftWidth: 3,
-    borderLeftColor: '#03a9f4',
+    borderLeftColor: '#1293DA',
   },
   noteHeader: {
     flexDirection: 'row',
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
   noteTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#03a9f4',
+    color: '#1293DA',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -774,14 +774,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   continueButton: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
     borderRadius: 12,
     gap: 8,
-    shadowColor: '#03a9f4',
+    shadowColor: '#1293DA',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -850,7 +850,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   submitButton: {
-    backgroundColor: '#F44336',
+    backgroundColor: '#F59E0B',
   },
   submitButtonText: {
     color: '#fff',
@@ -859,12 +859,12 @@ const styles = StyleSheet.create({
   },
   // Contact Section Styles
   contactSection: {
-    backgroundColor: '#f0f9ff',
+    backgroundColor: '#EBF8FF',
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#b3e5fc',
+    borderColor: '#A8D8F5',
   },
   contactHeader: {
     flexDirection: 'row',
@@ -875,7 +875,7 @@ const styles = StyleSheet.create({
   contactTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#01579b',
+    color: '#0D4F8A',
   },
   contactInfo: {
     gap: 10,
@@ -894,23 +894,23 @@ const styles = StyleSheet.create({
   },
   contactText: {
     fontSize: 15,
-    color: '#03a9f4',
+    color: '#1293DA',
     textDecorationLine: 'underline',
   },
   engagementContainer: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#b3e5fc',
+    borderTopColor: '#A8D8F5',
   },
   // Matchmaker Contact Section Styles
   matchmakerContactSection: {
-    backgroundColor: '#f3e5f5',
+    backgroundColor: '#E3F2FD',
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#ce93d8',
+    borderColor: '#A8D8F5',
   },
   matchmakerContactHeader: {
     flexDirection: 'row',
@@ -921,7 +921,7 @@ const styles = StyleSheet.create({
   matchmakerContactTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#6a1b9a',
+    color: '#0D4F8A',
   },
   matchmakerInfoBox: {
     backgroundColor: '#fff',
@@ -929,7 +929,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 12,
     borderLeftWidth: 3,
-    borderLeftColor: '#9C27B0',
+    borderLeftColor: '#1293DA',
   },
   matchmakerInfoText: {
     fontSize: 14,
@@ -938,7 +938,7 @@ const styles = StyleSheet.create({
   },
   matchmakerContactText: {
     fontSize: 15,
-    color: '#9C27B0',
+    color: '#1293DA',
     textDecorationLine: 'underline',
   },
   // Confirm Accept Modal Styles
@@ -1017,11 +1017,11 @@ const styles = StyleSheet.create({
   },
   matchmakerName: {
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
   matchmakerNameClickable: {
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
     textDecorationLine: 'underline',
   },
   requestDescription: {

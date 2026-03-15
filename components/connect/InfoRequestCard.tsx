@@ -142,7 +142,7 @@ export default function InfoRequestCard({ request, onUpdate }: InfoRequestCardPr
       {/* Request details */}
       <View style={styles.requestDetails}>
         <View style={styles.requestHeader}>
-          <Ionicons name="lock-closed" size={16} color="#03a9f4" />
+          <Ionicons name="lock-closed" size={16} color="#1293DA" />
           <Text style={styles.requestTitle}>Request to View {fieldLabel}</Text>
         </View>
         
@@ -207,7 +207,7 @@ export default function InfoRequestCard({ request, onUpdate }: InfoRequestCardPr
       )}
       {request.status === 'rejected' && (
         <View style={styles.statusBadge}>
-          <Ionicons name="close-circle" size={16} color="#f44336" />
+          <Ionicons name="close-circle" size={16} color="#F59E0B" />
           <Text style={styles.statusRejected}>Declined</Text>
         </View>
       )}
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   requestTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
   messageContainer: {
     backgroundColor: '#f9f9f9',
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   approveButton: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
   },
   approveButtonText: {
     fontSize: 15,
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   statusRejected: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#f44336',
+    color: '#F59E0B',
   },
 });
 

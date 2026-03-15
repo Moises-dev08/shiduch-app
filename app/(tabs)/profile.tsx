@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -17,13 +18,19 @@ import MatchmakerProfileForm from '../../components/profile/MatchmakerProfileFor
 import SinglesProfileForm from '../../components/profile/SinglesProfileForm';
 import { useProfileShare } from '../../hooks/useProfileShare';
 import { FieldPrivacy, Profile, ProfileData, profileService } from '../../lib/profileService';
-import { calculateAge } from '../../lib/utils';
-
 export default function ProfileScreen() {
+  const queryClient = useQueryClient();
+
+  // ── React Query — shared with connect.tsx via same key ────────────────────
+  const { data: profileResult, isLoading: initialLoading, refetch: reloadProfile } = useQuery({
+    queryKey: ['my_profile'],
+    queryFn: () => profileService.getProfile(),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const [existingProfile, setExistingProfile] = useState<Profile | null>(null);
   const [profileStatus, setProfileStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const [rejectionReason, setRejectionReason] = useState<string>();
-  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   
   // Role and gender selection for new users
@@ -40,9 +47,25 @@ export default function ProfileScreen() {
   
   const { isSharing, shareProfile } = useProfileShare();
 
+  // Sync query result to local UI state
   useEffect(() => {
-    loadProfile();
-  }, []);
+    if (profileResult === undefined) return; // still loading
+    if (profileResult?.success && profileResult.profile) {
+      const profile = profileResult.profile;
+      setExistingProfile(profile);
+      setProfileStatus(profile.status);
+      setRejectionReason(profile.rejection_reason);
+      setSelectedRole(profile.role as 'single' | 'matchmaker');
+      setSelectedGender(profile.gender as 'male' | 'female');
+      setHasSubmitted(true);
+      if (profile.status === 'pending' || profile.status === 'rejected') {
+        setShowStatusModal(true);
+      }
+    } else if (profileResult && !profileResult.success) {
+      setShowSetupModal(true);
+      setSetupStep(1);
+    }
+  }, [profileResult]);
 
   // Auto-close status modal when profile becomes approved
   useEffect(() => {
@@ -79,34 +102,6 @@ export default function ProfileScreen() {
       }
     };
   }, [showStatusModal, profileStatus]);
-
-  const loadProfile = async () => {
-    try {
-      const result = await profileService.getProfile();
-      if (result.success && result.profile) {
-        const profile = result.profile;
-        setExistingProfile(profile);
-        setProfileStatus(profile.status);
-        setRejectionReason(profile.rejection_reason);
-        setSelectedRole(profile.role as 'single' | 'matchmaker');
-        setSelectedGender(profile.gender as 'male' | 'female');
-        setHasSubmitted(true); // Profile exists, so it was submitted
-
-        // Show status modal if pending or rejected
-        if (profile.status === 'pending' || profile.status === 'rejected') {
-          setShowStatusModal(true);
-        }
-      } else {
-        // No profile exists, show setup modal
-        setShowSetupModal(true);
-        setSetupStep(1);
-      }
-    } catch (error) {
-      console.error('Error loading profile:', error);
-    } finally {
-      setInitialLoading(false);
-    }
-  };
 
   const handleRoleSelection = (role: 'single' | 'matchmaker') => {
     setSelectedRole(role);
@@ -212,7 +207,8 @@ export default function ProfileScreen() {
         }
 
         // Reload profile to get the converted public URLs for images
-        await loadProfile();
+        await reloadProfile();
+        queryClient.invalidateQueries({ queryKey: ['my_profile'] });
 
         // Determine success message
         const isNewProfile = !existingProfile;
@@ -242,7 +238,7 @@ export default function ProfileScreen() {
           setProfileStatus('pending');
           setShowStatusModal(true);
           // Reload profile to ensure we have latest status
-          await loadProfile();
+          await reloadProfile();
         }
       } else {
         Alert.alert('Error', result.error || 'Failed to save profile');
@@ -274,21 +270,7 @@ export default function ProfileScreen() {
         return;
       }
 
-      await shareProfile(existingProfile, {
-        firstName: existingProfile.first_name,
-        lastName: existingProfile.last_name,
-        age: existingProfile.dob ? calculateAge(existingProfile.dob).toString() : undefined,
-        bio: existingProfile.bio,
-        height: existingProfile.height,
-        hasChildren: existingProfile.has_children,
-        location: existingProfile.location_city 
-          ? `${existingProfile.location_city}, ${existingProfile.location_state}` 
-          : undefined,
-        phone: existingProfile.phone,
-        email: existingProfile.email,
-        whatsapp: existingProfile.whatsapp,
-        pictures: (existingProfile.pictures || []).map((path: string) => profileService.getImageUrl(path)),
-      });
+      await shareProfile(existingProfile);
     } catch (error) {
       console.error('Error sharing profile:', error);
       Alert.alert('Error', 'Unable to share profile');
@@ -312,7 +294,7 @@ export default function ProfileScreen() {
                 style={styles.changeButton}
                 onPress={handleChangeRoleGender}
               >
-                <Ionicons name="swap-horizontal" size={20} color="#03a9f4" />
+                <Ionicons name="swap-horizontal" size={20} color="#1293DA" />
                 <Text style={styles.changeButtonText}>Change</Text>
               </TouchableOpacity>
             )}
@@ -342,7 +324,7 @@ export default function ProfileScreen() {
       {/* Loading State or Form Content */}
       {initialLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#03a9f4" />
+          <ActivityIndicator size="large" color="#1293DA" />
           <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
       ) : selectedRole && selectedGender ? (
@@ -404,7 +386,7 @@ export default function ProfileScreen() {
                     onPress={() => handleRoleSelection('single')}
                   >
                     <View style={styles.roleIconContainer}>
-                      <Ionicons name="heart" size={40} color="#03a9f4" />
+                      <Ionicons name="heart" size={40} color="#1293DA" />
                     </View>
                     <Text style={styles.roleTitle}>I&apos;m Single</Text>
                     <Text style={styles.roleDescription}>
@@ -450,8 +432,8 @@ export default function ProfileScreen() {
                     style={styles.roleCard}
                     onPress={() => handleGenderSelection('female')}
                   >
-                    <View style={[styles.roleIconContainer, { backgroundColor: '#FCE4EC' }]}>
-                      <Ionicons name="female" size={40} color="#E91E63" />
+                    <View style={[styles.roleIconContainer, { backgroundColor: '#E3F2FD' }]}>
+                      <Ionicons name="female" size={40} color="#1293DA" />
                     </View>
                     <Text style={styles.roleTitle}>Female</Text>
                   </TouchableOpacity>
@@ -537,13 +519,13 @@ const styles = StyleSheet.create({
     padding: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#e1f5fe',
+    backgroundColor: '#E3F2FD',
     gap: 4,
   },
   changeButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
   shareButton: {
     padding: 8,
@@ -610,7 +592,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
   },
   stepDotInactive: {
     backgroundColor: '#e0e0e0',

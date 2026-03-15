@@ -164,7 +164,7 @@ export default function UserDetailsScreen() {
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#03a9f4" />
+          <ActivityIndicator size="large" color="#1293DA" />
         </View>
       </SafeAreaView>
     );

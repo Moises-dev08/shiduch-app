@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   },
   acceptButton: {
     flex: 1,
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',

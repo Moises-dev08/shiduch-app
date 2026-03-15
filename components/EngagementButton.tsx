@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Engagement, engagementService } from '../lib/engagementService';
+import { notificationService } from '../lib/notificationService';
 import { supabase } from '../lib/supabase';
 
 interface EngagementButtonProps {
@@ -161,11 +162,39 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
       const bothConfirmed = result.engagement.user1_confirmed && result.engagement.user2_confirmed;
       
       if (bothConfirmed) {
+        // Both confirmed — notify both partners and all admins
+        await notificationService.sendNotification(
+          otherUserAuthId,
+          'Mazel Tov! 💍',
+          `You and ${currentUserName} are officially engaged! Wishing you both much happiness!`,
+          { type: 'engagement_confirmed' }
+        );
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await notificationService.sendNotification(
+            user.id,
+            'Mazel Tov! 💍',
+            `You and ${otherUserName} are officially engaged! Wishing you both much happiness!`,
+            { type: 'engagement_confirmed' }
+          );
+        }
+        await notificationService.notifyAdmins(
+          '💍 New Engagement Confirmed!',
+          `${currentUserName} and ${otherUserName} have confirmed their engagement.`,
+          { type: 'engagement_confirmed_admin' }
+        );
         setSuccessMessage({
           title: 'Mazel Tov! 🎉',
           message: `Congratulations! Your engagement with ${otherUserName} has been confirmed and will be shared with the community.`
         });
       } else {
+        // One side proposed — notify the other person
+        await notificationService.sendNotification(
+          otherUserAuthId,
+          'Engagement Proposal 💍',
+          `${currentUserName} has indicated that you both got engaged. Please confirm!`,
+          { type: 'engagement_proposal' }
+        );
         setSuccessMessage({
           title: 'Engagement Proposal Sent! 💍',
           message: `${otherUserName} will be notified and need to confirm as well. Once both of you confirm, your engagement will be shared with the community!`
@@ -187,7 +216,7 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
   if (loading) {
     return (
       <View style={styles.buttonContainer}>
-        <ActivityIndicator size="small" color="#03a9f4" />
+        <ActivityIndicator size="small" color="#1293DA" />
       </View>
     );
   }

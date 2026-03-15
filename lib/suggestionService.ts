@@ -285,6 +285,46 @@ class SuggestionService {
         return { success: false, error: error.message };
       }
 
+      // If this person accepted, check if both have now accepted → notify suggester
+      if (response === 'accepted') {
+        try {
+          const { data: updatedSuggestion } = await supabase
+            .from('suggestions')
+            .select(`
+              *,
+              suggester_profile:profiles!suggestions_suggester_id_fkey(id, user_id, first_name, last_name),
+              profile_one:profiles!suggestions_profile_one_id_fkey(id, user_id, first_name, last_name),
+              profile_two:profiles!suggestions_profile_two_id_fkey(id, user_id, first_name, last_name)
+            `)
+            .eq('id', suggestionId)
+            .single();
+
+          if (
+            updatedSuggestion &&
+            updatedSuggestion.profile_one_status === 'accepted' &&
+            updatedSuggestion.profile_two_status === 'accepted'
+          ) {
+            const suggester = updatedSuggestion.suggester_profile;
+            const p1 = updatedSuggestion.profile_one;
+            const p2 = updatedSuggestion.profile_two;
+
+            if (suggester?.user_id && suggester.id !== profile.id) {
+              await notificationService.sendNotification(
+                suggester.user_id,
+                '🎉 Both Accepted Your Suggestion!',
+                `${p1?.first_name} ${p1?.last_name} and ${p2?.first_name} ${p2?.last_name} both accepted your match suggestion!`,
+                {
+                  type: 'suggestion_both_accepted',
+                  suggestionId,
+                }
+              );
+            }
+          }
+        } catch (notifError) {
+          console.error('Error sending both-accepted notification:', notifError);
+        }
+      }
+
       // Send notifications if rejected
       if (response === 'rejected') {
         try {

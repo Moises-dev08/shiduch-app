@@ -229,7 +229,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
         style={styles.learnMoreButton}
         onPress={() => setShowLearnMore(true)}
       >
-        <Ionicons name="information-circle-outline" size={20} color="#03a9f4" />
+        <Ionicons name="information-circle-outline" size={20} color="#1293DA" />
         <Text style={styles.learnMoreText}>Learn More</Text>
       </TouchableOpacity>
 
@@ -408,7 +408,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
                       }
                     }}
                   >
-                    <Ionicons name="document-text" size={20} color="#03a9f4" />
+                    <Ionicons name="document-text" size={20} color="#1293DA" />
                     <Text style={styles.resumeButtonText}>Download Resume 📄</Text>
                   </TouchableOpacity>
                 )}
@@ -552,11 +552,11 @@ const styles = StyleSheet.create({
   },
   actionNeededCard: {
     borderLeftWidth: 4,
-    borderLeftColor: '#03a9f4',
+    borderLeftColor: '#1293DA',
     paddingTop: 0,
   },
   actionBanner: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
   },
   boldText: {
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F5E9',
   },
   rejectedBadge: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: '#FFF8E1',
   },
   statusText: {
     fontSize: 11,
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   learnMoreText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
   actionsSection: {
     borderTopWidth: 1,
@@ -759,17 +759,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#e1f5fe',
+    backgroundColor: '#E3F2FD',
     padding: 12,
     borderRadius: 8,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#03a9f4',
+    borderColor: '#1293DA',
   },
   resumeButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
     marginLeft: 8,
   },
   modalContainer: {

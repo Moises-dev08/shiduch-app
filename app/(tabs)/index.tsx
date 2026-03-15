@@ -16,8 +16,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EngagementCelebration from '../../components/EngagementCelebration';
 import ProfileCard from '../../components/home/ProfileCard';
+import NotificationPanel from '../../components/NotificationPanel';
 import { useEngagementCelebrations } from '../../hooks/useEngagementCelebrations';
 import { useHomeProfiles } from '../../hooks/useHomeProfiles';
+import { useUnreadNotificationsCount } from '../../hooks/useUnreadNotificationsCount';
 import { profileService } from '../../lib/profileService';
 import { supabase } from '../../lib/supabase';
 import { Profile } from '../../types/homeTypes';
@@ -39,6 +41,10 @@ export default function HomeScreen() {
 
   // Engagement celebrations
   const { showCelebration, celebrationData, closeCelebration } = useEngagementCelebrations(currentUserId);
+
+  // Notification bell badge & panel
+  const { unreadCount: unreadNotifCount } = useUnreadNotificationsCount();
+  const [notificationPanelVisible, setNotificationPanelVisible] = useState(false);
 
   // Check profile status and pending filters when screen is focused
   useFocusEffect(
@@ -326,18 +332,22 @@ export default function HomeScreen() {
               <Text style={styles.successMatchesText}>Success Stories</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.notificationButton}
-            onPress={() => {
-              // TODO: Navigate to notifications screen
-              console.log('Notifications pressed');
-            }}
+            onPress={() => setNotificationPanelVisible(true)}
           >
-            <Ionicons name="notifications-outline" size={24} color="#333" />
-            {/* Badge for future use */}
-            {/* <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>3</Text>
-            </View> */}
+            <Ionicons
+              name={unreadNotifCount > 0 ? 'notifications' : 'notifications-outline'}
+              size={26}
+              color="#333"
+            />
+            {unreadNotifCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
         <View style={styles.searchRow}>
@@ -358,7 +368,7 @@ export default function HomeScreen() {
               params: { filterState: JSON.stringify(filterState) } 
             })}
           >
-            <Ionicons name="options" size={20} color="#03a9f4" />
+            <Ionicons name="options" size={20} color="#1293DA" />
           </TouchableOpacity>
         </View>
       </View>
@@ -395,14 +405,14 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#03a9f4']}
-            tintColor="#03a9f4"
+            colors={['#1293DA']}
+            tintColor="#1293DA"
           />
         }
       >
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#03a9f4" />
+            <ActivityIndicator size="large" color="#1293DA" />
             <Text style={styles.loadingText}>Loading profiles...</Text>
           </View>
         ) : filteredProfiles.length === 0 ? (
@@ -426,6 +436,10 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
+      <NotificationPanel
+        visible={notificationPanelVisible}
+        onClose={() => setNotificationPanelVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -464,11 +478,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#ff6b9d',
+    backgroundColor: '#DAA520',
     borderRadius: 20,
     gap: 6,
     marginLeft: 12,
-    shadowColor: '#ff6b9d',
+    shadowColor: '#DAA520',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -483,25 +497,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   notificationButton: {
-    padding: 8,
+    padding: 6,
     position: 'relative',
   },
   notificationBadge: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    backgroundColor: '#03a9f4',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    top: 2,
+    right: 2,
+    backgroundColor: '#E53935',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#fff',
   },
   notificationBadgeText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: 'bold',
+    lineHeight: 12,
   },
   searchRow: {
     flexDirection: 'row',
@@ -530,7 +547,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#03a9f4',
+    borderColor: '#1293DA',
     justifyContent: 'center',
     alignItems: 'center',
   },

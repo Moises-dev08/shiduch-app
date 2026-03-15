@@ -70,7 +70,7 @@ export default function SuccessfulMatchesScreen() {
           <View style={styles.placeholder} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#03a9f4" />
+          <ActivityIndicator size="large" color="#1293DA" />
         </View>
       </SafeAreaView>
     );
@@ -109,8 +109,8 @@ export default function SuccessfulMatchesScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#03a9f4']}
-            tintColor="#03a9f4"
+            colors={['#1293DA']}
+            tintColor="#1293DA"
           />
         }
       >

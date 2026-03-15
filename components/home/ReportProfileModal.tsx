@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   reasonOptionSelected: {
-    borderColor: '#03a9f4',
+    borderColor: '#1293DA',
     backgroundColor: '#e3f2fd',
   },
   reasonHeader: {
@@ -316,8 +316,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   checkboxSelected: {
-    backgroundColor: '#03a9f4',
-    borderColor: '#03a9f4',
+    backgroundColor: '#1293DA',
+    borderColor: '#1293DA',
   },
   reasonLabel: {
     fontSize: 16,
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   submitButton: {
-    backgroundColor: '#f44336',
+    backgroundColor: '#F59E0B',
   },
   submitButtonDisabled: {
     backgroundColor: '#ccc',

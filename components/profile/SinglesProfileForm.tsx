@@ -1272,7 +1272,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         <Text style={styles.sectionTitle}>Upload Resume 📄</Text>
         <View style={styles.infoTile}>
           <View style={styles.infoTileIcon}>
-            <Ionicons name="share-social" size={20} color="#03a9f4" />
+            <Ionicons name="share-social" size={20} color="#1293DA" />
           </View>
           <Text style={styles.infoTileText}>
             Upload a PDF or image of your resume (optional). This will be shared automatically when you successfully matched with someone.
@@ -1282,7 +1282,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         {resumeUrl ? (
           <View style={styles.resumeContainer}>
             <View style={styles.resumeInfo}>
-              <Ionicons name="document-text" size={24} color="#03a9f4" />
+              <Ionicons name="document-text" size={24} color="#1293DA" />
               <View style={styles.resumeDetails}>
                 <Text style={styles.resumeText}>Resume uploaded</Text>
                 <Text style={styles.resumeSubtext}>
@@ -1309,10 +1309,10 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
             disabled={uploadingResume}
           >
             {uploadingResume ? (
-              <ActivityIndicator size="small" color="#03a9f4" />
+              <ActivityIndicator size="small" color="#1293DA" />
             ) : (
               <>
-                <Ionicons name="cloud-upload-outline" size={24} color="#03a9f4" />
+                <Ionicons name="cloud-upload-outline" size={24} color="#1293DA" />
                 <Text style={styles.uploadResumeText}>Upload Resume</Text>
                 <Text style={styles.uploadResumeSubtext}>PDF or Image (max 5MB)</Text>
               </>
@@ -1369,7 +1369,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
               >
                 <Text style={styles.modalOptionText}>{country}</Text>
                 {locationCountry === country && (
-                  <Ionicons name="checkmark" size={24} color="#03a9f4" />
+                  <Ionicons name="checkmark" size={24} color="#1293DA" />
                 )}
               </TouchableOpacity>
             ))}
@@ -1401,7 +1401,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
               >
                 <Text style={styles.modalOptionText}>{state}</Text>
                 {locationState === state && (
-                  <Ionicons name="checkmark" size={24} color="#03a9f4" />
+                  <Ionicons name="checkmark" size={24} color="#1293DA" />
                 )}
               </TouchableOpacity>
             ))}
@@ -1571,9 +1571,9 @@ const styles = StyleSheet.create({
   },
   infoTile: {
     flexDirection: 'row',
-    backgroundColor: '#f0f9ff',
+    backgroundColor: '#EBF8FF',
     borderLeftWidth: 4,
-    borderLeftColor: '#03a9f4',
+    borderLeftColor: '#1293DA',
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
@@ -1590,7 +1590,7 @@ const styles = StyleSheet.create({
   infoTileText: {
     flex: 1,
     fontSize: 14,
-    color: '#01579b',
+    color: '#0D4F8A',
     lineHeight: 20,
     fontWeight: '500',
   },
@@ -1647,8 +1647,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   radioSelected: {
-    backgroundColor: '#03a9f4',
-    borderColor: '#03a9f4',
+    backgroundColor: '#1293DA',
+    borderColor: '#1293DA',
   },
   radioText: {
     fontSize: 14,
@@ -1703,7 +1703,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     left: 4,
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     paddingHorizontal: 4,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1795,15 +1795,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   checkSelected: {
-    backgroundColor: '#e1f5fe',
-    borderColor: '#03a9f4',
+    backgroundColor: '#E3F2FD',
+    borderColor: '#1293DA',
   },
   checkText: {
     fontSize: 15,
     color: '#333',
   },
   checkTextSelected: {
-    color: '#03a9f4',
+    color: '#1293DA',
     fontWeight: '600',
   },
   askMeToggle: {
@@ -1816,7 +1816,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   askMeToggleActive: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
   },
   askMeText: {
     fontSize: 12,
@@ -1827,7 +1827,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   submitButton: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     margin: 20,
     paddingVertical: 16,
     borderRadius: 8,
@@ -1861,7 +1861,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
   modalContent: {
     flex: 1,
@@ -1948,10 +1948,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#e1f5fe',
+    backgroundColor: '#E3F2FD',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#03a9f4',
+    borderColor: '#1293DA',
   },
   resumeInfo: {
     flexDirection: 'row',
@@ -1980,7 +1980,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     borderWidth: 2,
-    borderColor: '#03a9f4',
+    borderColor: '#1293DA',
     borderStyle: 'dashed',
     borderRadius: 8,
     backgroundColor: '#f9f9f9',
@@ -1988,7 +1988,7 @@ const styles = StyleSheet.create({
   uploadResumeText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
     marginTop: 8,
   },
   uploadResumeSubtext: {

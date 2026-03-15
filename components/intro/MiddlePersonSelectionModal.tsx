@@ -365,7 +365,7 @@ export default function MiddlePersonSelectionModal({
             style={styles.filterButton}
             onPress={() => setShowFilters(!showFilters)}
           >
-            <Ionicons name="options" size={22} color={showFilters ? '#03a9f4' : '#666'} />
+            <Ionicons name="options" size={22} color={showFilters ? '#1293DA' : '#666'} />
           </TouchableOpacity>
         </View>
 
@@ -400,7 +400,7 @@ export default function MiddlePersonSelectionModal({
         {/* Profile Grid */}
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#03a9f4" />
+            <ActivityIndicator size="large" color="#1293DA" />
           </View>
         ) : (
           <ScrollView style={styles.profileList}>
@@ -575,8 +575,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   chipActive: {
-    backgroundColor: '#03a9f4',
-    borderColor: '#03a9f4',
+    backgroundColor: '#1293DA',
+    borderColor: '#1293DA',
   },
   chipText: {
     fontSize: 14,
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
   },
   clearButtonText: {
     fontSize: 14,
-    color: '#03a9f4',
+    color: '#1293DA',
     fontWeight: '600',
   },
   resultsCount: {
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     bottom: 8,
     left: 8,
     right: 8,
-    backgroundColor: '#87CEEB',
+    backgroundColor: '#7ACDF5',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,

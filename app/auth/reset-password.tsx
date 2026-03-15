@@ -174,7 +174,7 @@ export default function ResetPasswordScreen() {
       >
         <View style={styles.content}>
           <View style={styles.header}>
-            <ActivityIndicator size="large" color="#03a9f4" />
+            <ActivityIndicator size="large" color="#1293DA" />
             <Text style={styles.title}>Verifying Reset Link</Text>
             <Text style={styles.subtitle}>Please wait...</Text>
           </View>
@@ -190,7 +190,7 @@ export default function ResetPasswordScreen() {
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <Ionicons name="key" size={60} color="#03a9f4" />
+          <Ionicons name="key" size={60} color="#1293DA" />
           <Text style={styles.title}>Reset Password</Text>
           <Text style={styles.subtitle}>Enter your new password</Text>
         </View>
@@ -284,7 +284,7 @@ export default function ResetPasswordScreen() {
         <View style={styles.footer}>
           <TouchableOpacity onPress={() => router.replace('/auth/login')}>
             <Text style={styles.backToLoginText}>
-              <Ionicons name="arrow-back" size={16} color="#03a9f4" /> Back to Login
+              <Ionicons name="arrow-back" size={16} color="#1293DA" /> Back to Login
             </Text>
           </TouchableOpacity>
         </View>
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   resetButton: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backToLoginText: {
-    color: '#03a9f4',
+    color: '#1293DA',
     fontSize: 16,
     fontWeight: '600',
   },

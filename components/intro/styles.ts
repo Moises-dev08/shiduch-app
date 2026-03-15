@@ -86,7 +86,7 @@ export const introRequestCardStyles = StyleSheet.create({
       borderColor: '#81c784',
     },
     rejectedBadge: {
-      backgroundColor: '#ffebee',
+      backgroundColor: '#FFF8E1',
       borderWidth: 1,
       borderColor: '#ef9a9a',
     },
@@ -102,7 +102,7 @@ export const introRequestCardStyles = StyleSheet.create({
       borderRadius: 12,
       marginBottom: 12,
       borderLeftWidth: 3,
-      borderLeftColor: '#03a9f4',
+      borderLeftColor: '#1293DA',
     },
     noteHeader: {
       flexDirection: 'row',
@@ -113,7 +113,7 @@ export const introRequestCardStyles = StyleSheet.create({
     noteTitle: {
       fontSize: 13,
       fontWeight: '700',
-      color: '#03a9f4',
+      color: '#1293DA',
       textTransform: 'uppercase',
       letterSpacing: 0.5,
     },
@@ -162,14 +162,14 @@ export const introRequestCardStyles = StyleSheet.create({
       letterSpacing: 0.3,
     },
     continueButton: {
-      backgroundColor: '#03a9f4',
+      backgroundColor: '#1293DA',
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       padding: 16,
       borderRadius: 12,
       gap: 8,
-      shadowColor: '#03a9f4',
+      shadowColor: '#1293DA',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.2,
       shadowRadius: 4,
@@ -238,7 +238,7 @@ export const introRequestCardStyles = StyleSheet.create({
       fontWeight: '600',
     },
     submitButton: {
-      backgroundColor: '#F44336',
+      backgroundColor: '#F59E0B',
     },
     submitButtonText: {
       color: '#fff',
@@ -247,12 +247,12 @@ export const introRequestCardStyles = StyleSheet.create({
     },
     // Contact Section Styles
     contactSection: {
-      backgroundColor: '#f0f9ff',
+      backgroundColor: '#EBF8FF',
       padding: 16,
       borderRadius: 12,
       marginBottom: 12,
       borderWidth: 1,
-      borderColor: '#b3e5fc',
+      borderColor: '#A8D8F5',
     },
     contactHeader: {
       flexDirection: 'row',
@@ -263,7 +263,7 @@ export const introRequestCardStyles = StyleSheet.create({
     contactTitle: {
       fontSize: 16,
       fontWeight: '700',
-      color: '#01579b',
+      color: '#0D4F8A',
     },
     contactInfo: {
       gap: 10,
@@ -282,23 +282,23 @@ export const introRequestCardStyles = StyleSheet.create({
     },
     contactText: {
       fontSize: 15,
-      color: '#03a9f4',
+      color: '#1293DA',
       textDecorationLine: 'underline',
     },
     engagementContainer: {
       marginTop: 16,
       paddingTop: 16,
       borderTopWidth: 1,
-      borderTopColor: '#b3e5fc',
+      borderTopColor: '#A8D8F5',
     },
     // Matchmaker Contact Section Styles
     matchmakerContactSection: {
-      backgroundColor: '#f3e5f5',
+      backgroundColor: '#E3F2FD',
       padding: 16,
       borderRadius: 12,
       marginBottom: 12,
       borderWidth: 1,
-      borderColor: '#ce93d8',
+      borderColor: '#A8D8F5',
     },
     matchmakerContactHeader: {
       flexDirection: 'row',
@@ -309,7 +309,7 @@ export const introRequestCardStyles = StyleSheet.create({
     matchmakerContactTitle: {
       fontSize: 16,
       fontWeight: '700',
-      color: '#6a1b9a',
+      color: '#0D4F8A',
     },
     matchmakerInfoBox: {
       backgroundColor: '#fff',
@@ -317,7 +317,7 @@ export const introRequestCardStyles = StyleSheet.create({
       borderRadius: 8,
       marginBottom: 12,
       borderLeftWidth: 3,
-      borderLeftColor: '#9C27B0',
+      borderLeftColor: '#1293DA',
     },
     matchmakerInfoText: {
       fontSize: 14,
@@ -326,7 +326,7 @@ export const introRequestCardStyles = StyleSheet.create({
     },
     matchmakerContactText: {
       fontSize: 15,
-      color: '#9C27B0',
+      color: '#1293DA',
       textDecorationLine: 'underline',
     },
     // Confirm Accept Modal Styles
@@ -405,11 +405,11 @@ export const introRequestCardStyles = StyleSheet.create({
     },
     matchmakerName: {
       fontWeight: '600',
-      color: '#03a9f4',
+      color: '#1293DA',
     },
     matchmakerNameClickable: {
       fontWeight: '600',
-      color: '#03a9f4',
+      color: '#1293DA',
       textDecorationLine: 'underline',
     },
     requestDescription: {

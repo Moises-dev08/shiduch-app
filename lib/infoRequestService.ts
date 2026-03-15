@@ -232,8 +232,8 @@ class InfoRequestService {
         return { success: false, error: error.message };
       }
 
-      // Send notification if approved
-      if (status === 'approved') {
+      // Send notification on approve or reject
+      if (status === 'approved' || status === 'rejected') {
         try {
           // Get the request with profile information
           const { data: request } = await supabase
@@ -288,22 +288,35 @@ class InfoRequestService {
 
             const fieldLabel = fieldLabels[request.field_name] || request.field_name;
 
-            // Notify the requester that their request was approved
-            await notificationService.sendNotification(
-              request.requester_profile.user_id,
-              'Info Request Approved',
-              `${request.requested_profile.first_name} ${request.requested_profile.last_name} approved your request to view their ${fieldLabel.toLowerCase()}.`,
-              {
-                type: 'info_request_approved',
-                requestId: requestId,
-                fieldName: request.field_name,
-                requestedProfileId: request.requested_profile_id,
-              }
-            );
+            if (status === 'approved') {
+              await notificationService.sendNotification(
+                request.requester_profile.user_id,
+                'Info Request Approved',
+                `${request.requested_profile.first_name} ${request.requested_profile.last_name} approved your request to view their ${fieldLabel.toLowerCase()}.`,
+                {
+                  type: 'info_request_approved',
+                  requestId: requestId,
+                  fieldName: request.field_name,
+                  requestedProfileId: request.requested_profile_id,
+                }
+              );
+            } else {
+              await notificationService.sendNotification(
+                request.requester_profile.user_id,
+                'Info Request Declined',
+                `${request.requested_profile.first_name} ${request.requested_profile.last_name} declined your request to view their ${fieldLabel.toLowerCase()}.`,
+                {
+                  type: 'info_request_declined',
+                  requestId: requestId,
+                  fieldName: request.field_name,
+                  requestedProfileId: request.requested_profile_id,
+                }
+              );
+            }
           }
         } catch (notifError) {
-          console.error('Error sending approval notification:', notifError);
-          // Don't fail the approval if notification fails
+          console.error('Error sending info request notification:', notifError);
+          // Don't fail the response if notification fails
         }
       }
 

@@ -77,7 +77,7 @@ export default function MiddlePersonRequestCard({ request, currentUserProfileId 
 
     return (
       <View style={[styles.responseBadge, styles.rejectedBadge]}>
-        <Ionicons name="close-circle" size={14} color="#F44336" />
+        <Ionicons name="close-circle" size={14} color="#F59E0B" />
         <Text style={styles.responseText}>Declined</Text>
       </View>
     );
@@ -89,7 +89,7 @@ export default function MiddlePersonRequestCard({ request, currentUserProfileId 
       return {
         category: 'Did Not Match',
         icon: 'close-circle' as const,
-        color: '#F44336',
+        color: '#F59E0B',
         description: 'One or both declined',
       };
     }
@@ -196,7 +196,7 @@ export default function MiddlePersonRequestCard({ request, currentUserProfileId 
         <View style={styles.separator}>
           {request.status === 'completed' || 
            (request.status === 'accepted' && request.requester_continuation_choice && request.requested_continuation_choice) ? (
-            <Ionicons name="heart" size={20} color="#03a9f4" />
+            <Ionicons name="heart" size={20} color="#1293DA" />
           ) : (
             <Ionicons name="arrow-forward" size={20} color="#999" />
           )}
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F5E9',
   },
   rejectedBadge: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: '#FFF8E1',
   },
   responseText: {
     fontSize: 11,

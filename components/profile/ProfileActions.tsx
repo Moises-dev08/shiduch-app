@@ -49,10 +49,10 @@ export default function ProfileActions({
             disabled={isSubmittingInfoRequest}
           >
             {isSubmittingInfoRequest ? (
-              <ActivityIndicator color="#03a9f4" />
+              <ActivityIndicator color="#1293DA" />
             ) : (
               <>
-                <Ionicons name="information-circle-outline" size={20} color="#03a9f4" />
+                <Ionicons name="information-circle-outline" size={20} color="#1293DA" />
                 <Text style={styles.secondaryButtonText}>Ask for Info</Text>
               </>
             )}
@@ -68,7 +68,7 @@ export default function ProfileActions({
               style={[styles.iconButton, styles.reportButton]}
               onPress={onReportPress}
             >
-              <Ionicons name="flag-outline" size={20} color="#f44336" />
+              <Ionicons name="flag-outline" size={20} color="#F59E0B" />
               <Text style={styles.reportButtonText}>Report Profile</Text>
             </TouchableOpacity>
           )}
@@ -80,10 +80,10 @@ export default function ProfileActions({
               disabled={isSharing}
             >
               {isSharing ? (
-                <ActivityIndicator color="#03a9f4" size="small" />
+                <ActivityIndicator color="#1293DA" size="small" />
               ) : (
                 <>
-                  <Ionicons name="share-outline" size={20} color="#03a9f4" />
+                  <Ionicons name="share-outline" size={20} color="#1293DA" />
                   <Text style={styles.shareButtonText}>Share Profile</Text>
                 </>
               )}
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryButton: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
   },
   primaryButtonText: {
     fontSize: 16,
@@ -128,12 +128,12 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: '#fff',
     borderWidth: 2,
-    borderColor: '#03a9f4',
+    borderColor: '#1293DA',
   },
   secondaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
   secondaryActions: {
     flexDirection: 'row',
@@ -151,13 +151,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   reportButton: {
-    backgroundColor: '#ffebee',
-    borderColor: '#ffcdd2',
+    backgroundColor: '#FFF8E1',
+    borderColor: '#FFE082',
   },
   reportButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#f44336',
+    color: '#F59E0B',
   },
   shareButton: {
     backgroundColor: '#e3f2fd',
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   shareButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
 });
 

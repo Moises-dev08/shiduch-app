@@ -56,7 +56,7 @@ export default function AskMeRequestModal({
 
         <View style={styles.content}>
           <View style={styles.infoBox}>
-            <Ionicons name="lock-closed" size={20} color="#03a9f4" />
+            <Ionicons name="lock-closed" size={20} color="#1293DA" />
             <Text style={styles.infoText}>
               This information is private. Send a request to view it.
             </Text>
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e1f5fe',
+    backgroundColor: '#E3F2FD',
     padding: 16,
     borderRadius: 12,
     marginBottom: 24,
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   sendButton: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
   },
   sendButtonText: {
     fontSize: 16,

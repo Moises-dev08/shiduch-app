@@ -32,11 +32,10 @@ export interface ProfilePDFData {
   headCovering?: string;
   smoking?: string;
   alcoholConsumption?: string;
-  phone?: string;
-  email?: string;
-  whatsapp?: string;
   bio?: string;
   pictures?: string[];
+  // Contact fields (phone / email / whatsapp) are intentionally excluded —
+  // they are gated behind an info request and must never appear in a shared PDF.
 }
 
 /**
@@ -485,45 +484,58 @@ export async function generateAndShareProfilePDF(
 }
 
 /**
- * Converts Profile type to ProfilePDFData
+ * Converts Profile type to ProfilePDFData.
+ *
+ * Privacy rules applied:
+ * - Contact fields (phone, email, whatsapp) are ALWAYS omitted — they are
+ *   gated behind an explicit info request and must never appear in a PDF.
+ * - Any field the user has flagged as "Ask me" in field_privacy is omitted.
+ * - Pictures marked as private (picture_privacy === 'no') are not included.
  */
 export function profileToPDFData(profile: Profile): ProfilePDFData {
-  // Calculate age from date of birth
   const age = calculateAge(profile.dob);
+  const priv = profile.field_privacy || {};
+
+  // Helper: returns the value only when the field is NOT marked private.
+  const pub = <T>(fieldName: string, value: T | undefined): T | undefined =>
+    priv[fieldName] ? undefined : value;
+
+  // Only include pictures when the user hasn't set picture_privacy to 'no'.
+  const pictures =
+    profile.picture_privacy === 'no'
+      ? []
+      : profile.pictures || [];
 
   return {
     firstName: profile.first_name || '',
     lastName: profile.last_name || '',
-    age: age,
+    age,
     gender: profile.gender || '',
     role: profile.role || '',
-    whatLookingFor: profile.what_looking_for,
-    height: profile.height,
-    hasChildren: profile.has_children,
-    locationCity: profile.location_city,
-    locationState: profile.location_state,
-    locationCountry: profile.location_country,
-    languages: profile.languages,
-    nationality: profile.nationality,
-    isCohen: profile.is_cohen,
-    hashkafaType: profile.hashkafa_type,
-    torahLearning: profile.torah_learning,
-    praying: profile.praying,
-    educationLevel: profile.education_level,
-    postHighSchoolPath: profile.post_high_school_path,
-    currentOccupationStudy: profile.current_occupation_study,
-    planAfterMarriage: profile.plan_after_marriage,
-    maritalStatus: profile.marital_status,
-    dressStyle: profile.dress_style,
-    wearsBlackHat: profile.wears_black_hat,
-    headCovering: profile.head_covering,
-    smoking: profile.smoking,
-    alcoholConsumption: profile.alcohol_consumption,
-    phone: profile.phone,
-    email: profile.email,
-    whatsapp: profile.whatsapp,
-    bio: profile.bio,
-    pictures: profile.pictures || [],
+    whatLookingFor: pub('what_looking_for', profile.what_looking_for),
+    height: pub('height', profile.height),
+    hasChildren: pub('has_children', profile.has_children),
+    locationCity: pub('location_city', profile.location_city),
+    locationState: pub('location_state', profile.location_state),
+    locationCountry: pub('location_country', profile.location_country),
+    languages: pub('languages', profile.languages),
+    nationality: pub('nationality', profile.nationality),
+    isCohen: pub('is_cohen', profile.is_cohen),
+    hashkafaType: pub('hashkafa_type', profile.hashkafa_type),
+    torahLearning: pub('torah_learning', profile.torah_learning),
+    praying: pub('praying', profile.praying),
+    educationLevel: pub('education_level', profile.education_level),
+    postHighSchoolPath: pub('post_high_school_path', profile.post_high_school_path),
+    currentOccupationStudy: pub('current_occupation_study', profile.current_occupation_study),
+    planAfterMarriage: pub('plan_after_marriage', profile.plan_after_marriage),
+    maritalStatus: pub('marital_status', profile.marital_status),
+    dressStyle: pub('dress_style', profile.dress_style),
+    wearsBlackHat: pub('wears_black_hat', profile.wears_black_hat),
+    headCovering: pub('head_covering', profile.head_covering),
+    smoking: pub('smoking', profile.smoking),
+    alcoholConsumption: pub('alcohol_consumption', profile.alcohol_consumption),
+    bio: pub('bio', profile.bio),
+    pictures,
   };
 }
 

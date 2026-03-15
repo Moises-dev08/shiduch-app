@@ -142,7 +142,7 @@ export default function ProfileReviewPage() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#03a9f4" />
+          <ActivityIndicator size="large" color="#1293DA" />
           <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
       </SafeAreaView>
@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
   },
   privateField: {
     fontSize: 14,
-    color: '#03a9f4',
+    color: '#1293DA',
     marginLeft: 8,
     marginBottom: 4,
   },
@@ -762,7 +762,7 @@ const styles = StyleSheet.create({
   backButton: {
     marginTop: 16,
     padding: 12,
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     borderRadius: 8,
   },
   backButtonText: {

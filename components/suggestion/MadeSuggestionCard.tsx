@@ -59,7 +59,7 @@ export default function MadeSuggestionCard({ suggestion }: MadeSuggestionCardPro
 
     return (
       <View style={[styles.responseBadge, styles.rejectedBadge]}>
-        <Ionicons name="close-circle" size={14} color="#F44336" />
+        <Ionicons name="close-circle" size={14} color="#F59E0B" />
         <Text style={styles.responseText}>Declined</Text>
       </View>
     );
@@ -79,7 +79,7 @@ export default function MadeSuggestionCard({ suggestion }: MadeSuggestionCardPro
     } else if (suggestion.status === 'rejected') {
       return {
         icon: 'close-circle',
-        color: '#F44336',
+        color: '#F59E0B',
         text: 'Did Not Match',
         description: 'One or both declined the suggestion.',
       };
@@ -136,7 +136,7 @@ export default function MadeSuggestionCard({ suggestion }: MadeSuggestionCardPro
            (suggestion.status === 'accepted' && 
             suggestion.profile_one_continuation_choice && 
             suggestion.profile_two_continuation_choice) ? (
-            <Ionicons name="heart" size={20} color="#03a9f4" />
+            <Ionicons name="heart" size={20} color="#1293DA" />
           ) : (
             <Ionicons name="arrow-forward" size={20} color="#999" />
           )}
@@ -173,7 +173,7 @@ export default function MadeSuggestionCard({ suggestion }: MadeSuggestionCardPro
           style={styles.noteButton}
           onPress={() => setShowNoteModal(true)}
         >
-          <Ionicons name="document-text" size={16} color="#03a9f4" />
+          <Ionicons name="document-text" size={16} color="#1293DA" />
           <Text style={styles.noteButtonText}>
             {suggestion.profile_one_note && suggestion.profile_two_note 
               ? 'View Your Notes' 
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F5E9',
   },
   rejectedBadge: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: '#FFF8E1',
   },
   responseText: {
     fontSize: 11,
@@ -354,12 +354,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#03a9f4',
+    borderColor: '#1293DA',
   },
   noteButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
   dateSection: {
     flexDirection: 'row',

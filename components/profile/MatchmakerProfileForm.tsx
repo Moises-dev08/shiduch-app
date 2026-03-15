@@ -437,7 +437,7 @@ export default function MatchmakerProfileForm({ initialData, onSubmit, gender, l
         <Text style={styles.sectionTitle}>Contact Information</Text>
         <View style={styles.infoTile}>
           <View style={styles.infoTileIcon}>
-            <Ionicons name="people" size={20} color="#9C27B0" />
+            <Ionicons name="people" size={20} color="#1293DA" />
           </View>
           <Text style={styles.infoTileText}>
             This information will only be shared with singles who selected you as their matchmaker and people you suggest matches to (if they choose to continue with a matchmaker after a successful match).
@@ -596,7 +596,7 @@ export default function MatchmakerProfileForm({ initialData, onSubmit, gender, l
 
       {/* Info Box */}
       <View style={styles.infoBox}>
-        <Ionicons name="information-circle" size={24} color="#03a9f4" />
+        <Ionicons name="information-circle" size={24} color="#1293DA" />
         <View style={styles.infoTextContainer}>
           <Text style={styles.infoTitle}>Matchmaker Profile</Text>
           <Text style={styles.infoText}>
@@ -753,9 +753,9 @@ const styles = StyleSheet.create({
   },
   infoTile: {
     flexDirection: 'row',
-    backgroundColor: '#f3e5f5',
+    backgroundColor: '#E3F2FD',
     borderLeftWidth: 4,
-    borderLeftColor: '#9C27B0',
+    borderLeftColor: '#1293DA',
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
@@ -772,7 +772,7 @@ const styles = StyleSheet.create({
   infoTileText: {
     flex: 1,
     fontSize: 14,
-    color: '#6a1b9a',
+    color: '#0D4F8A',
     lineHeight: 20,
     fontWeight: '500',
   },
@@ -821,8 +821,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   radioSelected: {
-    backgroundColor: '#03a9f4',
-    borderColor: '#03a9f4',
+    backgroundColor: '#1293DA',
+    borderColor: '#1293DA',
   },
   radioText: {
     fontSize: 14,
@@ -878,7 +878,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     left: 4,
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -943,7 +943,7 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#e1f5fe',
+    backgroundColor: '#E3F2FD',
     padding: 20,
     marginHorizontal: 20,
     marginTop: 16,
@@ -965,7 +965,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   submitButton: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     margin: 20,
     paddingVertical: 16,
     borderRadius: 8,
@@ -1004,7 +1004,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
   datePickerContainer: {
     flex: 1,
@@ -1055,15 +1055,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   checkSelected: {
-    backgroundColor: '#e1f5fe',
-    borderColor: '#03a9f4',
+    backgroundColor: '#E3F2FD',
+    borderColor: '#1293DA',
   },
   checkText: {
     fontSize: 15,
     color: '#666',
   },
   checkTextSelected: {
-    color: '#03a9f4',
+    color: '#1293DA',
     fontWeight: '600',
   },
   modalList: {

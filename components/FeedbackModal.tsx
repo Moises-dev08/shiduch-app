@@ -90,7 +90,7 @@ export default function FeedbackModal({ visible, onClose }: FeedbackModalProps) 
               {/* Header */}
               <View style={styles.header}>
                 <View style={styles.headerLeft}>
-                  <Ionicons name="chatbox-ellipses" size={24} color="#03a9f4" />
+                  <Ionicons name="chatbox-ellipses" size={24} color="#1293DA" />
                   <Text style={styles.headerTitle}>Give Us Feedback</Text>
                 </View>
                 <TouchableOpacity 
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   submitButton: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
   },
   submitButtonDisabled: {
     backgroundColor: '#b0bec5',

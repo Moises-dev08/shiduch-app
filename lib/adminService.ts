@@ -1,3 +1,4 @@
+import { notificationService } from './notificationService';
 import { Profile } from './profileService';
 import { supabase, supabaseUrl } from './supabase';
 
@@ -88,6 +89,28 @@ class AdminService {
         return { success: false, error: data.error || 'Failed to approve profile' };
       }
 
+      // Notify the user their profile was approved
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('user_id, is_update')
+          .eq('id', profileId)
+          .single();
+
+        if (profile?.user_id) {
+          await notificationService.sendNotification(
+            profile.user_id,
+            '✅ Profile Approved!',
+            profile.is_update
+              ? 'Your profile update has been approved and you can use the app again.'
+              : 'Your profile has been approved and is now visible to other users.',
+            { type: 'profile_approved', profileId }
+          );
+        }
+      } catch {
+        // Notification failure should not block the approval
+      }
+
       return { success: true };
     } catch (error) {
       console.error('Error approving profile:', error);
@@ -122,6 +145,26 @@ class AdminService {
 
       if (!response.ok) {
         return { success: false, error: data.error || 'Failed to reject profile' };
+      }
+
+      // Notify the user their profile was rejected
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('id', profileId)
+          .single();
+
+        if (profile?.user_id) {
+          await notificationService.sendNotification(
+            profile.user_id,
+            '⚠️ Profile Needs Attention',
+            `Your profile requires updates: ${reason}`,
+            { type: 'profile_rejected', profileId, reason }
+          );
+        }
+      } catch {
+        // Notification failure should not block the rejection
       }
 
       return { success: true };

@@ -32,13 +32,13 @@ const slides = [
   },
   {
     icon: 'heart' as const,
-    color: '#E91E63',
+    color: '#DAA520',
     title: 'Make a Suggestion',
     description: 'Found someone interesting? Send them a suggestion! You can also ask for more information before deciding.',
   },
   {
     icon: 'people' as const,
-    color: '#9C27B0',
+    color: '#1293DA',
     title: 'Work with Matchmakers',
     description: 'Connect with Matchmaker/Shadchan who can help guide you through the process and make introductions.',
   },

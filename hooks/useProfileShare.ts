@@ -1,77 +1,51 @@
 import { useState } from 'react';
-import { Alert } from 'react-native';
-import { generateAndShareProfilePDF, ProfilePDFData, profileToPDFData } from '../lib/pdfService';
+import { Alert, Share } from 'react-native';
 import { Profile } from '../lib/profileService';
+
+const APP_SCHEME = 'shiduchimapp';
 
 export interface UseProfileShareResult {
   isSharing: boolean;
-  shareProfile: (profile: Profile, profileData?: Partial<ProfilePDFData>) => Promise<void>;
+  shareProfile: (profile: Profile) => Promise<void>;
 }
 
-/**
- * Custom hook for sharing profile as PDF
- */
 export function useProfileShare(): UseProfileShareResult {
   const [isSharing, setIsSharing] = useState(false);
 
-  const shareProfile = async (
-    profile: Profile,
-    additionalData?: Partial<ProfilePDFData>
-  ): Promise<void> => {
+  const shareProfile = async (profile: Profile): Promise<void> => {
+    if (!profile.id) {
+      Alert.alert('Error', 'Profile must be saved before it can be shared.');
+      return;
+    }
+
+    if (!profile.first_name || !profile.last_name) {
+      Alert.alert('Error', 'Profile must have a first and last name to share.');
+      return;
+    }
+
+    const deepLink = `${APP_SCHEME}://profile/${profile.id}`;
+    const name = `${profile.first_name} ${profile.last_name}`;
+
     try {
-      // Convert profile to PDF data
-      const pdfData = profileToPDFData(profile);
-
-      // Merge with any additional data
-      const finalData = {
-        ...pdfData,
-        ...additionalData,
-      };
-
-      // Validate required fields
-      if (!finalData.firstName || !finalData.lastName) {
-        Alert.alert('Error', 'Profile must have a first and last name to share.');
-        return;
-      }
-
-      // Show confirmation dialog
-      Alert.alert(
-        'Share Profile',
-        `Share ${finalData.firstName} ${finalData.lastName}'s profile as PDF?`,
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Share',
-            onPress: async () => {
-              setIsSharing(true);
-              try {
-                const result = await generateAndShareProfilePDF(finalData);
-
-                if (!result.success) {
-                  Alert.alert('Error', result.error || 'Failed to share profile');
-                }
-              } catch (error) {
-                console.error('Error sharing profile:', error);
-                Alert.alert('Error', 'An unexpected error occurred while sharing');
-              } finally {
-                setIsSharing(false);
-              }
-            },
-          },
-        ]
+      setIsSharing(true);
+      await Share.share(
+        {
+          title: `${name} – Zivug Mishamayim`,
+          message: `Check out ${name}'s profile on Zivug Mishamayim!\n\n${deepLink}`,
+          url: deepLink,
+        },
+        { dialogTitle: `Share ${name}'s Profile` }
       );
-    } catch (error) {
-      console.error('Error preparing profile share:', error);
-      Alert.alert('Error', 'Failed to prepare profile for sharing');
+    } catch (error: any) {
+      // User cancelled share — no need to show an error
+      if (error?.message !== 'User did not share') {
+        console.error('Error sharing profile:', error);
+        Alert.alert('Error', 'An unexpected error occurred while sharing.');
+      }
+    } finally {
+      setIsSharing(false);
     }
   };
 
-  return {
-    isSharing,
-    shareProfile,
-  };
+  return { isSharing, shareProfile };
 }
-

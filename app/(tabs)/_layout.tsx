@@ -139,7 +139,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#03a9f4",
+        tabBarActiveTintColor: "#1293DA",
         tabBarInactiveTintColor: "#999",
         tabBarStyle: {
           backgroundColor: "#fff",
@@ -219,7 +219,13 @@ export default function TabLayout() {
           },
         }}
       />
-       <Tabs.Screen
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
@@ -231,7 +237,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          href: null, // Hide from tab bar
+          href: null,
         }}
       />
     </Tabs>

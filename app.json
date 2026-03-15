@@ -4,7 +4,7 @@
     "slug": "shiduchim-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./logo-original.png",
+    "icon": "./zm-logo.jpg",
     "scheme": "shiduchimapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -17,35 +17,36 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#1293DA",
-        "foregroundImage": "./logo-original.png"
+        "backgroundColor": "#1235C8",
+        "foregroundImage": "./zm-logo.jpg"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.zivugmishamayim"
     },
     "web": {
       "output": "static",
-      "favicon": "./logo-original.png"
+      "favicon": "./zm-logo.jpg"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./logo-original.png",
-          "imageWidth": 300,
+          "image": "./zm-logo.jpg",
+          "imageWidth": 400,
           "resizeMode": "contain",
-          "backgroundColor": "#1293DA",
+          "backgroundColor": "#1235C8",
           "dark": {
-            "backgroundColor": "#0d3b8e"
+            "backgroundColor": "#0D1F8A"
           }
         }
       ],
       [
         "expo-notifications",
         {
-          "icon": "./logo-original.png",
-          "color": "#1293DA",
+          "icon": "./zm-logo.jpg",
+          "color": "#1599D4",
           "defaultChannel": "default",
           "sounds": []
         }
@@ -58,7 +59,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "6fcfce1b-d042-4623-a816-1efb1c6dc774"
+        "projectId": "c6f5ce51-10fc-4c03-9059-63cb696335a3"
       }
     },
     "owner": "moisholino"

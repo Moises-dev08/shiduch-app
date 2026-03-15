@@ -483,7 +483,7 @@ export default function ProfileGridSelectionModal({
             style={styles.filterButton}
             onPress={() => setShowFilters(!showFilters)}
           >
-            <Ionicons name="options" size={22} color={showFilters ? '#03a9f4' : '#666'} />
+            <Ionicons name="options" size={22} color={showFilters ? '#1293DA' : '#666'} />
           </TouchableOpacity>
         </View>
 
@@ -518,7 +518,7 @@ export default function ProfileGridSelectionModal({
         {/* Profile Grid */}
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#03a9f4" />
+            <ActivityIndicator size="large" color="#1293DA" />
           </View>
         ) : filteredProfiles.length === 0 ? (
           <View style={styles.emptyState}>
@@ -637,13 +637,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
     paddingVertical: 12,
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     borderRadius: 0,
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
     marginHorizontal: -8,
     paddingHorizontal: 8,
-    shadowColor: '#03a9f4',
+    shadowColor: '#1293DA',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,

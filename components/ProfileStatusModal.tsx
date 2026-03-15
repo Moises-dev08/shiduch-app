@@ -88,7 +88,7 @@ export default function ProfileStatusModal({
       case 'approved':
         return <Ionicons name="checkmark-circle" size={60} color="#4caf50" />;
       case 'rejected':
-        return <Ionicons name="close-circle" size={60} color="#f44336" />;
+        return <Ionicons name="close-circle" size={60} color="#F59E0B" />;
     }
   };
 
@@ -128,7 +128,7 @@ export default function ProfileStatusModal({
       case 'approved':
         return '#4caf50';
       case 'rejected':
-        return '#f44336';
+        return '#F59E0B';
     }
   };
 
@@ -165,7 +165,7 @@ export default function ProfileStatusModal({
         <View style={styles.modal}>
           {initialLoading ? (
             <>
-              <ActivityIndicator size="large" color="#03a9f4" style={{ marginVertical: 40 }} />
+              <ActivityIndicator size="large" color="#1293DA" style={{ marginVertical: 40 }} />
               <Text style={styles.message}>Loading profile status...</Text>
             </>
           ) : (

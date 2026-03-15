@@ -100,7 +100,7 @@ export default function ForgotPasswordScreen() {
         </TouchableOpacity>
 
         <View style={styles.header}>
-          <Ionicons name="lock-closed" size={60} color="#03a9f4" />
+          <Ionicons name="lock-closed" size={60} color="#1293DA" />
           <Text style={styles.title}>Forgot Password?</Text>
           <Text style={styles.subtitle}>
             No worries! Enter your email address and we'll send you a link to reset your password.
@@ -138,7 +138,7 @@ export default function ForgotPasswordScreen() {
         <View style={styles.footer}>
           <TouchableOpacity onPress={handleBackToLogin}>
             <Text style={styles.backToLoginText}>
-              <Ionicons name="arrow-back" size={16} color="#03a9f4" /> Back to Login
+              <Ionicons name="arrow-back" size={16} color="#1293DA" /> Back to Login
             </Text>
           </TouchableOpacity>
         </View>
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   resetButton: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backToLoginText: {
-    color: '#03a9f4',
+    color: '#1293DA',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 32,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   resendButtonText: {
-    color: '#03a9f4',
+    color: '#1293DA',
     fontSize: 14,
     fontWeight: '600',
   },

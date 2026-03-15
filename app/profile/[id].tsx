@@ -94,7 +94,7 @@ export default function SharedProfileScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#03a9f4" />
+          <ActivityIndicator size="large" color="#1293DA" />
           <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
       </SafeAreaView>
@@ -185,7 +185,7 @@ export default function SharedProfileScreen() {
         </View>
 
         <View style={styles.infoBox}>
-          <Ionicons name="information-circle" size={24} color="#03a9f4" />
+          <Ionicons name="information-circle" size={24} color="#1293DA" />
           <Text style={styles.infoText}>
             To view full profile details and connect, please use the main app.
           </Text>
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#e0e0e0',
   },
   viewInAppButton: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',

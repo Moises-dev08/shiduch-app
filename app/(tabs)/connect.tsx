@@ -1,8 +1,8 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -20,266 +20,173 @@ import SuggestionCard from '../../components/suggestion/SuggestionCard';
 import { useRealtimeInfoRequests } from '../../hooks/useRealtimeInfoRequests';
 import { useRealtimeIntroRequests } from '../../hooks/useRealtimeIntroRequests';
 import { useRealtimeSuggestions } from '../../hooks/useRealtimeSuggestions';
-import { InfoRequest, infoRequestService } from '../../lib/infoRequestService';
-import { IntroRequest, introService } from '../../lib/introService';
+import { infoRequestService } from '../../lib/infoRequestService';
+import { introService } from '../../lib/introService';
 import { Profile, profileService } from '../../lib/profileService';
-import { Suggestion, suggestionService } from '../../lib/suggestionService';
+import { suggestionService } from '../../lib/suggestionService';
 import { viewedNotificationService } from '../../lib/viewedNotificationService';
 
+// ── Standalone query functions (stable, no re-creation on render) ──────────
+
+async function fetchIntroData() {
+  const [result, matchmakerResult] = await Promise.all([
+    introService.getMyIntroRequests(),
+    introService.getMatchmakerRequests(),
+  ]);
+  return {
+    sentRequests: result.success ? (result.sentRequests ?? []) : [],
+    receivedRequests: result.success ? (result.receivedRequests ?? []) : [],
+    matchmakerRequests: matchmakerResult.success ? (matchmakerResult.matchmakerRequests ?? []) : [],
+  };
+}
+
+async function fetchSuggestionsData() {
+  const result = await suggestionService.getMySuggestions();
+  return {
+    receivedSuggestions: result.success ? (result.receivedSuggestions ?? []) : [],
+    madeSuggestions: result.success ? (result.madeSuggestions ?? []) : [],
+  };
+}
+
+async function fetchInfoData() {
+  const [receivedResult, sentResult] = await Promise.all([
+    infoRequestService.getReceivedRequests(),
+    infoRequestService.getSentRequests(),
+  ]);
+  return {
+    receivedInfoRequests: receivedResult.success ? (receivedResult.requests ?? []) : [],
+    sentInfoRequests: sentResult.success ? (sentResult.requests ?? []) : [],
+  };
+}
+
 export default function ConnectScreen() {
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams();
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState<'for_you' | 'for_others'>('for_you');
-  // Initialize activeSection from params if provided, otherwise default to 'action_needed'
   const [activeSection, setActiveSection] = useState<'action_needed' | 'matches' | 'passed' | 'liked'>(
     (params.section as 'action_needed' | 'matches' | 'passed' | 'liked') || 'action_needed'
   );
   const [activeForOthersSection, setActiveForOthersSection] = useState<'awaiting' | 'matched' | 'not_matched'>('awaiting');
-  const isSilentUpdateRef = React.useRef(false);
-
-  // State for tracking last viewed matches timestamp for matchmakers
   const [lastViewedMatchesForOthersAt, setLastViewedMatchesForOthersAt] = useState<Date | null>(null);
 
-  // Real intro requests data
-  const [sentIntroRequests, setSentIntroRequests] = useState<IntroRequest[]>([]);
-  const [receivedIntroRequests, setReceivedIntroRequests] = useState<IntroRequest[]>([]);
-  const [matchmakerRequests, setMatchmakerRequests] = useState<IntroRequest[]>([]);
+  // ── React Query ────────────────────────────────────────────────────────────
+  const introQuery = useQuery({ queryKey: ['intro_requests'], queryFn: fetchIntroData });
+  const suggestQuery = useQuery({ queryKey: ['suggestions'], queryFn: fetchSuggestionsData });
+  const infoQuery = useQuery({ queryKey: ['info_requests'], queryFn: fetchInfoData });
+  // Share the same profile cache used by profile.tsx
+  const profileQuery = useQuery({
+    queryKey: ['my_profile'],
+    queryFn: () => profileService.getProfile(),
+    staleTime: 5 * 60 * 1000,
+  });
 
-  // Suggestions data
-  const [receivedSuggestions, setReceivedSuggestions] = useState<Suggestion[]>([]);
-  const [madeSuggestions, setMadeSuggestions] = useState<Suggestion[]>([]);
+  // Derived arrays — empty until first fetch resolves (no loading state shown)
+  const sentIntroRequests = introQuery.data?.sentRequests ?? [];
+  const receivedIntroRequests = introQuery.data?.receivedRequests ?? [];
+  const matchmakerRequests = introQuery.data?.matchmakerRequests ?? [];
+  const receivedSuggestions = suggestQuery.data?.receivedSuggestions ?? [];
+  const madeSuggestions = suggestQuery.data?.madeSuggestions ?? [];
+  const receivedInfoRequests = infoQuery.data?.receivedInfoRequests ?? [];
+  const sentInfoRequests = infoQuery.data?.sentInfoRequests ?? [];
 
-  // Info requests data
-  const [receivedInfoRequests, setReceivedInfoRequests] = useState<InfoRequest[]>([]);
-  const [sentInfoRequests, setSentInfoRequests] = useState<InfoRequest[]>([]);
+  // loading = true only when there is no cached data yet (first-ever launch)
+  const loading =
+    introQuery.isLoading ||
+    suggestQuery.isLoading ||
+    infoQuery.isLoading ||
+    profileQuery.isLoading;
 
-  const loadIntroRequests = useCallback(async (silent: boolean = false) => {
-    try {
-      if (silent) {
-        isSilentUpdateRef.current = true;
-      }
-
-      // Parallelize intro requests and matchmaker requests
-      const [result, matchmakerResult] = await Promise.all([
-        introService.getMyIntroRequests(),
-        introService.getMatchmakerRequests(),
-      ]);
-
-      if (result.success) {
-        setSentIntroRequests(result.sentRequests || []);
-        setReceivedIntroRequests(result.receivedRequests || []);
-      }
-
-      if (matchmakerResult.success) {
-        setMatchmakerRequests(matchmakerResult.matchmakerRequests || []);
-        console.log('Loaded matchmaker requests:', matchmakerResult.matchmakerRequests?.length || 0);
-      } else {
-        console.error('Error loading matchmaker requests:', matchmakerResult.error);
-      }
-    } catch (error) {
-      console.error('Error loading intro requests:', error);
-    } finally {
-      if (silent) {
-        isSilentUpdateRef.current = false;
-      }
+  // ── Sync profile data from query ──────────────────────────────────────────
+  useEffect(() => {
+    if (!profileQuery.data?.profile) return;
+    const p = profileQuery.data.profile;
+    setCurrentUserProfile(p);
+    if (p.last_viewed_matches_at) {
+      setLastViewedMatchesAt(new Date(p.last_viewed_matches_at));
+      setLastViewedMatchesForOthersAt(new Date(p.last_viewed_matches_at));
     }
-  }, []);
+    if (p.role === 'matchmaker') setActiveCategory('for_others');
+  }, [profileQuery.data]);
 
-  const loadSuggestions = useCallback(async (silent: boolean = false) => {
-    try {
-      if (silent) {
-        isSilentUpdateRef.current = true;
-      }
+  // ── Invalidation helpers (replaces silent loaders) ────────────────────────
+  const invalidateIntroRequests = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ['intro_requests'] }),
+    [queryClient]
+  );
+  const invalidateSuggestions = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ['suggestions'] }),
+    [queryClient]
+  );
+  const invalidateInfoRequests = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ['info_requests'] }),
+    [queryClient]
+  );
 
-      const result = await suggestionService.getMySuggestions();
-      if (result.success) {
-        setReceivedSuggestions(result.receivedSuggestions || []);
-        setMadeSuggestions(result.madeSuggestions || []);
-      }
-    } catch (error) {
-      console.error('Error loading suggestions:', error);
-    } finally {
-      if (silent) {
-        isSilentUpdateRef.current = false;
-      }
-    }
-  }, []);
-
-  const loadInfoRequests = useCallback(async (silent: boolean = false) => {
-    try {
-      if (silent) {
-        isSilentUpdateRef.current = true;
-      }
-
-      // Parallelize received and sent info requests
-      const [receivedResult, sentResult] = await Promise.all([
-        infoRequestService.getReceivedRequests(),
-        infoRequestService.getSentRequests(),
-      ]);
-
-      if (receivedResult.success) {
-        setReceivedInfoRequests(receivedResult.requests || []);
-      }
-
-      if (sentResult.success) {
-        setSentInfoRequests(sentResult.requests || []);
-      }
-    } catch (error) {
-      console.error('Error loading info requests:', error);
-    } finally {
-      if (silent) {
-        isSilentUpdateRef.current = false;
-      }
-    }
-  }, []);
-
-  // Mark intro requests and suggestions as viewed when user views the "Action Needed" section
+  // ── Mark-as-viewed effects (fire after data is ready) ─────────────────────
   useEffect(() => {
     if (activeCategory === 'for_you' && activeSection === 'action_needed' && !loading) {
-      // Mark intro requests as viewed when section is displayed
-      profileService.markIntroRequestsAsViewed().then(() => {
-        // Reload intro requests to get updated data
-        loadIntroRequests(true);
-      });
-      
-      // Mark suggestions as viewed when section is displayed
-      profileService.markSuggestionsAsViewed().then(() => {
-        // Reload suggestions to get updated data
-        loadSuggestions(true);
-      });
+      profileService.markIntroRequestsAsViewed().then(() => invalidateIntroRequests());
+      profileService.markSuggestionsAsViewed().then(() => invalidateSuggestions());
     }
-  }, [activeCategory, activeSection, loading, loadIntroRequests, loadSuggestions]);
+  }, [activeCategory, activeSection, loading, invalidateIntroRequests, invalidateSuggestions]);
 
-  // Mark matches and suggestions as viewed when user views the "Matches" section (For You)
   useEffect(() => {
     if (activeCategory === 'for_you' && activeSection === 'matches' && !loading) {
-      // Mark matches as viewed when section is displayed
       profileService.markMatchesAsViewed().then(() => {
-        // Update local state and reload data
         setLastViewedMatchesAt(new Date());
-        loadIntroRequests(true);
-        loadSuggestions(true);
+        invalidateIntroRequests();
+        invalidateSuggestions();
       });
-      
-      // Mark suggestions as viewed when section is displayed (suggestions can also be matches)
-      profileService.markSuggestionsAsViewed().then(() => {
-        loadSuggestions(true);
-      });
+      profileService.markSuggestionsAsViewed().then(() => invalidateSuggestions());
     }
-  }, [activeCategory, activeSection, loading, loadIntroRequests, loadSuggestions]);
+  }, [activeCategory, activeSection, loading, invalidateIntroRequests, invalidateSuggestions]);
 
-  // Mark matches as viewed when matchmaker views the "Matched" section (For Others)
   useEffect(() => {
-    if (activeCategory === 'for_others' && activeForOthersSection === 'matched' && !loading && matchmakerRequests.length > 0) {
-      // Mark as viewed when section is displayed (for anyone who is a matchmaker)
+    if (
+      activeCategory === 'for_others' &&
+      activeForOthersSection === 'matched' &&
+      !loading &&
+      matchmakerRequests.length > 0
+    ) {
       profileService.markMatchesAsViewed().then(() => {
-        // Update local state and reload data
         setLastViewedMatchesForOthersAt(new Date());
-        loadIntroRequests(true);
-        loadSuggestions(true);
+        invalidateIntroRequests();
+        invalidateSuggestions();
       });
     }
-  }, [activeCategory, activeForOthersSection, loading, matchmakerRequests.length, loadIntroRequests, loadSuggestions]);
+  }, [activeCategory, activeForOthersSection, loading, matchmakerRequests.length, invalidateIntroRequests, invalidateSuggestions]);
 
-  // Mark notifications as viewed when viewing "For You" category
   useEffect(() => {
     if (activeCategory === 'for_you' && !loading) {
-      // Mark intro requests as viewed (for action needed notifications)
-      profileService.markIntroRequestsAsViewed().then(() => {
-        loadIntroRequests(true);
-      });
-      
-      // Mark suggestions as viewed (for action needed notifications)
-      profileService.markSuggestionsAsViewed().then(() => {
-        loadSuggestions(true);
-      });
-      
-      // Mark matches as viewed (for matches notifications)
+      profileService.markIntroRequestsAsViewed().then(() => invalidateIntroRequests());
+      profileService.markSuggestionsAsViewed().then(() => invalidateSuggestions());
       profileService.markMatchesAsViewed().then(() => {
         setLastViewedMatchesAt(new Date());
-        loadIntroRequests(true);
-        loadSuggestions(true);
+        invalidateIntroRequests();
+        invalidateSuggestions();
       });
     }
-  }, [activeCategory, loading, loadIntroRequests, loadSuggestions]);
+  }, [activeCategory, loading, invalidateIntroRequests, invalidateSuggestions]);
 
-  // Mark notifications as viewed when viewing "For Others" category
   useEffect(() => {
     if (activeCategory === 'for_others' && !loading) {
-      // Mark matches as viewed (for matches notifications)
       if (matchmakerRequests.length > 0) {
         profileService.markMatchesAsViewed().then(() => {
           setLastViewedMatchesForOthersAt(new Date());
-          loadIntroRequests(true);
-          loadSuggestions(true);
+          invalidateIntroRequests();
+          invalidateSuggestions();
         });
       }
-      
-      // Mark suggestions as viewed (for suggestions notifications)
-      profileService.markSuggestionsAsViewed().then(() => {
-        loadSuggestions(true);
-      });
+      profileService.markSuggestionsAsViewed().then(() => invalidateSuggestions());
     }
-  }, [activeCategory, loading, matchmakerRequests.length, loadIntroRequests, loadSuggestions]);
+  }, [activeCategory, loading, matchmakerRequests.length, invalidateIntroRequests, invalidateSuggestions]);
 
-  const loadData = useCallback(async (silent: boolean = false) => {
-    if (!silent) {
-      setLoading(true);
-    }
-    try {
-      // Parallelize all independent data loading operations
-      const [profileResult] = await Promise.all([
-        profileService.getProfile(),
-        // Start loading all data in parallel
-        loadIntroRequests(silent),
-        loadSuggestions(silent),
-        loadInfoRequests(silent),
-      ]);
-
-      if (profileResult.success && profileResult.profile) {
-        setCurrentUserProfile(profileResult.profile);
-        
-        // Set last viewed matches timestamp if available
-        if (profileResult.profile.last_viewed_matches_at) {
-          setLastViewedMatchesAt(new Date(profileResult.profile.last_viewed_matches_at));
-        }
-        
-        // Set last viewed matches for "For Others" section (for matchmakers)
-        if (profileResult.profile.last_viewed_matches_at) {
-          setLastViewedMatchesForOthersAt(new Date(profileResult.profile.last_viewed_matches_at));
-        }
-        
-        // Set default category based on role
-        // Note: We check role here, but middle person requests will be shown regardless of role
-        if (profileResult.profile.role === 'matchmaker') {
-          setActiveCategory('for_others');
-        }
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  }, [loadIntroRequests, loadSuggestions, loadInfoRequests]);
-
-  // Silent refresh callbacks for realtime updates
-  const silentRefreshIntroRequests = useCallback(() => loadIntroRequests(true), [loadIntroRequests]);
-  const silentRefreshSuggestions = useCallback(() => loadSuggestions(true), [loadSuggestions]);
-  const silentRefreshInfoRequests = useCallback(() => loadInfoRequests(true), [loadInfoRequests]);
-
-  // Set up real-time subscriptions with silent updates
-  useRealtimeIntroRequests(silentRefreshIntroRequests, currentUserProfile?.id);
-  useRealtimeSuggestions(silentRefreshSuggestions, currentUserProfile?.id);
-  useRealtimeInfoRequests(silentRefreshInfoRequests, currentUserProfile?.id);
-
-  useEffect(() => {
-    loadData(false); // Initial load with loading state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ── Realtime: invalidate queries instead of manual silent refresh ──────────
+  useRealtimeIntroRequests(invalidateIntroRequests, currentUserProfile?.id);
+  useRealtimeSuggestions(invalidateSuggestions, currentUserProfile?.id);
+  useRealtimeInfoRequests(invalidateInfoRequests, currentUserProfile?.id);
 
   // Mark all notifications as viewed when Connect tab is focused
   useFocusEffect(
@@ -325,7 +232,12 @@ export default function ConnectScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData(false); // Manual refresh with refreshing state
+    await Promise.all([
+      introQuery.refetch(),
+      suggestQuery.refetch(),
+      infoQuery.refetch(),
+      profileQuery.refetch(),
+    ]);
     setRefreshing(false);
   };
 
@@ -600,7 +512,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="notifications" 
               size={18} 
-              color={activeSection === 'action_needed' ? '#03a9f4' : '#999'} 
+              color={activeSection === 'action_needed' ? '#1293DA' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeSection === 'action_needed' && styles.sectionTabTextActive]}>
               Action Needed
@@ -643,7 +555,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="heart-circle" 
               size={18} 
-              color={activeSection === 'matches' ? '#03a9f4' : '#999'} 
+              color={activeSection === 'matches' ? '#1293DA' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeSection === 'matches' && styles.sectionTabTextActive]}>
               Matches
@@ -662,7 +574,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="close-circle" 
               size={18} 
-              color={activeSection === 'passed' ? '#03a9f4' : '#999'} 
+              color={activeSection === 'passed' ? '#1293DA' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeSection === 'passed' && styles.sectionTabTextActive]}>
               Passed
@@ -676,7 +588,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="heart" 
               size={18} 
-              color={activeSection === 'liked' ? '#03a9f4' : '#999'} 
+              color={activeSection === 'liked' ? '#1293DA' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeSection === 'liked' && styles.sectionTabTextActive]}>
               You Liked
@@ -700,7 +612,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="time" 
               size={18} 
-              color={activeForOthersSection === 'awaiting' ? '#03a9f4' : '#999'} 
+              color={activeForOthersSection === 'awaiting' ? '#1293DA' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeForOthersSection === 'awaiting' && styles.sectionTabTextActive]}>
               Awaiting Response
@@ -714,7 +626,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="heart" 
               size={18} 
-              color={activeForOthersSection === 'matched' ? '#03a9f4' : '#999'} 
+              color={activeForOthersSection === 'matched' ? '#1293DA' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeForOthersSection === 'matched' && styles.sectionTabTextActive]}>
               Matched
@@ -733,7 +645,7 @@ export default function ConnectScreen() {
             <Ionicons 
               name="close-circle" 
               size={18} 
-              color={activeForOthersSection === 'not_matched' ? '#03a9f4' : '#999'} 
+              color={activeForOthersSection === 'not_matched' ? '#1293DA' : '#999'} 
             />
             <Text style={[styles.sectionTabText, activeForOthersSection === 'not_matched' && styles.sectionTabTextActive]}>
               Did Not Match
@@ -747,16 +659,9 @@ export default function ConnectScreen() {
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#03a9f4']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1293DA']} />
         }
       >
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#03a9f4" />
-            <Text style={styles.loadingText}>Loading...</Text>
-          </View>
-        ) : (
-          <>
         {/* Intro Requests Section - Action Needed */}
         {activeCategory === 'for_you' && activeSection === 'action_needed' && (
           <>
@@ -777,7 +682,7 @@ export default function ConnectScreen() {
                 <InfoRequestCard
                   key={request.id}
                   request={request}
-                  onUpdate={loadInfoRequests}
+                  onUpdate={invalidateInfoRequests}
                 />
               ))}
 
@@ -792,7 +697,7 @@ export default function ConnectScreen() {
                   key={request.id}
                   request={request}
                   isRequester={false}
-                  onUpdate={loadIntroRequests}
+                  onUpdate={invalidateIntroRequests}
                   isActionNeeded={true}
                 />
               ))}
@@ -809,7 +714,7 @@ export default function ConnectScreen() {
                   key={request.id}
                   request={request}
                   isRequester={true}
-                  onUpdate={loadIntroRequests}
+                  onUpdate={invalidateIntroRequests}
                   isActionNeeded={true}
                 />
               ))}
@@ -832,7 +737,7 @@ export default function ConnectScreen() {
                   key={suggestion.id}
                   suggestion={suggestion}
                   currentProfileId={currentUserProfile.id}
-                  onUpdate={loadSuggestions}
+                  onUpdate={invalidateSuggestions}
                   isActionNeeded={true}
                 />
               ))}
@@ -852,7 +757,7 @@ export default function ConnectScreen() {
                   key={request.id}
                   request={request}
                   isRequester={true}
-                  onUpdate={loadIntroRequests}
+                  onUpdate={invalidateIntroRequests}
                 />
               ))}
 
@@ -866,7 +771,7 @@ export default function ConnectScreen() {
                   key={request.id}
                   request={request}
                   isRequester={false}
-                  onUpdate={loadIntroRequests}
+                  onUpdate={invalidateIntroRequests}
                 />
               ))}
 
@@ -878,7 +783,7 @@ export default function ConnectScreen() {
                   key={suggestion.id}
                   suggestion={suggestion}
                   currentProfileId={currentUserProfile.id}
-                  onUpdate={loadSuggestions}
+                  onUpdate={invalidateSuggestions}
                 />
               ))}
           </>
@@ -894,7 +799,7 @@ export default function ConnectScreen() {
                   key={request.id}
                   request={request}
                   isRequester={true}
-                  onUpdate={loadIntroRequests}
+                  onUpdate={invalidateIntroRequests}
                 />
               ))}
           </>
@@ -913,7 +818,7 @@ export default function ConnectScreen() {
                   key={request.id}
                   request={request}
                   isRequester={true}
-                  onUpdate={loadIntroRequests}
+                  onUpdate={invalidateIntroRequests}
                 />
               ))}
 
@@ -924,7 +829,7 @@ export default function ConnectScreen() {
                   key={request.id}
                   request={request}
                   isRequester={false}
-                  onUpdate={loadIntroRequests}
+                  onUpdate={invalidateIntroRequests}
                 />
               ))}
 
@@ -936,7 +841,7 @@ export default function ConnectScreen() {
                   key={suggestion.id}
                   suggestion={suggestion}
                   currentProfileId={currentUserProfile.id}
-                  onUpdate={loadSuggestions}
+                  onUpdate={invalidateSuggestions}
                 />
               ))}
           </>
@@ -986,7 +891,7 @@ export default function ConnectScreen() {
                 <MatchmakerRequestCard
                   key={request.id}
                   request={request}
-                  onUpdate={loadIntroRequests}
+                  onUpdate={invalidateIntroRequests}
                 />
               ))}
 
@@ -1036,7 +941,7 @@ export default function ConnectScreen() {
                 <MatchmakerRequestCard
                   key={request.id}
                   request={request}
-                  onUpdate={loadIntroRequests}
+                  onUpdate={invalidateIntroRequests}
                 />
               ))}
 
@@ -1085,7 +990,7 @@ export default function ConnectScreen() {
                 <MatchmakerRequestCard
                   key={request.id}
                   request={request}
-                  onUpdate={loadIntroRequests}
+                  onUpdate={invalidateIntroRequests}
                 />
               ))}
 
@@ -1111,8 +1016,6 @@ export default function ConnectScreen() {
               </View>
             )}
           </>
-        )}
-        </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -1160,7 +1063,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   categoryTabActive: {
-    borderBottomColor: '#03a9f4',
+    borderBottomColor: '#1293DA',
   },
   categoryTabContent: {
     flexDirection: 'row',
@@ -1173,11 +1076,11 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   categoryTabTextActive: {
-    color: '#03a9f4',
+    color: '#1293DA',
     fontWeight: '600',
   },
   categoryBadge: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -1211,7 +1114,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   sectionTabActive: {
-    backgroundColor: '#e1f5fe',
+    backgroundColor: '#E3F2FD',
   },
   sectionTabText: {
     fontSize: 14,
@@ -1219,11 +1122,11 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   sectionTabTextActive: {
-    color: '#03a9f4',
+    color: '#1293DA',
     fontWeight: '600',
   },
   badge: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
     borderRadius: 10,
     minWidth: 20,
     height: 20,

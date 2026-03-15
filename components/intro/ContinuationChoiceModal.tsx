@@ -39,7 +39,7 @@ export default function ContinuationChoiceModal({
       <View style={styles.overlay}>
         <View style={styles.modal}>
           <View style={styles.iconContainer}>
-            <Ionicons name="people-circle" size={60} color="#03a9f4" />
+            <Ionicons name="people-circle" size={60} color="#1293DA" />
           </View>
 
           <Text style={styles.title}>How would you like to continue?</Text>
@@ -56,7 +56,7 @@ export default function ContinuationChoiceModal({
               <Ionicons 
                 name={otherSideChoice === 'by_themselves' ? 'person' : 'people'} 
                 size={18} 
-                color="#9C27B0" 
+                color="#1293DA" 
               />
               <Text style={styles.otherSideChoiceText}>
                 {profileName} chose: <Text style={styles.otherSideChoiceBold}>
@@ -68,7 +68,7 @@ export default function ContinuationChoiceModal({
 
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#03a9f4" />
+              <ActivityIndicator size="large" color="#1293DA" />
               <Text style={styles.loadingText}>Processing...</Text>
             </View>
           ) : (
@@ -213,13 +213,13 @@ const styles = StyleSheet.create({
   otherSideChoiceBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f3e5f5',
+    backgroundColor: '#E3F2FD',
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
     gap: 8,
     borderWidth: 1,
-    borderColor: '#ce93d8',
+    borderColor: '#A8D8F5',
   },
   otherSideChoiceText: {
     flex: 1,
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   },
   otherSideChoiceBold: {
     fontWeight: '700',
-    color: '#9C27B0',
+    color: '#1293DA',
   },
   warningNote: {
     flexDirection: 'row',

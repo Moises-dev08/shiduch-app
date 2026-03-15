@@ -1,5 +1,5 @@
-import { FontAwesome5, Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import { FontAwesome5, Ionicons } from "@expo/vector-icons";
+import React from "react";
 import {
   Alert,
   Linking,
@@ -7,9 +7,9 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface DonationOption {
   id: string;
@@ -23,59 +23,15 @@ interface DonationOption {
 
 const donationOptions: DonationOption[] = [
   {
-    id: 'shiduch-event-ny',
-    title: 'Shiduch Event - New York',
-    description: 'Support our upcoming Shiduch event in New York. Help us create meaningful connections in the community.',
-    amount: 'Suggested: $18+',
-    icon: 'heart',
-    color: '#03a9f4',
-    link: 'https://example.com/donate/shiduch-event-ny'
+    id: "app-maintenance",
+    title: "App Maintenance",
+    description:
+      "Help us keep the app running smoothly with regular updates, server costs, and technical improvements.",
+    amount: "Suggested: $100+",
+    icon: "settings",
+    color: "#2196f3",
+    link: "https://example.com/donate/app-maintenance",
   },
-  {
-    id: 'app-maintenance',
-    title: 'App Maintenance',
-    description: 'Help us keep the app running smoothly with regular updates, server costs, and technical improvements.',
-    amount: 'Suggested: $10+',
-    icon: 'settings',
-    color: '#2196f3',
-    link: 'https://example.com/donate/app-maintenance'
-  },
-  {
-    id: 'community-support',
-    title: 'Community Support',
-    description: 'Support our community programs, educational resources, and outreach initiatives.',
-    amount: 'Suggested: $25+',
-    icon: 'people',
-    color: '#4caf50',
-    link: 'https://example.com/donate/community-support'
-  },
-  {
-    id: 'scholarship-fund',
-    title: 'Scholarship Fund',
-    description: 'Help young couples with wedding expenses and support families in need.',
-    amount: 'Suggested: $50+',
-    icon: 'school',
-    color: '#ff9800',
-    link: 'https://example.com/donate/scholarship-fund'
-  },
-  {
-    id: 'emergency-relief',
-    title: 'Emergency Relief',
-    description: 'Support families during difficult times with emergency financial assistance.',
-    amount: 'Any amount',
-    icon: 'medical',
-    color: '#f44336',
-    link: 'https://example.com/donate/emergency-relief'
-  },
-  {
-    id: 'general-fund',
-    title: 'General Fund',
-    description: 'Support our general operations and help us grow the Shiduchim community.',
-    amount: 'Any amount',
-    icon: 'medical',
-    color: '#9c27b0',
-    link: 'https://example.com/donate/general-fund'
-  }
 ];
 
 export default function DonationsScreen() {
@@ -86,16 +42,16 @@ export default function DonationsScreen() {
         await Linking.openURL(option.link);
       } else {
         Alert.alert(
-          'Unable to Open Link',
-          'Please visit our website to make a donation.',
-          [{ text: 'OK' }]
+          "Unable to Open Link",
+          "Please visit our website to make a donation.",
+          [{ text: "OK" }],
         );
       }
     } catch (error) {
       Alert.alert(
-        'Error',
-        'Unable to open donation link. Please try again later.',
-        [{ text: 'OK' }]
+        "Error",
+        "Unable to open donation link. Please try again later.",
+        [{ text: "OK" }],
       );
     }
   };
@@ -103,12 +59,17 @@ export default function DonationsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <FontAwesome5 name="donate" size={40} color="#03a9f4" />
+        <FontAwesome5 name="donate" size={40} color="#1293DA" />
         <Text style={styles.title}>Support Our Community</Text>
-        <Text style={styles.subtitle}>Your donations help us create meaningful connections</Text>
+        <Text style={styles.subtitle}>
+          Your donations help us create meaningful connections
+        </Text>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.donationsList}>
           {donationOptions.map((option) => (
             <TouchableOpacity
@@ -117,7 +78,12 @@ export default function DonationsScreen() {
               onPress={() => handleDonationPress(option)}
             >
               <View style={styles.donationHeader}>
-                <View style={[styles.iconContainer, { backgroundColor: option.color }]}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: option.color },
+                  ]}
+                >
                   <Ionicons name={option.icon as any} size={24} color="#fff" />
                 </View>
                 <View style={styles.donationInfo}>
@@ -128,12 +94,14 @@ export default function DonationsScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#666" />
               </View>
-              
-              <Text style={styles.donationDescription}>{option.description}</Text>
-              
+
+              <Text style={styles.donationDescription}>
+                {option.description}
+              </Text>
+
               <View style={styles.donationFooter}>
                 <View style={styles.donateButton}>
-                  <Ionicons name="heart" size={16} color="#03a9f4" />
+                  <Ionicons name="heart" size={16} color="#1293DA" />
                   <Text style={styles.donateButtonText}>Donate Now</Text>
                 </View>
               </View>
@@ -143,7 +111,8 @@ export default function DonationsScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            All donations are processed securely and go directly to supporting our community initiatives.
+            All donations are processed securely and go directly to supporting
+            our community initiatives.
           </Text>
           <Text style={styles.footerText}>
             Thank you for your generosity! 🙏
@@ -157,27 +126,27 @@ export default function DonationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     padding: 20,
     marginTop: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginTop: 12,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     marginTop: 8,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
   scrollView: {
@@ -187,11 +156,11 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   donationCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -201,16 +170,16 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   donationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
   },
   iconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
   donationInfo: {
@@ -218,48 +187,48 @@ const styles = StyleSheet.create({
   },
   donationTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 4,
   },
   donationAmount: {
     fontSize: 14,
-    color: '#03a9f4',
-    fontWeight: '600',
+    color: "#1293DA",
+    fontWeight: "600",
   },
   donationDescription: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     lineHeight: 20,
     marginBottom: 12,
   },
   donationFooter: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   donateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#03a9f4',
+    borderColor: "#1293DA",
   },
   donateButtonText: {
     fontSize: 14,
-    color: '#03a9f4',
-    fontWeight: '600',
+    color: "#1293DA",
+    fontWeight: "600",
     marginLeft: 4,
   },
   footer: {
     padding: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   footerText: {
     fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
     lineHeight: 20,
     marginBottom: 8,
   },

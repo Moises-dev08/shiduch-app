@@ -126,7 +126,7 @@ export default function MatchmakerRequestCard({ request, onUpdate }: MatchmakerR
     <View style={styles.card}>
       {/* Description */}
       <View style={styles.descriptionContainer}>
-        <Ionicons name="people" size={20} color="#03a9f4" />
+        <Ionicons name="people" size={20} color="#1293DA" />
         <Text style={styles.descriptionText}>
           <Text style={styles.boldText}>{requesterProfile?.first_name}</Text> has requested your assistance as a Matchmaker/Shadchan to facilitate a potential introduction with <Text style={styles.boldText}>{requestedProfile?.first_name}</Text>.
         </Text>
@@ -154,7 +154,7 @@ export default function MatchmakerRequestCard({ request, onUpdate }: MatchmakerR
 
           {/* Arrow */}
           <View style={styles.arrowContainer}>
-            <Ionicons name="arrow-forward" size={24} color="#03a9f4" />
+            <Ionicons name="arrow-forward" size={24} color="#1293DA" />
             <Text style={styles.viaText}>You as</Text>
             <Text style={styles.viaText}>Matchmaker</Text>
           </View>
@@ -185,7 +185,7 @@ export default function MatchmakerRequestCard({ request, onUpdate }: MatchmakerR
       {request.requested_note_to_matchmaker && (
         <View style={styles.noteContainer}>
           <View style={styles.noteHeader}>
-            <Ionicons name="chatbox" size={16} color="#03a9f4" />
+            <Ionicons name="chatbox" size={16} color="#1293DA" />
             <Text style={styles.noteTitle}>Note from {requestedProfile?.first_name}:</Text>
           </View>
           <Text style={styles.noteText}>{request.requested_note_to_matchmaker}</Text>
@@ -199,12 +199,12 @@ export default function MatchmakerRequestCard({ request, onUpdate }: MatchmakerR
          request.requested_continuation_choice === 'with_middle_person')) && (
         <View style={styles.contactSection}>
           <View style={styles.contactHeader}>
-            <Ionicons name="people" size={20} color="#9C27B0" />
+            <Ionicons name="people" size={20} color="#1293DA" />
             <Text style={styles.contactTitle}>Contact Information for Both Parties</Text>
           </View>
           
           <View style={styles.infoBox}>
-            <Ionicons name="information-circle" size={18} color="#9C27B0" />
+            <Ionicons name="information-circle" size={18} color="#1293DA" />
             <Text style={styles.infoText}>
               Both parties have chosen to continue with your assistance as a matchmaker. Here is their contact information.
             </Text>
@@ -224,7 +224,7 @@ export default function MatchmakerRequestCard({ request, onUpdate }: MatchmakerR
                     style={styles.contactItem}
                     onPress={() => Linking.openURL(`tel:${requesterProfile.phone}`)}
                   >
-                    <Ionicons name="call" size={18} color="#9C27B0" />
+                    <Ionicons name="call" size={18} color="#1293DA" />
                     <Text style={styles.contactText}>{requesterProfile.phone}</Text>
                   </TouchableOpacity>
                 )}
@@ -234,7 +234,7 @@ export default function MatchmakerRequestCard({ request, onUpdate }: MatchmakerR
                     style={styles.contactItem}
                     onPress={() => Linking.openURL(`mailto:${requesterProfile.email}`)}
                   >
-                    <Ionicons name="mail" size={18} color="#9C27B0" />
+                    <Ionicons name="mail" size={18} color="#1293DA" />
                     <Text style={styles.contactText}>{requesterProfile.email}</Text>
                   </TouchableOpacity>
                 )}
@@ -264,7 +264,7 @@ export default function MatchmakerRequestCard({ request, onUpdate }: MatchmakerR
                     style={styles.contactItem}
                     onPress={() => Linking.openURL(`tel:${requestedProfile.phone}`)}
                   >
-                    <Ionicons name="call" size={18} color="#9C27B0" />
+                    <Ionicons name="call" size={18} color="#1293DA" />
                     <Text style={styles.contactText}>{requestedProfile.phone}</Text>
                   </TouchableOpacity>
                 )}
@@ -274,7 +274,7 @@ export default function MatchmakerRequestCard({ request, onUpdate }: MatchmakerR
                     style={styles.contactItem}
                     onPress={() => Linking.openURL(`mailto:${requestedProfile.email}`)}
                   >
-                    <Ionicons name="mail" size={18} color="#9C27B0" />
+                    <Ionicons name="mail" size={18} color="#1293DA" />
                     <Text style={styles.contactText}>{requestedProfile.email}</Text>
                   </TouchableOpacity>
                 )}
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
   },
   boldText: {
     fontWeight: '700',
-    color: '#01579b',
+    color: '#0D4F8A',
   },
   header: {
     marginBottom: 12,
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   },
   viaText: {
     fontSize: 11,
-    color: '#03a9f4',
+    color: '#1293DA',
     fontWeight: '600',
     marginTop: 2,
     textAlign: 'center',
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   noteTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
   noteText: {
     fontSize: 14,
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
   },
   rejectButton: {
-    backgroundColor: '#F44336',
+    backgroundColor: '#F59E0B',
   },
   actionButtonText: {
     color: '#fff',
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
   },
   rejectModalButton: {
-    backgroundColor: '#F44336',
+    backgroundColor: '#F59E0B',
   },
   submitButtonText: {
     color: '#fff',
@@ -609,12 +609,12 @@ const styles = StyleSheet.create({
   },
   // Contact Section Styles
   contactSection: {
-    backgroundColor: '#f3e5f5',
+    backgroundColor: '#E3F2FD',
     padding: 16,
     borderRadius: 12,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#ce93d8',
+    borderColor: '#A8D8F5',
   },
   contactHeader: {
     flexDirection: 'row',
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   contactTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#6a1b9a',
+    color: '#0D4F8A',
   },
   infoBox: {
     flexDirection: 'row',
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 12,
     borderLeftWidth: 3,
-    borderLeftColor: '#9C27B0',
+    borderLeftColor: '#1293DA',
   },
   personContactName: {
     fontSize: 16,
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
   roleLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#9C27B0',
+    color: '#1293DA',
   },
   contactItem: {
     flexDirection: 'row',
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
   },
   contactText: {
     fontSize: 15,
-    color: '#9C27B0',
+    color: '#1293DA',
     textDecorationLine: 'underline',
   },
 });

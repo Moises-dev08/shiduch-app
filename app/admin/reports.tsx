@@ -108,7 +108,7 @@ export default function AdminReportsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#03a9f4" />
+          <ActivityIndicator size="large" color="#1293DA" />
           <Text style={styles.loadingText}>Loading reports...</Text>
         </View>
       </SafeAreaView>
@@ -241,7 +241,7 @@ export default function AdminReportsScreen() {
                   style={styles.viewProfileButton}
                   onPress={() => handleViewProfile(report.reported_profile_id)}
                 >
-                  <Ionicons name="person" size={16} color="#03a9f4" />
+                  <Ionicons name="person" size={16} color="#1293DA" />
                   <Text style={styles.viewProfileText}>View Profile</Text>
                 </TouchableOpacity>
 
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterButtonActive: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
   },
   filterButtonText: {
     fontSize: 14,
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
   viewProfileText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
   statusActions: {
     flexDirection: 'row',
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
   reviewedButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#03a9f4',
+    color: '#1293DA',
   },
   actionedButton: {
     backgroundColor: '#e8f5e9',

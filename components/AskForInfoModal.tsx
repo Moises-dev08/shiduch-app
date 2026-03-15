@@ -86,7 +86,7 @@ export default function AskForInfoModal({
         >
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.infoBox}>
-              <Ionicons name="lock-closed" size={40} color="#03a9f4" />
+              <Ionicons name="lock-closed" size={40} color="#1293DA" />
               <Text style={styles.infoTitle}>Private Information</Text>
               <Text style={styles.infoText}>
                 You&apos;re requesting to see {profileName}&apos;s {fieldLabel.toLowerCase()}.
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   submitButton: {
-    backgroundColor: '#03a9f4',
+    backgroundColor: '#1293DA',
   },
   submitButtonText: {
     fontSize: 16,

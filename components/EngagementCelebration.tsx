@@ -56,7 +56,7 @@ export default function EngagementCelebration({
           autoStart={false}
           fadeOut={true}
           fallSpeed={3000}
-          colors={['#FFD700', '#FF69B4', '#87CEEB', '#98FB98', '#DDA0DD', '#F0E68C', '#FFA500', '#FF6B9D']}
+          colors={['#FFD700', '#FF69B4', '#7ACDF5', '#98FB98', '#DDA0DD', '#F0E68C', '#FFA500', '#FF6B9D']}
         />
 
         {/* Close button */}

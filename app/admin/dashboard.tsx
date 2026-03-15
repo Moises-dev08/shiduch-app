@@ -96,7 +96,7 @@ export default function AdminDashboard() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#03a9f4" />
+          <ActivityIndicator size="large" color="#1293DA" />
           <Text style={styles.loadingText}>Loading pending profiles...</Text>
         </View>
       </SafeAreaView>
@@ -363,8 +363,8 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   filterButtonActive: {
-    backgroundColor: '#03a9f4',
-    borderColor: '#03a9f4',
+    backgroundColor: '#1293DA',
+    borderColor: '#1293DA',
   },
   filterButtonText: {
     fontSize: 14,
