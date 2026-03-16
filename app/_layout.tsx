@@ -2,7 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 import { router, Stack } from "expo-router";
 import { useEffect } from "react";
+import { Linking } from "react-native";
 import { AuthProvider } from "../lib/AuthContext";
+import { supabase } from "../lib/supabase";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,11 +62,53 @@ function NotificationHandler() {
   return null;
 }
 
+// Parses both hash (#key=val) and query (?key=val) params from a deep link URL
+function parseDeepLinkParams(url: string): Record<string, string> {
+  const hashIndex = url.indexOf('#');
+  const queryIndex = url.indexOf('?');
+  const params: Record<string, string> = {};
+
+  if (hashIndex !== -1) {
+    new URLSearchParams(url.slice(hashIndex + 1)).forEach((v, k) => { params[k] = v; });
+  }
+  if (queryIndex !== -1) {
+    const end = hashIndex !== -1 ? hashIndex : undefined;
+    new URLSearchParams(url.slice(queryIndex + 1, end)).forEach((v, k) => { params[k] = v; });
+  }
+  return params;
+}
+
+async function handleDeepLink(url: string) {
+  const params = parseDeepLinkParams(url);
+  if (params.type === 'recovery' && params.access_token && params.refresh_token) {
+    await supabase.auth.setSession({
+      access_token: params.access_token,
+      refresh_token: params.refresh_token,
+    });
+    router.replace('/auth/reset-password');
+  }
+}
+
+function PasswordResetHandler() {
+  useEffect(() => {
+    // App opened from closed state via deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink(url);
+    });
+
+    // App already open and receives a deep link
+    const sub = Linking.addEventListener('url', ({ url }) => handleDeepLink(url));
+    return () => sub.remove();
+  }, []);
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <NotificationHandler />
+      <PasswordResetHandler />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="admin" options={{ headerShown: false }} />

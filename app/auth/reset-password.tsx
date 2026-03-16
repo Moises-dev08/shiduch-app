@@ -1,125 +1,35 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
 export default function ResetPasswordScreen() {
-  const params = useLocalSearchParams();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [displayPassword, setDisplayPassword] = useState('');
-  const [displayConfirmPassword, setDisplayConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
 
-  // Handle the token from the email link
+  // Verify that a valid recovery session exists when the screen mounts.
+  // The session is set by PasswordResetHandler in _layout.tsx before navigating here.
   useEffect(() => {
-    const handlePasswordReset = async () => {
-      // Check if we have access_token and refresh_token in the URL params
-      // These are provided by Supabase when the user clicks the email link
-      const accessToken = params.access_token as string | undefined;
-      const refreshToken = params.refresh_token as string | undefined;
-      const type = params.type as string | undefined;
-
-      // If we have tokens from the email link, exchange them for a session
-      if (accessToken && refreshToken && type === 'recovery') {
-        setVerifying(true);
-        try {
-          const { data, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-
-          if (error) {
-            Alert.alert(
-              'Invalid Link',
-              'This password reset link is invalid or has expired. Please request a new one.',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => router.replace('/auth/forgot-password'),
-                },
-              ]
-            );
-            return;
-          }
-
-          // Session is now set, user can reset password
-          setVerifying(false);
-        } catch (error) {
-          console.error('Error setting session:', error);
-          Alert.alert(
-            'Error',
-            'Failed to verify reset link. Please try again.',
-            [
-              {
-                text: 'OK',
-                onPress: () => router.replace('/auth/forgot-password'),
-              },
-            ]
-          );
-        }
-      } else {
-        // No tokens in URL - check if user already has a valid session
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          Alert.alert(
-            'No Reset Link',
-            'Please use the link from your email to reset your password.',
-            [
-              {
-                text: 'OK',
-                onPress: () => router.replace('/auth/forgot-password'),
-              },
-            ]
-          );
-          return;
-        }
-        setVerifying(false);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        Alert.alert(
+          'Invalid or Expired Link',
+          'Please request a new password reset link.',
+          [{ text: 'OK', onPress: () => router.replace('/auth/forgot-password') }]
+        );
+        return;
       }
-    };
+      setVerifying(false);
+    });
+  }, []);
 
-    handlePasswordReset();
-  }, [params]);
-
-  const handlePasswordChange = (text: string) => {
-    setPassword(text);
-    if (!showPassword) {
-      setDisplayPassword('•'.repeat(text.length));
-    } else {
-      setDisplayPassword(text);
-    }
-  };
-
-  const handleConfirmPasswordChange = (text: string) => {
-    setConfirmPassword(text);
-    if (!showConfirmPassword) {
-      setDisplayConfirmPassword('•'.repeat(text.length));
-    } else {
-      setDisplayConfirmPassword(text);
-    }
-  };
-
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-    if (showPassword) {
-      setDisplayPassword('•'.repeat(password.length));
-    } else {
-      setDisplayPassword(password);
-    }
-  };
-
-  const toggleConfirmPasswordVisibility = () => {
-    setShowConfirmPassword(!showConfirmPassword);
-    if (showConfirmPassword) {
-      setDisplayConfirmPassword('•'.repeat(confirmPassword.length));
-    } else {
-      setDisplayConfirmPassword(confirmPassword);
-    }
-  };
+  const togglePasswordVisibility = () => setShowPassword((p) => !p);
+  const toggleConfirmPasswordVisibility = () => setShowConfirmPassword((p) => !p);
 
   const handleResetPassword = async () => {
     if (!password || !confirmPassword) {
@@ -201,11 +111,13 @@ export default function ResetPasswordScreen() {
             <TextInput
               style={styles.input}
               placeholder="New Password"
-              value={displayPassword}
-              onChangeText={handlePasswordChange}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="off"
+              textContentType="oneTimeCode"
               editable={!loading}
             />
             <TouchableOpacity 
@@ -225,11 +137,13 @@ export default function ResetPasswordScreen() {
             <TextInput
               style={styles.input}
               placeholder="Confirm New Password"
-              value={displayConfirmPassword}
-              onChangeText={handleConfirmPasswordChange}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry={!showConfirmPassword}
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="off"
+              textContentType="oneTimeCode"
               editable={!loading}
             />
             <TouchableOpacity 

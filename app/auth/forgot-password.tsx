@@ -25,7 +25,7 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: 'shiduchimapp://reset-password',
+        redirectTo: 'shiduchimapp://auth/reset-password',
       });
 
       if (error) {
