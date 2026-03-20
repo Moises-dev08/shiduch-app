@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getFieldLabel, PRIVACY_KEY_TO_DB_COLUMN } from '../../lib/fieldLabels';
 import { InfoRequest } from '../../lib/infoRequestService';
 import { profileService } from '../../lib/profileService';
 import { calculateAge } from '../../lib/utils';
@@ -9,35 +10,6 @@ import { calculateAge } from '../../lib/utils';
 interface ApprovedInfoRequestCardProps {
   request: InfoRequest;
 }
-
-const fieldLabels: { [key: string]: string } = {
-  pictures: 'Pictures',
-  height: 'Height',
-  hasChildren: 'Children Status',
-  location_city: 'City',
-  location_state: 'State',
-  location_country: 'Country',
-  languages: 'Languages',
-  nationality: 'Background/Nationality',
-  is_cohen: 'Cohen Status',
-  hashkafa_type: 'Hashkafa',
-  torah_learning: 'Torah Learning',
-  praying: 'Prayer Habits',
-  education_level: 'Education Level',
-  post_high_school_path: 'Post-High School Path',
-  current_occupation_study: 'Occupation/Study',
-  plan_after_marriage: 'Plan After Marriage',
-  marital_status: 'Marital Status',
-  dress_style: 'Dress Style',
-  wears_black_hat: 'Black Hat',
-  head_covering: 'Head Covering',
-  smoking: 'Smoking Habits',
-  alcohol_consumption: 'Alcohol Consumption',
-  phone: 'Phone Number',
-  email: 'Email Address',
-  whatsapp: 'WhatsApp Number',
-  dob: 'Date of Birth',
-};
 
 export default function ApprovedInfoRequestCard({ request }: ApprovedInfoRequestCardProps) {
   const router = useRouter();
@@ -57,21 +29,17 @@ export default function ApprovedInfoRequestCard({ request }: ApprovedInfoRequest
     : null;
   const isBlurred = requestedProfile.picture_privacy === 'private';
 
-  const fieldLabel = fieldLabels[request.field_name] || request.field_name;
+  const fieldLabel = getFieldLabel(request.field_name);
 
   // Get the field value from the profile
   const getFieldValue = (): string | null => {
-    const fieldName = request.field_name;
-    let value = requestedProfile[fieldName];
+    const privacyKey = request.field_name;
+    // Resolve camelCase privacy key → snake_case DB column (falls back to privacyKey if not in map)
+    const dbColumn = PRIVACY_KEY_TO_DB_COLUMN[privacyKey] ?? privacyKey;
+    const value = requestedProfile[dbColumn] ?? requestedProfile[privacyKey];
 
-    // Handle special cases
-    if (fieldName === 'hasChildren') {
-      return value === true ? 'Yes' : value === false ? 'No' : null;
-    }
-    if (fieldName === 'is_cohen') {
-      return value === true ? 'Yes' : value === false ? 'No' : null;
-    }
-    if (fieldName === 'wears_black_hat') {
+    const booleanFields = ['hasChildren', 'has_children', 'is_cohen', 'wears_black_hat'];
+    if (booleanFields.includes(privacyKey) || booleanFields.includes(dbColumn)) {
       return value === true ? 'Yes' : value === false ? 'No' : null;
     }
     if (Array.isArray(value)) {

@@ -31,7 +31,9 @@ export function useProfileShare(): UseProfileShareResult {
       await Share.share(
         {
           title: `${name} – Zivug Mishamayim`,
-          message: `Check out ${name}'s profile on Zivug Mishamayim!\n\n${deepLink}`,
+          // url is the tappable link on iOS (iMessage rich preview).
+          // message must NOT repeat the link — iOS appends url to message automatically.
+          message: `Check out ${name}'s profile on Zivug Mishamayim!\n\n📲 Don't have the app? Download it at: https://zivugmishamayim.com/`,
           url: deepLink,
         },
         { dialogTitle: `Share ${name}'s Profile` }

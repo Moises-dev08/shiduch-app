@@ -71,6 +71,14 @@ class AdminService {
         return { success: false, error: 'Not authenticated' };
       }
 
+      // Fetch profile data BEFORE calling the edge function so the row is
+      // guaranteed to exist with its original is_update value.
+      const { data: profileMeta } = await supabase
+        .from('profiles')
+        .select('user_id, is_update')
+        .eq('id', profileId)
+        .single();
+
       const response = await fetch(
         `${supabaseUrl}/functions/v1/approve-profile`,
         {
@@ -91,20 +99,18 @@ class AdminService {
 
       // Notify the user their profile was approved
       try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('user_id, is_update')
-          .eq('id', profileId)
-          .single();
-
-        if (profile?.user_id) {
+        if (profileMeta?.user_id) {
+          const isUpdate = profileMeta.is_update;
           await notificationService.sendNotification(
-            profile.user_id,
+            profileMeta.user_id,
             '✅ Profile Approved!',
-            profile.is_update
-              ? 'Your profile update has been approved and you can use the app again.'
+            isUpdate
+              ? 'Your profile update has been approved successfully.'
               : 'Your profile has been approved and is now visible to other users.',
-            { type: 'profile_approved', profileId }
+            {
+              type: isUpdate ? 'profile_update_approved' : 'profile_approved',
+              profileId,
+            }
           );
         }
       } catch {
@@ -129,6 +135,14 @@ class AdminService {
         return { success: false, error: 'Not authenticated' };
       }
 
+      // Fetch profile data BEFORE calling the edge function so the row is
+      // guaranteed to exist with its original is_update value.
+      const { data: profileMeta } = await supabase
+        .from('profiles')
+        .select('user_id, is_update')
+        .eq('id', profileId)
+        .single();
+
       const response = await fetch(
         `${supabaseUrl}/functions/v1/reject-profile`,
         {
@@ -149,18 +163,19 @@ class AdminService {
 
       // Notify the user their profile was rejected
       try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('user_id')
-          .eq('id', profileId)
-          .single();
-
-        if (profile?.user_id) {
+        if (profileMeta?.user_id) {
+          const isUpdate = profileMeta.is_update;
           await notificationService.sendNotification(
-            profile.user_id,
-            '⚠️ Profile Needs Attention',
-            `Your profile requires updates: ${reason}`,
-            { type: 'profile_rejected', profileId, reason }
+            profileMeta.user_id,
+            isUpdate ? '⚠️ Profile Update Rejected' : '⚠️ Profile Needs Attention',
+            isUpdate
+              ? `Your profile update was not approved: ${reason}`
+              : `Your profile requires updates: ${reason}`,
+            {
+              type: isUpdate ? 'profile_update_rejected' : 'profile_rejected',
+              profileId,
+              reason,
+            }
           );
         }
       } catch {

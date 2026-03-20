@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
+import { getFieldLabel } from '../lib/fieldLabels';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -23,25 +24,6 @@ interface AskForInfoModalProps {
   isSubmitting: boolean;
 }
 
-const FIELD_LABELS: { [key: string]: string } = {
-  height: 'Height',
-  dob: 'Age',
-  phone: 'Phone Number',
-  email: 'Email',
-  whatsapp: 'WhatsApp',
-  hasChildren: 'Children Status',
-  location_city: 'Location',
-  location_state: 'Location',
-  location_country: 'Location',
-  hashkafa_type: 'Hashkafa',
-  languages: 'Languages',
-  nationality: 'Background',
-  is_cohen: 'Cohen Status',
-  what_looking_for: 'What They\'re Looking For',
-  pictures: 'Photos',
-  // Add more as needed
-};
-
 export default function AskForInfoModal({
   visible,
   fieldName,
@@ -50,7 +32,7 @@ export default function AskForInfoModal({
   onSubmit,
   isSubmitting,
 }: AskForInfoModalProps) {
-  const fieldLabel = FIELD_LABELS[fieldName] || fieldName;
+  const fieldLabel = getFieldLabel(fieldName);
   const [note, setNote] = useState(`Hi, I would like to know more about you.`);
 
   const handleSubmit = () => {

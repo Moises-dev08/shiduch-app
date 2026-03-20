@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,6 +20,21 @@ import { useProfileShare } from '../../hooks/useProfileShare';
 import { FieldPrivacy, Profile, ProfileData, profileService } from '../../lib/profileService';
 export default function ProfileScreen() {
   const queryClient = useQueryClient();
+  // Incrementing this key forces the form to remount with fresh initialData,
+  // discarding any unsaved changes when the user returns to this tab.
+  const [formKey, setFormKey] = useState(0);
+  const isFirstFocus = useRef(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      // Tab re-focused after navigating away — reset form to last saved state
+      setFormKey((k) => k + 1);
+    }, [])
+  );
 
   // ── React Query — shared with connect.tsx via same key ────────────────────
   const { data: profileResult, isLoading: initialLoading, refetch: reloadProfile } = useQuery({
@@ -330,6 +345,7 @@ export default function ProfileScreen() {
       ) : selectedRole && selectedGender ? (
         selectedRole === 'single' ? (
           <SinglesProfileForm
+            key={formKey}
             initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
             onSubmit={handleFormSubmit}
             gender={selectedGender}
@@ -338,6 +354,7 @@ export default function ProfileScreen() {
         ) : (
           <>
             <MatchmakerProfileForm
+              key={formKey}
               initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
               onSubmit={handleFormSubmit}
               gender={selectedGender}

@@ -1,3 +1,4 @@
+import { getFieldLabel } from './fieldLabels';
 import { notificationService } from './notificationService';
 import { supabase } from './supabase';
 
@@ -98,7 +99,7 @@ class InfoRequestService {
           await notificationService.sendNotification(
             requestedProfile.user_id,
             'New Info Request',
-            `${requesterProfile.first_name} ${requesterProfile.last_name} requested information about your ${fieldName}`,
+            `${requesterProfile.first_name} ${requesterProfile.last_name} requested information about your ${getFieldLabel(fieldName).toLowerCase()}`,
             {
               type: 'info_request',
               requestId: data.id,
@@ -257,36 +258,7 @@ class InfoRequestService {
             .single();
 
           if (request && request.requester_profile && request.requested_profile) {
-            const fieldLabels: { [key: string]: string } = {
-              pictures: 'Pictures',
-              height: 'Height',
-              hasChildren: 'Children Status',
-              location_city: 'City',
-              location_state: 'State',
-              location_country: 'Country',
-              languages: 'Languages',
-              nationality: 'Background/Nationality',
-              is_cohen: 'Cohen Status',
-              hashkafa_type: 'Hashkafa',
-              torah_learning: 'Torah Learning',
-              praying: 'Prayer Habits',
-              education_level: 'Education Level',
-              post_high_school_path: 'Post-High School Path',
-              current_occupation_study: 'Occupation/Study',
-              plan_after_marriage: 'Plan After Marriage',
-              marital_status: 'Marital Status',
-              dress_style: 'Dress Style',
-              wears_black_hat: 'Black Hat',
-              head_covering: 'Head Covering',
-              smoking: 'Smoking Habits',
-              alcohol_consumption: 'Alcohol Consumption',
-              phone: 'Phone Number',
-              email: 'Email Address',
-              whatsapp: 'WhatsApp Number',
-              dob: 'Date of Birth',
-            };
-
-            const fieldLabel = fieldLabels[request.field_name] || request.field_name;
+            const fieldLabel = getFieldLabel(request.field_name);
 
             if (status === 'approved') {
               await notificationService.sendNotification(

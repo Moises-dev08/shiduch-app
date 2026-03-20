@@ -1,3 +1,4 @@
+import { notificationService } from './notificationService';
 import { supabase } from './supabase';
 
 export interface Engagement {
@@ -83,6 +84,31 @@ class EngagementService {
         }
 
         console.log('Updated engagement:', data);
+
+        // Both parties have now confirmed → broadcast to all other users
+        if (otherConfirmed && data) {
+          try {
+            // Fetch first names of both users for the notification message
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('user_id, first_name')
+              .in('user_id', [user1Id, user2Id]);
+
+            const nameMap = new Map(profiles?.map(p => [p.user_id, p.first_name]) ?? []);
+            const name1 = nameMap.get(user1Id) ?? 'Someone';
+            const name2 = nameMap.get(user2Id) ?? 'someone';
+
+            notificationService.notifyAllUsersExcept(
+              [user1Id, user2Id],
+              '💍 New Engagement!',
+              `Mazal Tov! ${name1} and ${name2} are engaged! 🎉`,
+              { type: 'engagement_news' }
+            ).catch(() => {});
+          } catch {
+            // Broadcast failure should never block the engagement confirmation
+          }
+        }
+
         return { success: true, engagement: data };
       } else {
         // Create new engagement with current user's confirmation

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -210,6 +210,38 @@ export default function MatchmakerProfileForm({ initialData, onSubmit, gender, l
       ]
     );
   };
+
+  // Snapshot of form values used for change detection
+  const buildSnapshot = () => ({
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    dob: dob.toISOString().split('T')[0],
+    bio: bio.trim(),
+    phone: phone.trim(),
+    email: email.trim(),
+    whatsapp: whatsapp.trim(),
+    pictures: [...pictures].sort(),
+    picturePrivacy,
+    locationCity: locationCity.trim(),
+    locationState: locationState.trim(),
+    locationCountry,
+    languages: [...selectedLanguages].sort(),
+    religiousLevel,
+    culturalOrigin: [...selectedCulturalOrigin].sort(),
+  });
+
+  // Capture initial snapshot once when initialData arrives
+  const initialSnapshot = useRef<string | null>(null);
+  if (initialSnapshot.current === null) {
+    initialSnapshot.current = JSON.stringify(buildSnapshot());
+  }
+
+  const hasChanges = useMemo(
+    () => JSON.stringify(buildSnapshot()) !== initialSnapshot.current,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [firstName, lastName, dob, bio, phone, email, whatsapp, pictures, picturePrivacy,
+     locationCity, locationState, locationCountry, selectedLanguages, religiousLevel, selectedCulturalOrigin]
+  );
 
   const validateAndSubmit = () => {
     const missingFields = [];
@@ -608,9 +640,9 @@ export default function MatchmakerProfileForm({ initialData, onSubmit, gender, l
 
       {/* Submit Button */}
       <TouchableOpacity
-        style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+        style={[styles.submitButton, (!hasChanges || loading) && styles.submitButtonDisabled]}
         onPress={validateAndSubmit}
-        disabled={loading}
+        disabled={!hasChanges || loading}
       >
         <Text style={styles.submitButtonText}>
           {loading ? 'Saving...' : 'Save Profile'}

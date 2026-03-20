@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getFieldLabel } from '../../lib/fieldLabels';
 import { InfoRequest, infoRequestService } from '../../lib/infoRequestService';
 import { profileService } from '../../lib/profileService';
 import { calculateAge } from '../../lib/utils';
@@ -11,37 +13,9 @@ interface InfoRequestCardProps {
   onUpdate: () => void;
 }
 
-const fieldLabels: { [key: string]: string } = {
-  pictures: 'Pictures',
-  height: 'Height',
-  hasChildren: 'Children Status',
-  location_city: 'City',
-  location_state: 'State',
-  location_country: 'Country',
-  languages: 'Languages',
-  nationality: 'Background/Nationality',
-  is_cohen: 'Cohen Status',
-  hashkafa_type: 'Hashkafa',
-  torah_learning: 'Torah Learning',
-  praying: 'Prayer Habits',
-  education_level: 'Education Level',
-  post_high_school_path: 'Post-High School Path',
-  current_occupation_study: 'Occupation/Study',
-  plan_after_marriage: 'Plan After Marriage',
-  marital_status: 'Marital Status',
-  dress_style: 'Dress Style',
-  wears_black_hat: 'Black Hat',
-  head_covering: 'Head Covering',
-  smoking: 'Smoking Habits',
-  alcohol_consumption: 'Alcohol Consumption',
-  phone: 'Phone Number',
-  email: 'Email Address',
-  whatsapp: 'WhatsApp Number',
-  dob: 'Date of Birth',
-};
-
 export default function InfoRequestCard({ request, onUpdate }: InfoRequestCardProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isApproving, setIsApproving] = useState(false);
   const [isDeclining, setIsDeclining] = useState(false);
 
@@ -61,39 +35,39 @@ export default function InfoRequestCard({ request, onUpdate }: InfoRequestCardPr
     : null;
   const isBlurred = requesterProfile.picture_privacy === 'private';
 
-  const fieldLabel = fieldLabels[request.field_name] || request.field_name;
+  const fieldLabel = getFieldLabel(request.field_name);
 
   const handleRespond = async (status: 'approved' | 'rejected') => {
-    // Set appropriate loading state
-    if (status === 'approved') {
-      setIsApproving(true);
-    } else {
-      setIsDeclining(true);
-    }
+    if (status === 'approved') setIsApproving(true);
+    else setIsDeclining(true);
+
+    // Optimistic update: remove this card from the cache immediately
+    queryClient.setQueryData(['info_requests'], (old: any) => {
+      if (!old) return old;
+      return {
+        ...old,
+        receivedInfoRequests: old.receivedInfoRequests.filter(
+          (r: any) => r.id !== request.id
+        ),
+      };
+    });
 
     try {
       const result = await infoRequestService.respondToRequest(request.id, status);
       if (result.success) {
-        Alert.alert(
-          status === 'approved' ? 'Success! ✅' : 'Request Declined',
-          status === 'approved' 
-            ? `You approved the request to view your ${fieldLabel.toLowerCase()}.`
-            : `You declined the request to view your ${fieldLabel.toLowerCase()}.`
-        );
-        onUpdate();
+        onUpdate(); // background refetch to confirm
       } else {
+        // Rollback optimistic update on failure
+        onUpdate();
         Alert.alert('Error', result.error || 'Failed to respond to request');
       }
     } catch (error) {
       console.error('Error responding to request:', error);
+      onUpdate(); // rollback via refetch
       Alert.alert('Error', 'An unexpected error occurred');
     } finally {
-      // Clear appropriate loading state
-      if (status === 'approved') {
-        setIsApproving(false);
-      } else {
-        setIsDeclining(false);
-      }
+      if (status === 'approved') setIsApproving(false);
+      else setIsDeclining(false);
     }
   };
 

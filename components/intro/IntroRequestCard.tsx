@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -37,11 +38,26 @@ export default function IntroRequestCardNew({
   onUpdate, 
   isActionNeeded = false 
 }: IntroRequestCardProps) {
+  const queryClient = useQueryClient();
   const [showRejectNote, setShowRejectNote] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
   const [isResponding, setIsResponding] = useState(false);
   const [showContinuationModal, setShowContinuationModal] = useState(false);
   const [showConfirmAcceptModal, setShowConfirmAcceptModal] = useState(false);
+
+  // Optimistically patch a single intro request in the cache
+  const patchIntroCache = (patch: Record<string, any>) => {
+    queryClient.setQueryData(['intro_requests'], (old: any) => {
+      if (!old) return old;
+      const patchList = (list: any[]) =>
+        list.map((r: any) => r.id === request.id ? { ...r, ...patch } : r);
+      return {
+        ...old,
+        sentRequests: patchList(old.sentRequests ?? []),
+        receivedRequests: patchList(old.receivedRequests ?? []),
+      };
+    });
+  };
 
   const otherProfile = isRequester ? request.requested_profile : request.requester_profile;
   const matchmakerProfile = request.requester_middle_person;
@@ -74,49 +90,54 @@ export default function IntroRequestCardNew({
   // FOR REQUESTED PERSON: After confirming, show continuation choice or auto-accept with matchmaker
   const handleConfirmAccept = async () => {
     setShowConfirmAcceptModal(false);
-    
-    // If requester already chose "with_middle_person", automatically use matchmaker for both
+
     if (request.requester_continuation_choice === 'with_middle_person') {
+      // Requester already chose matchmaker — accept + set choice atomically
       setIsResponding(true);
+      patchIntroCache({
+        requested_status: 'accepted',
+        status: 'accepted',
+        requested_continuation_choice: 'with_middle_person',
+      });
       try {
-        await introService.requestedPersonRespond(request.id, 'accepted');
-        await introService.setContinuationChoice(request.id, 'with_middle_person', matchmakerProfile?.id);
+        await introService.acceptWithContinuation(request.id, 'with_middle_person', matchmakerProfile?.id);
         Alert.alert(
-          'Success! ✅', 
+          'Success! ✅',
           `You have accepted the intro request! This match will be coordinated by ${matchmakerProfile?.first_name} (Matchmaker/Shadchan).`
         );
         onUpdate();
       } catch (error) {
         console.error('Error accepting request:', error);
+        onUpdate();
         Alert.alert('Error', 'Failed to accept request');
       } finally {
         setIsResponding(false);
       }
     } else {
-      // Otherwise, show them the continuation choice modal
       setShowContinuationModal(true);
     }
   };
 
-  // FOR REQUESTED PERSON: Handle continuation choice
+  // FOR REQUESTED PERSON: Handle continuation choice — single atomic DB write
   const handleContinuationChoice = async (choice: 'by_themselves' | 'with_middle_person') => {
     setIsResponding(true);
     setShowContinuationModal(false);
-    
+    patchIntroCache({
+      requested_status: 'accepted',
+      status: 'accepted',
+      requested_continuation_choice: choice,
+    });
     try {
-      await introService.requestedPersonRespond(request.id, 'accepted');
-      
-      // If they want a matchmaker, use the existing one (Ben)
-      if (choice === 'with_middle_person' && matchmakerProfile?.id) {
-        await introService.setContinuationChoice(request.id, choice, matchmakerProfile.id);
-      } else {
-        await introService.setContinuationChoice(request.id, choice);
-      }
-      
+      await introService.acceptWithContinuation(
+        request.id,
+        choice,
+        choice === 'with_middle_person' ? matchmakerProfile?.id : undefined
+      );
       Alert.alert('Success! ✅', 'You have accepted the intro request!');
       onUpdate();
     } catch (error) {
       console.error('Error accepting request:', error);
+      onUpdate();
       Alert.alert('Error', 'Failed to accept request');
     } finally {
       setIsResponding(false);
@@ -126,6 +147,8 @@ export default function IntroRequestCardNew({
   // FOR REQUESTED PERSON: Reject the intro request
   const handleReject = async () => {
     setIsResponding(true);
+    // Optimistic: mark rejected so card leaves action_needed immediately
+    patchIntroCache({ requested_status: 'rejected', status: 'rejected' });
     try {
       await introService.requestedPersonRespond(request.id, 'rejected', rejectNote);
       setShowRejectNote(false);
@@ -133,6 +156,7 @@ export default function IntroRequestCardNew({
       onUpdate();
     } catch (error) {
       console.error('Error rejecting request:', error);
+      onUpdate(); // rollback via refetch
       Alert.alert('Error', 'Failed to reject request');
     } finally {
       setIsResponding(false);
@@ -143,19 +167,19 @@ export default function IntroRequestCardNew({
   const handleRequesterContinuationChoice = async (choice: 'by_themselves' | 'with_middle_person') => {
     setIsResponding(true);
     setShowContinuationModal(false);
-    
+    // Optimistic: set requester choice so card leaves action_needed
+    patchIntroCache({ requester_continuation_choice: choice });
     try {
-      // If they want a matchmaker, use the existing one (Ben)
       if (choice === 'with_middle_person' && matchmakerProfile?.id) {
         await introService.setContinuationChoice(request.id, choice, matchmakerProfile.id);
       } else {
         await introService.setContinuationChoice(request.id, choice);
       }
-      
       Alert.alert('Choice Saved! ✅', 'Your continuation preference has been saved!');
       onUpdate();
     } catch (error) {
       console.error('Error setting continuation choice:', error);
+      onUpdate(); // rollback via refetch
       Alert.alert('Error', 'Failed to save choice');
     } finally {
       setIsResponding(false);
@@ -507,6 +531,37 @@ export default function IntroRequestCardNew({
         </View>
       )}
 
+      {/* Change Mind - for requested person who previously declined */}
+      {!isRequester && request.requested_status === 'rejected' && (
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.changeMindButton]}
+            onPress={() => {
+              Alert.alert(
+                'Change Your Mind?',
+                'Do you want to reconsider and accept this intro request?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Yes, Reconsider',
+                    onPress: () => {
+                      // Re-show the accept flow
+                      setShowConfirmAcceptModal(true);
+                      // Reset the request status optimistically
+                      patchIntroCache({ requested_status: 'pending', status: 'pending_requested' });
+                    },
+                  },
+                ]
+              );
+            }}
+            disabled={isResponding}
+          >
+            <Ionicons name="refresh-circle" size={20} color="#1293DA" />
+            <Text style={[styles.actionButtonText, { color: '#1293DA' }]}>Change Mind</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Reject Note Modal */}
       <Modal
         visible={showRejectNote}
@@ -767,6 +822,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderWidth: 2,
     borderColor: '#e0e0e0',
+  },
+  changeMindButton: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#1293DA',
+    flex: 1,
   },
   actionButtonText: {
     fontSize: 15,

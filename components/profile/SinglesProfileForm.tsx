@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -397,6 +397,59 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       ]
     );
   };
+
+  // Snapshot of form values used for change detection
+  const buildSnapshot = () => ({
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    dob: dob.toISOString().split('T')[0],
+    bio: bio.trim(),
+    whatLookingFor: whatLookingFor.trim(),
+    phone: phone.trim(),
+    email: email.trim(),
+    whatsapp: whatsapp.trim(),
+    pictures: [...pictures].sort(),
+    picturePrivacy,
+    heightFeet,
+    heightInches,
+    locationCity: locationCity.trim(),
+    locationState: locationState.trim(),
+    locationCountry,
+    languages: [...selectedLanguages].sort(),
+    nationality: [...selectedNationality].sort(),
+    isCohen,
+    hashkafaType,
+    torahLearning,
+    praying,
+    education: [...selectedEducation].sort(),
+    postHighSchoolPath,
+    currentOccupationStudy,
+    planAfterMarriage,
+    maritalStatus,
+    dressStyle,
+    wearsBlackHat,
+    headCovering,
+    smoking,
+    alcoholConsumption,
+    fieldPrivacy: JSON.stringify(
+      Object.fromEntries(Object.entries(fieldPrivacy).sort(([a], [b]) => a.localeCompare(b)))
+    ),
+  });
+
+  const initialSnapshot = useRef<string | null>(null);
+  if (initialSnapshot.current === null) {
+    initialSnapshot.current = JSON.stringify(buildSnapshot());
+  }
+
+  const hasChanges = useMemo(
+    () => JSON.stringify(buildSnapshot()) !== initialSnapshot.current,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [firstName, lastName, dob, bio, whatLookingFor, phone, email, whatsapp, pictures,
+     picturePrivacy, heightFeet, heightInches, locationCity, locationState, locationCountry,
+     selectedLanguages, selectedNationality, isCohen, hashkafaType, torahLearning, praying,
+     selectedEducation, postHighSchoolPath, currentOccupationStudy, planAfterMarriage,
+     maritalStatus, dressStyle, wearsBlackHat, headCovering, smoking, alcoholConsumption, fieldPrivacy]
+  );
 
   const validateAndSubmit = () => {
     // Require at least one photo regardless of privacy setting
@@ -1333,9 +1386,9 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
       {/* Submit Button */}
       <TouchableOpacity
-        style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+        style={[styles.submitButton, (!hasChanges || loading) && styles.submitButtonDisabled]}
         onPress={validateAndSubmit}
-        disabled={loading}
+        disabled={!hasChanges || loading}
       >
         <Text style={styles.submitButtonText}>
           {loading ? 'Saving...' : 'Save Profile'}

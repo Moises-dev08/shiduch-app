@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -11,7 +12,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ApprovedInfoRequestCard from '../../components/connect/ApprovedInfoRequestCard';
 import InfoRequestCard from '../../components/connect/InfoRequestCard';
 import IntroRequestCard from '../../components/intro/IntroRequestCard';
 import MatchmakerRequestCard from '../../components/intro/MatchmakerRequestCard';
@@ -20,6 +20,8 @@ import SuggestionCard from '../../components/suggestion/SuggestionCard';
 import { useRealtimeInfoRequests } from '../../hooks/useRealtimeInfoRequests';
 import { useRealtimeIntroRequests } from '../../hooks/useRealtimeIntroRequests';
 import { useRealtimeSuggestions } from '../../hooks/useRealtimeSuggestions';
+import { UNREAD_COUNT_QUERY_KEY } from '../../hooks/useUnreadNotificationsCount';
+import { notificationService } from '../../lib/notificationService';
 import { infoRequestService } from '../../lib/infoRequestService';
 import { introService } from '../../lib/introService';
 import { Profile, profileService } from '../../lib/profileService';
@@ -72,9 +74,13 @@ export default function ConnectScreen() {
   const [lastViewedMatchesForOthersAt, setLastViewedMatchesForOthersAt] = useState<Date | null>(null);
 
   // ── React Query ────────────────────────────────────────────────────────────
-  const introQuery = useQuery({ queryKey: ['intro_requests'], queryFn: fetchIntroData });
-  const suggestQuery = useQuery({ queryKey: ['suggestions'], queryFn: fetchSuggestionsData });
-  const infoQuery = useQuery({ queryKey: ['info_requests'], queryFn: fetchInfoData });
+  const introQuery = useQuery({ queryKey: ['intro_requests'], queryFn: fetchIntroData, staleTime: 30 * 1000 });
+  const suggestQuery = useQuery({ queryKey: ['suggestions'], queryFn: fetchSuggestionsData, staleTime: 30 * 1000 });
+  const infoQuery = useQuery({ queryKey: ['info_requests'], queryFn: fetchInfoData, staleTime: 30 * 1000 });
+
+  // True whenever any query is actively fetching (background refresh or first load)
+  const isFetching =
+    introQuery.isFetching || suggestQuery.isFetching || infoQuery.isFetching;
   // Share the same profile cache used by profile.tsx
   const profileQuery = useQuery({
     queryKey: ['my_profile'],
@@ -188,6 +194,20 @@ export default function ConnectScreen() {
   useRealtimeSuggestions(invalidateSuggestions, currentUserProfile?.id);
   useRealtimeInfoRequests(invalidateInfoRequests, currentUserProfile?.id);
 
+  // On every focus: only invalidate (respects staleTime, won't refetch fresh data)
+  // and mark all notifications as read so the bell badge clears.
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ['intro_requests'] });
+      queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+      queryClient.invalidateQueries({ queryKey: ['info_requests'] });
+
+      notificationService.markAllAsRead().then(() => {
+        queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_QUERY_KEY });
+      });
+    }, [queryClient])
+  );
+
   // Mark all notifications as viewed when Connect tab is focused
   useFocusEffect(
     useCallback(() => {
@@ -229,6 +249,20 @@ export default function ConnectScreen() {
       setActiveSection(params.section as 'action_needed' | 'matches' | 'passed' | 'liked');
     }
   }, [params.section]);
+
+  // Update activeCategory when params change (e.g. deep-link from notification)
+  useEffect(() => {
+    if (params.category && ['for_you', 'for_others'].includes(params.category as string)) {
+      setActiveCategory(params.category as 'for_you' | 'for_others');
+    }
+  }, [params.category]);
+
+  // Update forOthers sub-section when params change
+  useEffect(() => {
+    if (params.forOthersSection && ['awaiting', 'matched', 'not_matched'].includes(params.forOthersSection as string)) {
+      setActiveForOthersSection(params.forOthersSection as 'awaiting' | 'matched' | 'not_matched');
+    }
+  }, [params.forOthersSection]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -451,7 +485,11 @@ export default function ConnectScreen() {
     );
   };
 
-  const isSingle = currentUserProfile?.role === 'single';
+  // Derive role directly from cached query data to avoid a render-cycle delay.
+  // currentUserProfile is set via useEffect (one render late), causing tabs to flash in.
+  const profileRole =
+    profileQuery.data?.profile?.role ?? currentUserProfile?.role;
+  const isSingle = profileRole === 'single';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -654,6 +692,14 @@ export default function ConnectScreen() {
         </ScrollView>
       )}
 
+      {/* Subtle loading bar shown during background refetches */}
+      {isFetching && !refreshing && (
+        <View style={styles.fetchingBar}>
+          <ActivityIndicator size="small" color="#1293DA" />
+          <Text style={styles.fetchingText}>Updating…</Text>
+        </View>
+      )}
+
       {/* Content */}
       <ScrollView
         style={styles.content}
@@ -665,16 +711,6 @@ export default function ConnectScreen() {
         {/* Intro Requests Section - Action Needed */}
         {activeCategory === 'for_you' && activeSection === 'action_needed' && (
           <>
-            {/* Approved Info Requests (show the info that was provided) */}
-            {sentInfoRequests
-              .filter(r => r.status === 'approved')
-              .map(request => (
-                <ApprovedInfoRequestCard
-                  key={request.id}
-                  request={request}
-                />
-              ))}
-
             {/* Received Info Requests (need response) */}
             {receivedInfoRequests
               .filter(r => r.status === 'pending')
@@ -833,9 +869,13 @@ export default function ConnectScreen() {
                 />
               ))}
 
-            {/* Show rejected suggestions */}
+            {/* Show rejected suggestions — check individual status as well for older records */}
             {currentUserProfile && receivedSuggestions
-              .filter(s => s.status === 'rejected')
+              .filter(s => {
+                const isProfileOne = s.profile_one_id === currentUserProfile.id;
+                const myStatus = isProfileOne ? s.profile_one_status : s.profile_two_status;
+                return s.status === 'rejected' || myStatus === 'rejected';
+              })
               .map(suggestion => (
                 <SuggestionCard
                   key={suggestion.id}
@@ -849,7 +889,6 @@ export default function ConnectScreen() {
 
         {/* Empty state when no intro requests, suggestions, or info requests */}
         {activeCategory === 'for_you' && activeSection === 'action_needed' &&
-         sentInfoRequests.filter(r => r.status === 'approved').length === 0 &&
          receivedInfoRequests.filter(r => r.status === 'pending').length === 0 &&
          sentIntroRequests.filter(r => r.matchmaker_status === 'accepted' && r.requested_status === 'accepted' && !r.requester_continuation_choice).length === 0 &&
          receivedIntroRequests.filter(r => r.requested_status === 'pending' || (r.requested_status === 'accepted' && !r.requested_continuation_choice)).length === 0 &&
@@ -875,7 +914,12 @@ export default function ConnectScreen() {
         {activeCategory === 'for_you' && activeSection === 'passed' &&
          sentIntroRequests.filter(r => r.matchmaker_status === 'rejected' || (r.matchmaker_status === 'accepted' && r.requested_status === 'rejected')).length === 0 &&
          receivedIntroRequests.filter(r => r.requested_status === 'rejected').length === 0 &&
-         receivedSuggestions.filter(s => s.status === 'rejected').length === 0 &&
+         receivedSuggestions.filter(s => {
+           if (!currentUserProfile) return false;
+           const isProfileOne = s.profile_one_id === currentUserProfile.id;
+           const myStatus = isProfileOne ? s.profile_one_status : s.profile_two_status;
+           return s.status === 'rejected' || myStatus === 'rejected';
+         }).length === 0 &&
          renderEmptyState(activeSection)}
 
         {/* For Others - Awaiting Response */}
@@ -1036,6 +1080,21 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: '#666',
+  },
+  fetchingBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    backgroundColor: '#E3F2FD',
+    borderBottomWidth: 1,
+    borderBottomColor: '#B3DDF5',
+  },
+  fetchingText: {
+    fontSize: 13,
+    color: '#1293DA',
+    fontWeight: '500',
   },
   header: {
     paddingHorizontal: 20,

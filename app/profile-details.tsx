@@ -23,6 +23,7 @@ import ContinuationChoiceModal from "../components/intro/ContinuationChoiceModal
 import MiddlePersonSelectionModal from "../components/intro/MiddlePersonSelectionModal";
 import PreviousSuggestionWarningModal from "../components/suggestion/PreviousSuggestionWarningModal";
 import ProfileGridSelectionModal from "../components/suggestion/ProfileGridSelectionModal";
+import { PRIVACY_KEY_TO_DB_COLUMN } from "../lib/fieldLabels";
 import { infoRequestService } from "../lib/infoRequestService";
 import { introService } from "../lib/introService";
 import { pictureViewService } from "../lib/pictureViewService";
@@ -72,14 +73,22 @@ async function fetchProfileDetails(profileId: string) {
     existingIntroRequest = sent ?? received ?? null;
   }
 
-  // Approved info fields
+  // Approved info fields.
+  // info_requests.field_name stores the camelCase privacy key (e.g. "torahLearning"),
+  // but shouldShowField may check the snake_case DB column name (e.g. "torah_learning").
+  // We add both forms so the lookup never misses.
   const currentApprovedFields = new Set<string>();
   if (infoRequestResult.success && infoRequestResult.requests) {
     infoRequestResult.requests
       .filter(
         (r) => r.requested_profile_id === profileId && r.status === "approved",
       )
-      .forEach((r) => currentApprovedFields.add(r.field_name));
+      .forEach((r) => {
+        currentApprovedFields.add(r.field_name);
+        // Also add the mapped DB column name if it differs from the privacy key
+        const dbColumn = PRIVACY_KEY_TO_DB_COLUMN[r.field_name];
+        if (dbColumn) currentApprovedFields.add(dbColumn);
+      });
   }
 
   // Privacy helpers
@@ -163,7 +172,15 @@ async function fetchProfileDetails(profileId: string) {
     last_active_at: data.last_active_at,
   };
 
-  return { displayProfile, currentUserProfile, rawData: data, existingIntroRequest, hasPicturesBeenViewed };
+  return {
+    displayProfile,
+    currentUserProfile,
+    rawData: data,
+    existingIntroRequest,
+    hasPicturesBeenViewed,
+    // Pass the approved-fields set to the component so isFieldPrivate can use it
+    approvedFields: Array.from(currentApprovedFields),
+  };
 }
 
 export default function ProfileDetailsScreen() {
@@ -175,6 +192,7 @@ export default function ProfileDetailsScreen() {
   const [currentUserProfile, setCurrentUserProfile] =
     useState<DBProfile | null>(null);
   const [rawProfileData, setRawProfileData] = useState<any>(null); // Store raw data to check if fields have values
+  const [approvedFields, setApprovedFields] = useState<string[]>([]);
   // React Query — cache per profileId so re-opening the same profile is instant
   const {
     data: profileQueryData,
@@ -245,10 +263,9 @@ export default function ProfileDetailsScreen() {
     setProfile(profileQueryData.displayProfile);
     setCurrentUserProfile(profileQueryData.currentUserProfile);
     setRawProfileData(profileQueryData.rawData);
+    setApprovedFields(profileQueryData.approvedFields ?? []);
     setHasPicturesBeenViewed(profileQueryData.hasPicturesBeenViewed);
-    if (profileQueryData.existingIntroRequest) {
-      setExistingIntroRequest(profileQueryData.existingIntroRequest);
-    }
+    setExistingIntroRequest(profileQueryData.existingIntroRequest ?? null);
   }, [profileQueryData]);
 
   // Navigate back if profile could not be loaded
@@ -557,18 +574,13 @@ export default function ProfileDetailsScreen() {
     try {
       setIsSharing(true);
 
-      // Create deep link URL for the profile
-      const shareUrl = `shiduchimapp://profile/${profile.id}`;
-
-      // Create a fallback URL that redirects to App Store if app is not installed
-      const appStoreUrl = "https://apps.apple.com/app/id6738294076"; // Replace with actual App Store ID
-      const fallbackUrl = `https://shiduchimapp.com/profile/${profile.id}?fallback=${encodeURIComponent(appStoreUrl)}`;
-
-      const message = `Check out ${profile.name}'s profile on Zivug Mishamayim!\n\n${shareUrl}\n\nIf you don't have the app: ${fallbackUrl}`;
+      const deepLink = `shiduchimapp://profile/${profile.id}`;
 
       await Share.share({
-        message,
-        title: `${profile.name}'s Profile`,
+        title: `${profile.name}'s Profile – Zivug Mishamayim`,
+        // url is the tappable link on iOS. message must NOT repeat it.
+        message: `Check out ${profile.name}'s profile on Zivug Mishamayim!\n\n📲 Don't have the app? Download it at: https://zivugmishamayim.com/`,
+        url: deepLink,
       });
     } catch {
       Alert.alert("Error", "Failed to share profile. Please try again.");
@@ -597,9 +609,14 @@ export default function ProfileDetailsScreen() {
   if (!profile) {
     return null;
   }
-  // Helper to check if field is private
+  // Helper to check if field is private.
+  // A field is considered private only if it has a privacy flag AND the current
+  // user has not been granted access (i.e. it is not in approvedFields).
+  // approvedFields contains both camelCase privacy keys and snake_case DB column
+  // names so either form will match correctly.
   const isFieldPrivate = (fieldName: string): boolean => {
-    return profile?.field_privacy?.[fieldName] === true;
+    if (profile?.field_privacy?.[fieldName] !== true) return false;
+    return !approvedFields.includes(fieldName);
   };
 
   // Helper to check if a field has a value in the database (before privacy filtering)

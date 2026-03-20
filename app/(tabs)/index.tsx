@@ -81,6 +81,9 @@ export default function HomeScreen() {
   // Profile data and filters
   const {
     filteredProfiles,
+    visibleProfiles,
+    hasMore,
+    loadMore,
     loading,
     refreshing,
     searchQuery,
@@ -94,6 +97,14 @@ export default function HomeScreen() {
   // Handlers
   const handleProfilePress = (profile: Profile) => {
     router.push(`/profile-details?id=${profile.id}`);
+  };
+
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const isNearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 300;
+    if (isNearBottom && hasMore) {
+      loadMore();
+    }
   };
 
   // Get active filters for display
@@ -330,6 +341,7 @@ export default function HomeScreen() {
             >
               <Text style={styles.successMatchesEmoji}>🎉</Text>
               <Text style={styles.successMatchesText}>Success Stories</Text>
+              <Ionicons name="chevron-forward" size={14} color="#1293DA" />
             </TouchableOpacity>
           </View>
           <TouchableOpacity
@@ -401,6 +413,8 @@ export default function HomeScreen() {
         style={styles.scrollView} 
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={200}
+        onScroll={handleScroll}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -424,15 +438,28 @@ export default function HomeScreen() {
             </Text>
           </View>
         ) : (
-          <View style={styles.profilesGrid}>
-            {filteredProfiles?.map((profile) => (
-              <ProfileCard
-                key={profile.id}
-                profile={profile}
-                onPress={handleProfilePress}
-              />
-            ))}
-          </View>
+          <>
+            <View style={styles.profilesGrid}>
+              {visibleProfiles.map((profile) => (
+                <ProfileCard
+                  key={profile.id}
+                  profile={profile}
+                  onPress={handleProfilePress}
+                />
+              ))}
+            </View>
+            {hasMore && (
+              <View style={styles.loadMoreContainer}>
+                <ActivityIndicator size="small" color="#1293DA" />
+                <Text style={styles.loadMoreText}>Loading more…</Text>
+              </View>
+            )}
+            {!hasMore && filteredProfiles.length > 0 && (
+              <Text style={styles.endOfListText}>
+                Showing all {filteredProfiles.length} profiles
+              </Text>
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -589,6 +616,23 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
     paddingHorizontal: 40,
+  },
+  loadMoreContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    color: '#1293DA',
+  },
+  endOfListText: {
+    textAlign: 'center',
+    color: '#aaa',
+    fontSize: 13,
+    paddingVertical: 20,
   },
   filtersSummary: {
     backgroundColor: '#fff',

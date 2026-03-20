@@ -1,5 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
+
+const PAGE_SIZE = 20;
 import { pictureViewService } from '../lib/pictureViewService';
 import { Profile as DBProfile, profileService } from '../lib/profileService';
 import { supabase } from '../lib/supabase';
@@ -94,6 +96,7 @@ export function useHomeProfiles() {
   const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const [filterState, setFilterState] = useState<FilterState>({
     selectedAgeOption: null,
@@ -402,7 +405,14 @@ export function useHomeProfiles() {
     }
 
     setFilteredProfiles(filtered);
+    // Reset visible window whenever the filtered set changes
+    setVisibleCount(PAGE_SIZE);
   }, [searchQuery, filterState, allProfiles, currentUserProfile, filterProfilesByUserType]);
+
+  // ── Infinite scroll ───────────────────────────────────────────────────────
+  const loadMore = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredProfiles.length));
+  }, [filteredProfiles.length]);
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
   const onRefresh = useCallback(async () => {
@@ -418,9 +428,15 @@ export function useHomeProfiles() {
 
   useRealtimeProfiles(silentRefresh);
 
+  const visibleProfiles = filteredProfiles.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredProfiles.length;
+
   return {
     currentUserProfile,
     filteredProfiles,
+    visibleProfiles,
+    hasMore,
+    loadMore,
     loading: isLoading,   // false on every tab revisit — data serves from cache
     refreshing,
     searchQuery,

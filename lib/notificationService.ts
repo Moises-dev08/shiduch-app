@@ -264,13 +264,52 @@ class NotificationService {
   }
 
   /**
-   * Get user's notifications
+   * Notify all active users except the ones listed in excludeUserIds.
+   * Used for community-wide announcements (e.g. new engagement news).
+   */
+  async notifyAllUsersExcept(
+    excludeUserIds: string[],
+    title: string,
+    body: string,
+    data?: any
+  ): Promise<void> {
+    try {
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('status', 'approved')
+        .not('user_id', 'in', `(${excludeUserIds.join(',')})`);
+
+      if (error || !profiles) {
+        console.error('Error fetching users for broadcast:', error);
+        return;
+      }
+
+      for (const profile of profiles) {
+        await this.sendNotification(profile.user_id, title, body, data);
+      }
+    } catch (error) {
+      console.error('Error in notifyAllUsersExcept:', error);
+    }
+  }
+
+  /**
+   * Get user's notifications.
+   * Always filters by the current user's id so the correct rows are returned
+   * regardless of whether RLS is enabled on the notifications table.
+   * Also normalises the `data` field: edge functions sometimes store it as a
+   * JSON string instead of a JSONB object — we parse it here so all consumers
+   * can safely use `notification.data?.type` without extra guards.
    */
   async getNotifications(): Promise<any[]> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -279,7 +318,11 @@ class NotificationService {
         return [];
       }
 
-      return data || [];
+      // Normalise the `data` field: parse JSON strings into objects
+      return (data || []).map((n) => ({
+        ...n,
+        data: typeof n.data === 'string' ? (() => { try { return JSON.parse(n.data); } catch { return {}; } })() : (n.data ?? {}),
+      }));
     } catch (error) {
       console.error('Error in getNotifications:', error);
       return [];

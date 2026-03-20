@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -28,6 +29,7 @@ interface SuggestionCardProps {
 }
 
 export default function SuggestionCard({ suggestion, currentProfileId, onUpdate, isActionNeeded = false }: SuggestionCardProps) {
+  const queryClient = useQueryClient();
   const [showLearnMore, setShowLearnMore] = useState(false);
   const [showRejectNote, setShowRejectNote] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
@@ -46,6 +48,20 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
 
   const contactInfo = suggestionService.getContactInfo(suggestion, currentProfileId);
 
+  // Optimistically patch this suggestion in the cache
+  const patchSuggestionCache = (patch: Record<string, any>) => {
+    queryClient.setQueryData(['suggestions'], (old: any) => {
+      if (!old) return old;
+      const patchList = (list: any[]) =>
+        list.map((s: any) => s.id === suggestion.id ? { ...s, ...patch } : s);
+      return {
+        ...old,
+        receivedSuggestions: patchList(old.receivedSuggestions ?? []),
+        madeSuggestions: patchList(old.madeSuggestions ?? []),
+      };
+    });
+  };
+
   const handleViewProfile = (profileId: string) => {
     router.push(`/profile-details?id=${profileId}&hideActions=true`);
   };
@@ -62,6 +78,9 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
     }
 
     setIsResponding(true);
+    const statusKey = isProfileOne ? 'profile_one_status' : 'profile_two_status';
+    const choiceKey = isProfileOne ? 'profile_one_continuation_choice' : 'profile_two_continuation_choice';
+    patchSuggestionCache({ [statusKey]: 'accepted', [choiceKey]: choice });
     try {
       await suggestionService.respondToSuggestion(suggestion.id, 'accepted');
       await suggestionService.setContinuationChoice(suggestion.id, choice);
@@ -70,6 +89,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
       onUpdate();
     } catch (error) {
       console.error('Error accepting suggestion:', error);
+      onUpdate(); // rollback via refetch
       Alert.alert('Error', 'Failed to accept suggestion');
     } finally {
       setIsResponding(false);
@@ -79,6 +99,9 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
   const handleMiddlePersonSelected = async (person: any) => {
     setShowMiddlePersonModal(false);
     setIsResponding(true);
+    const statusKey = isProfileOne ? 'profile_one_status' : 'profile_two_status';
+    const choiceKey = isProfileOne ? 'profile_one_continuation_choice' : 'profile_two_continuation_choice';
+    patchSuggestionCache({ [statusKey]: 'accepted', [choiceKey]: 'with_middle_person' });
     try {
       await suggestionService.respondToSuggestion(suggestion.id, 'accepted');
       await suggestionService.setContinuationChoice(suggestion.id, 'with_middle_person', person.id);
@@ -86,6 +109,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
       onUpdate();
     } catch (error) {
       console.error('Error accepting suggestion:', error);
+      onUpdate(); // rollback via refetch
       Alert.alert('Error', 'Failed to accept suggestion');
     } finally {
       setIsResponding(false);
@@ -94,6 +118,8 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
 
   const handleReject = async () => {
     setIsResponding(true);
+    const statusKey = isProfileOne ? 'profile_one_status' : 'profile_two_status';
+    patchSuggestionCache({ [statusKey]: 'rejected' });
     try {
       await suggestionService.respondToSuggestion(suggestion.id, 'rejected', rejectNote);
       setShowRejectNote(false);
@@ -101,6 +127,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
       onUpdate();
     } catch (error) {
       console.error('Error rejecting suggestion:', error);
+      onUpdate(); // rollback via refetch
       Alert.alert('Error', 'Failed to reject suggestion');
     } finally {
       setIsResponding(false);

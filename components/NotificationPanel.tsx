@@ -17,7 +17,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useUnreadNotificationsCount } from '../hooks/useUnreadNotificationsCount';
+import { UNREAD_COUNT_QUERY_KEY, useUnreadNotificationsCount } from '../hooks/useUnreadNotificationsCount';
 import { notificationService } from '../lib/notificationService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -67,9 +67,13 @@ function getIconConfig(type?: string): IconConfig {
     case 'suggestion_both_accepted':
       return { name: 'heart', color: '#4CAF50', bg: '#E8F5E9' };
     case 'profile_approved':
+    case 'profile_update_approved':
       return { name: 'checkmark-circle', color: '#4CAF50', bg: '#E8F5E9' };
     case 'profile_rejected':
+    case 'profile_update_rejected':
       return { name: 'close-circle', color: '#F59E0B', bg: '#FFF8E1' };
+    case 'engagement_news':
+      return { name: 'heart', color: '#E91E8C', bg: '#FCE4EC' };
     case 'engagement_proposal':
       return { name: 'diamond', color: '#DAA520', bg: '#FFF8E1' };
     case 'engagement_confirmed':
@@ -80,22 +84,42 @@ function getIconConfig(type?: string): IconConfig {
   }
 }
 
-function getNavigationTarget(type?: string): string {
+function getNavigationTarget(type?: string, data?: Record<string, any>): string {
   switch (type) {
+    case 'engagement_news':
+      return '/successful-matches';
+
     case 'profile_approved':
     case 'profile_rejected':
+    case 'profile_update_approved':
+    case 'profile_update_rejected':
       return '/(tabs)/profile';
-    case 'info_request_declined':
+
     case 'info_request_approved':
+    case 'info_request_declined':
+      // Navigate directly to the profile that approved/declined
+      if (data?.requestedProfileId) {
+        return `/profile-details?profileId=${data.requestedProfileId}`;
+      }
+      return '/(tabs)/connect';
+
+    case 'matchmaker_request':
+      // Someone asked the user to be their matchmaker → For Others > Awaiting Response
+      return '/(tabs)/connect?category=for_others&forOthersSection=awaiting';
+
+    case 'matchmaker_responded':
+    case 'matchmaker_selected':
+    case 'intro_request_from_matchmaker':
+      return '/(tabs)/connect?category=for_others&forOthersSection=awaiting';
+
     case 'suggestion_both_accepted':
     case 'suggestion_rejected':
     case 'suggestion_reverted':
-    case 'matchmaker_selected':
-    case 'intro_request_from_matchmaker':
     case 'engagement_proposal':
     case 'engagement_confirmed':
     case 'engagement_confirmed_admin':
       return '/(tabs)/connect';
+
     default:
       return '/(tabs)/connect';
   }
@@ -155,7 +179,9 @@ export default function NotificationPanel({ visible, onClose }: NotificationPane
       loadNotifications().then(() => {
         notificationService.markAllAsRead().then(() => {
           setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-          refreshBadge();
+          // Invalidate the shared React Query cache so every badge consumer
+          // (index.tsx bell, connect tab, etc.) updates immediately.
+          queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_QUERY_KEY });
         });
       });
       Animated.parallel([
@@ -213,10 +239,12 @@ export default function NotificationPanel({ visible, onClose }: NotificationPane
       setNotifications(prev =>
         prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
       );
-      refreshBadge();
+      queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_QUERY_KEY });
     }
 
-    // Invalidate the relevant query so the connect/profile tab shows fresh data
+    // Immediately refetch the relevant query so the data is ready by the time
+    // the user lands on the destination screen (refetchQueries fires the network
+    // request right away, unlike invalidateQueries which only marks as stale).
     const type = notification.data?.type as string | undefined;
     if (
       type === 'suggestion' ||
@@ -224,7 +252,7 @@ export default function NotificationPanel({ visible, onClose }: NotificationPane
       type === 'suggestion_rejected' ||
       type === 'suggestion_reverted'
     ) {
-      queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+      queryClient.refetchQueries({ queryKey: ['suggestions'] });
     } else if (
       type === 'matchmaker_request' ||
       type === 'matchmaker_responded' ||
@@ -236,20 +264,31 @@ export default function NotificationPanel({ visible, onClose }: NotificationPane
       type === 'requested_responded' ||
       type === 'continuation_choice'
     ) {
-      queryClient.invalidateQueries({ queryKey: ['intro_requests'] });
+      queryClient.refetchQueries({ queryKey: ['intro_requests'] });
     } else if (
       type === 'info_request' ||
       type === 'info_request_approved' ||
       type === 'info_request_declined'
     ) {
-      queryClient.invalidateQueries({ queryKey: ['info_requests'] });
-    } else if (type === 'profile_approved' || type === 'profile_rejected') {
-      queryClient.invalidateQueries({ queryKey: ['my_profile'] });
+      queryClient.refetchQueries({ queryKey: ['info_requests'] });
+      // Also bust the specific profile's details cache so the requester
+      // sees the newly approved/declined field immediately on opening the profile.
+      const requestedProfileId = notification.data?.requestedProfileId;
+      if (requestedProfileId) {
+        queryClient.invalidateQueries({ queryKey: ['profile_details', requestedProfileId] });
+      }
+    } else if (
+      type === 'profile_approved' ||
+      type === 'profile_rejected' ||
+      type === 'profile_update_approved' ||
+      type === 'profile_update_rejected'
+    ) {
+      queryClient.refetchQueries({ queryKey: ['my_profile'] });
     }
 
     handleClose();
-    const target = getNavigationTarget(notification.data?.type);
-    setTimeout(() => router.push(target as any), 250);
+    const target = getNavigationTarget(notification.data?.type, notification.data);
+    router.push(target as any);
   };
 
   const handleMarkAllRead = async () => {

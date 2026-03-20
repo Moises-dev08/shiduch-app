@@ -275,6 +275,11 @@ class SuggestionService {
         }
       }
 
+      // Keep the overall status in sync so the "passed" tab filter works correctly
+      if (response === 'rejected') {
+        updateData.status = 'rejected';
+      }
+
       const { error } = await supabase
         .from('suggestions')
         .update(updateData)

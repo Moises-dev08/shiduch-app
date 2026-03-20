@@ -149,7 +149,7 @@ class IntroService {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, first_name, last_name')
         .eq('user_id', user.id)
         .single();
 
@@ -365,6 +365,110 @@ class IntroService {
       return { success: true };
     } catch (error: any) {
       console.error('Error in requestedPersonRespond:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Atomic: accept intro request AND set continuation choice in a single DB write.
+   * Prevents the intermediate state (accepted but no continuation choice) that would
+   * briefly show the "Choose How to Continue" button via a Realtime-triggered refetch.
+   */
+  async acceptWithContinuation(
+    requestId: string,
+    choice: 'by_themselves' | 'with_middle_person',
+    matchmakerId?: string,
+    noteToMatchmaker?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { success: false, error: 'Not authenticated' };
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) return { success: false, error: 'Profile not found' };
+
+      const { data: request } = await supabase
+        .from('intro_requests')
+        .select('*')
+        .eq('id', requestId)
+        .single();
+
+      if (!request) return { success: false, error: 'Request not found' };
+      if (request.requested_profile_id !== profile.id) {
+        return { success: false, error: 'This request is not for you' };
+      }
+
+      const now = new Date().toISOString();
+      const updateData: any = {
+        requested_status: 'accepted',
+        requested_responded_at: now,
+        status: 'accepted',
+        requested_continuation_choice: choice,
+        updated_at: now,
+      };
+
+      if (noteToMatchmaker) updateData.requested_note_to_matchmaker = noteToMatchmaker;
+
+      // If either party wants a matchmaker, both use the matchmaker
+      if (choice === 'with_middle_person') {
+        if (matchmakerId) updateData.requested_middle_person_id = matchmakerId;
+        updateData.requester_continuation_choice = 'with_middle_person';
+      }
+
+      // If requester already chose with_middle_person, honour that
+      if (request.requester_continuation_choice === 'with_middle_person') {
+        updateData.requested_continuation_choice = 'with_middle_person';
+        if (matchmakerId) updateData.requested_middle_person_id = matchmakerId;
+      }
+
+      // Check if both choices are now set → move to completed
+      const finalRequestedChoice = updateData.requested_continuation_choice;
+      const finalRequesterChoice = updateData.requester_continuation_choice ?? request.requester_continuation_choice;
+      if (finalRequestedChoice && finalRequesterChoice) {
+        updateData.status = 'completed';
+      }
+
+      const { error } = await supabase
+        .from('intro_requests')
+        .update(updateData)
+        .eq('id', requestId);
+
+      if (error) return { success: false, error: error.message };
+
+      // Send notifications
+      try {
+        const [matchmakerResult, requesterResult] = await Promise.all([
+          supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requester_middle_person_id).single(),
+          supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requester_id).single(),
+        ]);
+        if (matchmakerResult.data) {
+          await notificationService.sendNotification(
+            matchmakerResult.data.user_id,
+            'Match Accepted!',
+            `${profile.first_name} ${profile.last_name} accepted the intro request`,
+            { type: 'requested_responded', requestId, response: 'accepted' }
+          );
+        }
+        if (requesterResult.data) {
+          await notificationService.sendNotification(
+            requesterResult.data.user_id,
+            'Match Accepted!',
+            `${profile.first_name} ${profile.last_name} accepted your intro request! Choose how you want to continue.`,
+            { type: 'match_accepted', requestId }
+          );
+        }
+      } catch (notifError) {
+        console.error('Error sending notifications:', notifError);
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error in acceptWithContinuation:', error);
       return { success: false, error: error.message };
     }
   }

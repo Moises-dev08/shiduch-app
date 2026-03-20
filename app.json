@@ -33,8 +33,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./zm-logo.jpg",
-          "imageWidth": 400,
+          "image": "./logo-original.png",
+          "imageWidth": 380,
           "resizeMode": "contain",
           "backgroundColor": "#1235C8",
           "dark": {
