@@ -11,6 +11,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.zivugmishamayim",
+      "associatedDomains": [
+        "applinks:www.zivugmishamayim.com"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { Alert, Share } from 'react-native';
+import { Alert, Platform, Share } from 'react-native';
 import { Profile } from '../lib/profileService';
-
-const APP_SCHEME = 'shiduchimapp';
+import { getProfileHttpsShareUrl, PROFILE_SHARE_WEB_BASE } from '../lib/profileShareUrls';
 
 export interface UseProfileShareResult {
   isSharing: boolean;
@@ -23,19 +22,24 @@ export function useProfileShare(): UseProfileShareResult {
       return;
     }
 
-    const deepLink = `${APP_SCHEME}://profile/${profile.id}`;
+    const webUrl = getProfileHttpsShareUrl(profile.id);
     const name = `${profile.first_name} ${profile.last_name}`;
+    const footer = `Don't have the app? Visit ${PROFILE_SHARE_WEB_BASE}/`;
 
     try {
       setIsSharing(true);
+      // iOS: only https:// is reliably tappable in Messages — custom schemes are plain text.
       await Share.share(
-        {
-          title: `${name} – Zivug Mishamayim`,
-          // url is the tappable link on iOS (iMessage rich preview).
-          // message must NOT repeat the link — iOS appends url to message automatically.
-          message: `Check out ${name}'s profile on Zivug Mishamayim!\n\n📲 Don't have the app? Download it at: https://zivugmishamayim.com/`,
-          url: deepLink,
-        },
+        Platform.OS === 'ios'
+          ? {
+              title: `${name} – Zivug Mishamayim`,
+              message: `Check out ${name}'s profile on Zivug Mishamayim!\n\n📲 ${footer}`,
+              url: webUrl,
+            }
+          : {
+              title: `${name} – Zivug Mishamayim`,
+              message: `Check out ${name}'s profile on Zivug Mishamayim!\n\n${webUrl}\n\n📲 ${footer}`,
+            },
         { dialogTitle: `Share ${name}'s Profile` }
       );
     } catch (error: any) {

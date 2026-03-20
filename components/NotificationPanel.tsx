@@ -112,6 +112,10 @@ function getNavigationTarget(type?: string, data?: Record<string, any>): string 
     case 'intro_request_from_matchmaker':
       return '/(tabs)/connect?category=for_others&forOthersSection=awaiting';
 
+    case 'suggestion':
+    case 'info_request':
+      return '/(tabs)/connect?section=action_needed';
+
     case 'suggestion_both_accepted':
     case 'suggestion_rejected':
     case 'suggestion_reverted':

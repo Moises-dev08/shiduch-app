@@ -198,7 +198,7 @@ export const profileDetailsStyles = StyleSheet.create({
       justifyContent: 'flex-end',
     },
     noteModalContainer: {
-      height: '55%',
+      height: '80%',
       backgroundColor: '#fff',
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,

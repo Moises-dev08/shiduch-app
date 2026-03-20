@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zivug Mishamayim — View profile</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0;
+      padding: 24px 20px 48px;
+      background: linear-gradient(180deg, #e8f4fc 0%, #fff 40%);
+      color: #1a1a1a;
+      text-align: center;
+      min-height: 100vh;
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 8px; color: #0d4f8a; }
+    p { color: #555; line-height: 1.5; max-width: 320px; margin: 0 auto 20px; font-size: 0.95rem; }
+    .btn {
+      display: block;
+      width: 100%;
+      max-width: 300px;
+      margin: 10px auto;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary { background: #1293da; color: #fff; }
+    .btn-secondary { background: #fff; color: #1293da; border: 2px solid #1293da; }
+    .stores { margin-top: 28px; padding-top: 24px; border-top: 1px solid #ddd; }
+    .stores h2 { font-size: 1rem; color: #333; margin-bottom: 16px; }
+    .muted { font-size: 0.85rem; color: #888; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <h1>Zivug Mishamayim</h1>
+  <p>Someone shared a profile with you. Open it in the app, or download the app first.</p>
+
+  <button type="button" class="btn btn-primary" id="openApp">Open in app</button>
+
+  <div class="stores">
+    <h2>Don’t have the app yet?</h2>
+    <!-- Replace with your real store URLs when the app is published -->
+    <a class="btn btn-secondary" id="appStore" href="https://apps.apple.com/" target="_blank" rel="noopener">Download for iPhone</a>
+    <a class="btn btn-secondary" id="playStore" href="https://play.google.com/store" target="_blank" rel="noopener">Download for Android</a>
+  </div>
+
+  <p class="muted" id="profileHint"></p>
+
+  <script>
+    (function () {
+      // TODO: Paste your real listing URLs here after store approval
+      var APP_STORE_URL = 'https://apps.apple.com/'; // e.g. https://apps.apple.com/app/id123456789
+      var PLAY_STORE_URL = 'https://play.google.com/store';
+      var APP_SCHEME = 'shiduchimapp';
+
+      document.getElementById('appStore').href = APP_STORE_URL;
+      document.getElementById('playStore').href = PLAY_STORE_URL;
+
+      var match = window.location.pathname.match(/\/profile\/([^/]+)/);
+      var profileId = match ? match[1] : null;
+
+      if (profileId) {
+        document.getElementById('profileHint').textContent = 'Profile link is ready.';
+      } else {
+        document.getElementById('profileHint').textContent = 'Invalid link — open a profile link shared from the app.';
+      }
+
+      document.getElementById('openApp').addEventListener('click', function () {
+        if (!profileId) return;
+        window.location.href = APP_SCHEME + '://profile/' + profileId;
+      });
+
+      // Optional: try opening the app once on load (can be annoying on desktop; comment out if you prefer)
+      // if (profileId && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      //   window.location.href = APP_SCHEME + '://profile/' + profileId;
+      // }
+    })();
+  </script>
+</body>
+</html>

@@ -7,6 +7,7 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   ScrollView,
   Share,
   Text,
@@ -26,6 +27,7 @@ import ProfileGridSelectionModal from "../components/suggestion/ProfileGridSelec
 import { PRIVACY_KEY_TO_DB_COLUMN } from "../lib/fieldLabels";
 import { infoRequestService } from "../lib/infoRequestService";
 import { introService } from "../lib/introService";
+import { getProfileHttpsShareUrl, PROFILE_SHARE_WEB_BASE } from "../lib/profileShareUrls";
 import { pictureViewService } from "../lib/pictureViewService";
 import { Profile as DBProfile, profileService } from "../lib/profileService";
 import { suggestionService } from "../lib/suggestionService";
@@ -574,14 +576,21 @@ export default function ProfileDetailsScreen() {
     try {
       setIsSharing(true);
 
-      const deepLink = `shiduchimapp://profile/${profile.id}`;
+      const webUrl = getProfileHttpsShareUrl(profile.id);
+      const footer = `Don't have the app? Visit ${PROFILE_SHARE_WEB_BASE}/`;
 
-      await Share.share({
-        title: `${profile.name}'s Profile – Zivug Mishamayim`,
-        // url is the tappable link on iOS. message must NOT repeat it.
-        message: `Check out ${profile.name}'s profile on Zivug Mishamayim!\n\n📲 Don't have the app? Download it at: https://zivugmishamayim.com/`,
-        url: deepLink,
-      });
+      await Share.share(
+        Platform.OS === "ios"
+          ? {
+              title: `${profile.name}'s Profile – Zivug Mishamayim`,
+              message: `Check out ${profile.name}'s profile on Zivug Mishamayim!\n\n📲 ${footer}`,
+              url: webUrl,
+            }
+          : {
+              title: `${profile.name}'s Profile – Zivug Mishamayim`,
+              message: `Check out ${profile.name}'s profile on Zivug Mishamayim!\n\n${webUrl}\n\n📲 ${footer}`,
+            }
+      );
     } catch {
       Alert.alert("Error", "Failed to share profile. Please try again.");
     } finally {

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
+import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -23,6 +24,7 @@ interface IntroRequestCardProps {
   request: IntroRequest;
   isRequester: boolean; // true if current user is the one who requested the intro
   onUpdate: () => void;
+  onAccepted?: () => void; // called after a successful accept so parent can navigate to Matches
   isActionNeeded?: boolean;
 }
 
@@ -35,7 +37,8 @@ interface IntroRequestCardProps {
 export default function IntroRequestCardNew({ 
   request, 
   isRequester, 
-  onUpdate, 
+  onUpdate,
+  onAccepted,
   isActionNeeded = false 
 }: IntroRequestCardProps) {
   const queryClient = useQueryClient();
@@ -44,6 +47,30 @@ export default function IntroRequestCardNew({
   const [isResponding, setIsResponding] = useState(false);
   const [showContinuationModal, setShowContinuationModal] = useState(false);
   const [showConfirmAcceptModal, setShowConfirmAcceptModal] = useState(false);
+  const [showContactInfo, setShowContactInfo] = useState(false);
+  const [showMatchmakerInfo, setShowMatchmakerInfo] = useState(false);
+
+  const handleSendSMS = (phone: string) => Linking.openURL(`sms:${phone}`);
+  const handleSendWhatsApp = (phone: string) =>
+    Linking.openURL(`https://wa.me/${phone.replace(/\D/g, '')}`);
+  const handleSendEmail = async (email: string) => {
+    const url = `mailto:${email}`;
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      Linking.openURL(url);
+    } else {
+      Alert.alert('No mail app found', `You can reach them at: ${email}`);
+    }
+  };
+  const handleCopyPhone = async (phone: string) => {
+    await Clipboard.setStringAsync(phone);
+    Alert.alert('Copied!', 'Phone number copied to clipboard');
+  };
+  const handleDownloadResume = async (resumeUrl: string, name: string) => {
+    const { resumeService } = await import('../../lib/resumeService');
+    const result = await resumeService.downloadResume(resumeUrl, `${name}_resume`);
+    if (!result.success) Alert.alert('Error', result.error || 'Failed to open resume');
+  };
 
   // Optimistically patch a single intro request in the cache
   const patchIntroCache = (patch: Record<string, any>) => {
@@ -105,6 +132,7 @@ export default function IntroRequestCardNew({
           'Success! ✅',
           `You have accepted the intro request! This match will be coordinated by ${matchmakerProfile?.first_name} (Matchmaker/Shadchan).`
         );
+        onAccepted?.();
         onUpdate();
       } catch (error) {
         console.error('Error accepting request:', error);
@@ -134,6 +162,7 @@ export default function IntroRequestCardNew({
         choice === 'with_middle_person' ? matchmakerProfile?.id : undefined
       );
       Alert.alert('Success! ✅', 'You have accepted the intro request!');
+      onAccepted?.();
       onUpdate();
     } catch (error) {
       console.error('Error accepting request:', error);
@@ -176,6 +205,7 @@ export default function IntroRequestCardNew({
         await introService.setContinuationChoice(request.id, choice);
       }
       Alert.alert('Choice Saved! ✅', 'Your continuation preference has been saved!');
+      onAccepted?.();
       onUpdate();
     } catch (error) {
       console.error('Error setting continuation choice:', error);
@@ -357,117 +387,191 @@ export default function IntroRequestCardNew({
       {renderStatusBadge()}
 
       {/* Contact Information - Show when both chose "by_themselves" */}
-      {request.matchmaker_status === 'accepted' && 
+      {request.matchmaker_status === 'accepted' &&
        request.requested_status === 'accepted' &&
        request.requester_continuation_choice === 'by_themselves' &&
        request.requested_continuation_choice === 'by_themselves' && (
-        <View style={styles.contactSection}>
-          <View style={styles.contactHeader}>
-            <Ionicons name="call" size={20} color="#4CAF50" />
-            <Text style={styles.contactTitle}>Contact Information</Text>
-          </View>
-          
-          {otherProfile && (
-            <View style={styles.contactInfo}>
-              <Text style={styles.contactName}>{otherProfile.first_name} {otherProfile.last_name}</Text>
-              
-              {otherProfile.phone && (
-                <TouchableOpacity 
-                  style={styles.contactItem}
-                  onPress={() => Linking.openURL(`tel:${otherProfile.phone}`)}
-                >
-                  <Ionicons name="call" size={18} color="#1293DA" />
-                  <Text style={styles.contactText}>{otherProfile.phone}</Text>
-                </TouchableOpacity>
-              )}
-              
-              {otherProfile.email && (
-                <TouchableOpacity 
-                  style={styles.contactItem}
-                  onPress={() => Linking.openURL(`mailto:${otherProfile.email}`)}
-                >
-                  <Ionicons name="mail" size={18} color="#1293DA" />
-                  <Text style={styles.contactText}>{otherProfile.email}</Text>
-                </TouchableOpacity>
-              )}
-              
-              {otherProfile.whatsapp && (
-                <TouchableOpacity 
-                  style={styles.contactItem}
-                  onPress={() => Linking.openURL(`https://wa.me/${otherProfile.whatsapp}`)}
-                >
-                  <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
-                  <Text style={styles.contactText}>{otherProfile.whatsapp}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+        <View style={styles.unifiedContactSection}>
+          <TouchableOpacity
+            style={styles.unifiedContactToggle}
+            onPress={() => setShowContactInfo(!showContactInfo)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="call" size={18} color="#4CAF50" />
+            <Text style={styles.unifiedContactToggleText}>Contact Information</Text>
+            <Ionicons name={showContactInfo ? 'chevron-up' : 'chevron-down'} size={20} color="#666" />
+          </TouchableOpacity>
+
+          {showContactInfo && otherProfile && (
+            <>
+              <Text style={styles.unifiedContactMessage}>
+                Both chose to connect directly. Contact info below:
+              </Text>
+              <View style={styles.unifiedContactCard}>
+                <Text style={styles.unifiedContactName}>
+                  {otherProfile.first_name} {otherProfile.last_name}
+                </Text>
+                {otherProfile.phone && (
+                  <Text style={styles.unifiedContactDetail}>📞 {otherProfile.phone}</Text>
+                )}
+                {otherProfile.email && (
+                  <Text style={styles.unifiedContactDetail}>📧 {otherProfile.email}</Text>
+                )}
+
+                <View style={styles.unifiedContactActions}>
+                  {otherProfile.phone && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.unifiedContactAction}
+                        onPress={() => handleSendSMS(otherProfile.phone)}
+                      >
+                        <Ionicons name="chatbubble" size={18} color="#007AFF" />
+                        <Text style={styles.unifiedContactActionText}>SMS</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.unifiedContactAction}
+                        onPress={() => handleSendWhatsApp(otherProfile.whatsapp || otherProfile.phone)}
+                      >
+                        <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+                        <Text style={styles.unifiedContactActionText}>WhatsApp</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.unifiedContactAction}
+                        onPress={() => handleCopyPhone(otherProfile.phone)}
+                      >
+                        <Ionicons name="copy" size={18} color="#666" />
+                        <Text style={styles.unifiedContactActionText}>Copy</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                  {otherProfile.email && (
+                    <TouchableOpacity
+                      style={styles.unifiedContactAction}
+                      onPress={() => handleSendEmail(otherProfile.email)}
+                    >
+                      <Ionicons name="mail" size={18} color="#EA4335" />
+                      <Text style={styles.unifiedContactActionText}>Email</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {otherProfile.resumeUrl && (
+                  <TouchableOpacity
+                    style={styles.unifiedResumeButton}
+                    onPress={() =>
+                      handleDownloadResume(
+                        otherProfile.resumeUrl,
+                        `${otherProfile.first_name} ${otherProfile.last_name}`
+                      )
+                    }
+                  >
+                    <Ionicons name="document-text" size={20} color="#1293DA" />
+                    <Text style={styles.unifiedResumeButtonText}>Download Resume 📄</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <View style={styles.engagementContainer}>
+                <EngagementButton
+                  otherUserId={otherProfile?.id || ''}
+                  otherUserName={`${otherProfile?.first_name} ${otherProfile?.last_name}`}
+                  currentUserName={
+                    isRequester
+                      ? `${request.requester_profile?.first_name} ${request.requester_profile?.last_name}`
+                      : `${request.requested_profile?.first_name} ${request.requested_profile?.last_name}`
+                  }
+                />
+              </View>
+            </>
           )}
-          
-          {/* Engagement Button */}
-          <View style={styles.engagementContainer}>
-            <EngagementButton
-              otherUserId={otherProfile?.id || ''}
-              otherUserName={`${otherProfile?.first_name} ${otherProfile?.last_name}` || ''}
-              currentUserName={isRequester ? 
-                `${request.requester_profile?.first_name} ${request.requester_profile?.last_name}` : 
-                `${request.requested_profile?.first_name} ${request.requested_profile?.last_name}`
-              }
-            />
-          </View>
         </View>
       )}
 
       {/* Matchmaker Contact Information - Show when continuing with matchmaker */}
-      {request.matchmaker_status === 'accepted' && 
+      {request.matchmaker_status === 'accepted' &&
        request.requested_status === 'accepted' &&
-       ((request.requester_continuation_choice === 'with_middle_person' || 
-         request.requested_continuation_choice === 'with_middle_person')) && (
-        <View style={styles.matchmakerContactSection}>
-          <View style={styles.matchmakerContactHeader}>
-            <Ionicons name="people" size={20} color="#1293DA" />
-            <Text style={styles.matchmakerContactTitle}>Matchmaker Contact Information</Text>
-          </View>
-          
-          <View style={styles.matchmakerInfoBox}>
-            <Text style={styles.matchmakerInfoText}>
-              This introduction is being facilitated by your matchmaker. Please contact them for next steps.
-            </Text>
-          </View>
-          
-          {matchmakerProfile && (
-            <View style={styles.contactInfo}>
-              <Text style={styles.contactName}>{matchmakerProfile.first_name} {matchmakerProfile.last_name}</Text>
-              
-              {matchmakerProfile.phone && (
-                <TouchableOpacity 
-                  style={styles.contactItem}
-                  onPress={() => Linking.openURL(`tel:${matchmakerProfile.phone}`)}
-                >
-                  <Ionicons name="call" size={18} color="#1293DA" />
-                  <Text style={styles.matchmakerContactText}>{matchmakerProfile.phone}</Text>
-                </TouchableOpacity>
-              )}
-              
-              {matchmakerProfile.email && (
-                <TouchableOpacity 
-                  style={styles.contactItem}
-                  onPress={() => Linking.openURL(`mailto:${matchmakerProfile.email}`)}
-                >
-                  <Ionicons name="mail" size={18} color="#1293DA" />
-                  <Text style={styles.matchmakerContactText}>{matchmakerProfile.email}</Text>
-                </TouchableOpacity>
-              )}
-              
-              {matchmakerProfile.whatsapp && (
-                <TouchableOpacity 
-                  style={styles.contactItem}
-                  onPress={() => Linking.openURL(`https://wa.me/${matchmakerProfile.whatsapp}`)}
-                >
-                  <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
-                  <Text style={styles.matchmakerContactText}>{matchmakerProfile.whatsapp}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+       (request.requester_continuation_choice === 'with_middle_person' ||
+        request.requested_continuation_choice === 'with_middle_person') && (
+        <View style={styles.unifiedContactSection}>
+          <TouchableOpacity
+            style={styles.unifiedContactToggle}
+            onPress={() => setShowMatchmakerInfo(!showMatchmakerInfo)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="people" size={18} color="#1293DA" />
+            <Text style={styles.unifiedContactToggleText}>Matchmaker Contact Information</Text>
+            <Ionicons name={showMatchmakerInfo ? 'chevron-up' : 'chevron-down'} size={20} color="#666" />
+          </TouchableOpacity>
+
+          {showMatchmakerInfo && matchmakerProfile && (
+            <>
+              <Text style={styles.unifiedContactMessage}>
+                This introduction is being facilitated by your matchmaker. Please contact them for next steps.
+              </Text>
+              <View style={styles.unifiedContactCard}>
+                <Text style={styles.unifiedContactName}>
+                  {matchmakerProfile.first_name} {matchmakerProfile.last_name}
+                </Text>
+                {matchmakerProfile.phone && (
+                  <Text style={styles.unifiedContactDetail}>📞 {matchmakerProfile.phone}</Text>
+                )}
+                {matchmakerProfile.email && (
+                  <Text style={styles.unifiedContactDetail}>📧 {matchmakerProfile.email}</Text>
+                )}
+
+                <View style={styles.unifiedContactActions}>
+                  {matchmakerProfile.phone && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.unifiedContactAction}
+                        onPress={() => handleSendSMS(matchmakerProfile.phone)}
+                      >
+                        <Ionicons name="chatbubble" size={18} color="#007AFF" />
+                        <Text style={styles.unifiedContactActionText}>SMS</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.unifiedContactAction}
+                        onPress={() => handleSendWhatsApp(matchmakerProfile.whatsapp || matchmakerProfile.phone)}
+                      >
+                        <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+                        <Text style={styles.unifiedContactActionText}>WhatsApp</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.unifiedContactAction}
+                        onPress={() => handleCopyPhone(matchmakerProfile.phone)}
+                      >
+                        <Ionicons name="copy" size={18} color="#666" />
+                        <Text style={styles.unifiedContactActionText}>Copy</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                  {matchmakerProfile.email && (
+                    <TouchableOpacity
+                      style={styles.unifiedContactAction}
+                      onPress={() => handleSendEmail(matchmakerProfile.email)}
+                    >
+                      <Ionicons name="mail" size={18} color="#EA4335" />
+                      <Text style={styles.unifiedContactActionText}>Email</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {(matchmakerProfile as any).resumeUrl && (
+                  <TouchableOpacity
+                    style={styles.unifiedResumeButton}
+                    onPress={() =>
+                      handleDownloadResume(
+                        (matchmakerProfile as any).resumeUrl,
+                        `${matchmakerProfile.first_name} ${matchmakerProfile.last_name}`
+                      )
+                    }
+                  >
+                    <Ionicons name="document-text" size={20} color="#1293DA" />
+                    <Text style={styles.unifiedResumeButtonText}>Download Resume 📄</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </>
           )}
         </View>
       )}
@@ -1060,6 +1164,88 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
     flexDirection: 'row',
     gap: 6,
+  },
+  // ── Unified contact section (matches SuggestionCard design) ──
+  unifiedContactSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 12,
+    marginTop: 12,
+    marginHorizontal: 16,
+    marginBottom: 4,
+  },
+  unifiedContactToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  unifiedContactToggleText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+  unifiedContactMessage: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  unifiedContactCard: {
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  unifiedContactName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  unifiedContactDetail: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  unifiedContactActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  unifiedContactAction: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  unifiedContactActionText: {
+    fontSize: 11,
+    color: '#666',
+  },
+  unifiedResumeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#1293DA',
+  },
+  unifiedResumeButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1293DA',
+    marginLeft: 8,
   },
   matchmakerContext: {
     flexDirection: 'row',

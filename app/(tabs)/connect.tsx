@@ -70,6 +70,8 @@ export default function ConnectScreen() {
   const [activeSection, setActiveSection] = useState<'action_needed' | 'matches' | 'passed' | 'liked'>(
     (params.section as 'action_needed' | 'matches' | 'passed' | 'liked') || 'action_needed'
   );
+  // True while we're transitioning into Matches after an accept action
+  const [pendingMatch, setPendingMatch] = useState(false);
   const [activeForOthersSection, setActiveForOthersSection] = useState<'awaiting' | 'matched' | 'not_matched'>('awaiting');
   const [lastViewedMatchesForOthersAt, setLastViewedMatchesForOthersAt] = useState<Date | null>(null);
 
@@ -129,6 +131,21 @@ export default function ConnectScreen() {
     () => queryClient.invalidateQueries({ queryKey: ['info_requests'] }),
     [queryClient]
   );
+
+  // Called by a card when user successfully accepts → navigate to Matches and show spinner
+  const handleCardAccepted = useCallback(() => {
+    setPendingMatch(true);
+    setActiveSection('matches');
+    queryClient.invalidateQueries({ queryKey: ['intro_requests'] });
+    queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+  }, [queryClient]);
+
+  // Clear pendingMatch once the background fetch resolves
+  useEffect(() => {
+    if (pendingMatch && !introQuery.isFetching && !suggestQuery.isFetching) {
+      setPendingMatch(false);
+    }
+  }, [pendingMatch, introQuery.isFetching, suggestQuery.isFetching]);
 
   // ── Mark-as-viewed effects (fire after data is ready) ─────────────────────
   useEffect(() => {
@@ -734,6 +751,7 @@ export default function ConnectScreen() {
                   request={request}
                   isRequester={false}
                   onUpdate={invalidateIntroRequests}
+                  onAccepted={handleCardAccepted}
                   isActionNeeded={true}
                 />
               ))}
@@ -751,6 +769,7 @@ export default function ConnectScreen() {
                   request={request}
                   isRequester={true}
                   onUpdate={invalidateIntroRequests}
+                  onAccepted={handleCardAccepted}
                   isActionNeeded={true}
                 />
               ))}
@@ -774,6 +793,7 @@ export default function ConnectScreen() {
                   suggestion={suggestion}
                   currentProfileId={currentUserProfile.id}
                   onUpdate={invalidateSuggestions}
+                  onAccepted={handleCardAccepted}
                   isActionNeeded={true}
                 />
               ))}
@@ -783,6 +803,14 @@ export default function ConnectScreen() {
         {/* Show matched requests in Matches section */}
         {activeCategory === 'for_you' && activeSection === 'matches' && (
           <>
+            {/* Spinner shown right after a user accepts — waits for fresh data */}
+            {pendingMatch && (introQuery.isFetching || suggestQuery.isFetching) && (
+              <View style={styles.pendingMatchContainer}>
+                <ActivityIndicator size="large" color="#1293DA" />
+                <Text style={styles.pendingMatchText}>Loading your match…</Text>
+              </View>
+            )}
+
             {sentIntroRequests
               .filter(r => 
                 r.matchmaker_status === 'accepted' && 
@@ -1080,6 +1108,17 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: '#666',
+  },
+  pendingMatchContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 16,
+  },
+  pendingMatchText: {
+    fontSize: 16,
+    color: '#1293DA',
+    fontWeight: '600',
   },
   fetchingBar: {
     flexDirection: 'row',

@@ -25,10 +25,11 @@ interface SuggestionCardProps {
   suggestion: Suggestion;
   currentProfileId: string;
   onUpdate: () => void;
+  onAccepted?: () => void; // called after a successful accept so parent can navigate to Matches
   isActionNeeded?: boolean;
 }
 
-export default function SuggestionCard({ suggestion, currentProfileId, onUpdate, isActionNeeded = false }: SuggestionCardProps) {
+export default function SuggestionCard({ suggestion, currentProfileId, onUpdate, onAccepted, isActionNeeded = false }: SuggestionCardProps) {
   const queryClient = useQueryClient();
   const [showLearnMore, setShowLearnMore] = useState(false);
   const [showRejectNote, setShowRejectNote] = useState(false);
@@ -86,6 +87,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
       await suggestionService.setContinuationChoice(suggestion.id, choice);
       setShowContinuationModal(false);
       Alert.alert('Success', 'You have accepted the suggestion!');
+      onAccepted?.();
       onUpdate();
     } catch (error) {
       console.error('Error accepting suggestion:', error);
@@ -106,6 +108,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
       await suggestionService.respondToSuggestion(suggestion.id, 'accepted');
       await suggestionService.setContinuationChoice(suggestion.id, 'with_middle_person', person.id);
       Alert.alert('Success', 'You have accepted the suggestion!');
+      onAccepted?.();
       onUpdate();
     } catch (error) {
       console.error('Error accepting suggestion:', error);
@@ -175,8 +178,14 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
     Linking.openURL(`https://wa.me/${whatsapp.replace(/\D/g, '')}`);
   };
 
-  const handleSendEmail = (email: string) => {
-    Linking.openURL(`mailto:${email}`);
+  const handleSendEmail = async (email: string) => {
+    const url = `mailto:${email}`;
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      Linking.openURL(url);
+    } else {
+      Alert.alert('No mail app found', `You can reach them at: ${email}`);
+    }
   };
 
   const handleCopyPhone = async (phone: string) => {

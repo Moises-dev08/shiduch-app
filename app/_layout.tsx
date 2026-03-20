@@ -5,6 +5,7 @@ import { router, Stack } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Linking } from "react-native";
 import { AuthProvider, useAuth } from "../lib/AuthContext";
+import { extractProfileIdFromShareUrl } from "../lib/profileShareUrls";
 import { supabase } from "../lib/supabase";
 
 // Keep splash visible until we explicitly hide it
@@ -50,10 +51,11 @@ function getNotificationPath(data: Record<string, any>): string {
     case 'requested_responded':
     case 'continuation_choice':
     case 'suggestion':
+    case 'info_request':
+      return '/(tabs)/connect?section=action_needed';
     case 'suggestion_rejected':
     case 'suggestion_reverted':
     case 'suggestion_both_accepted':
-    case 'info_request':
     default:
       return '/(tabs)/connect';
   }
@@ -152,6 +154,13 @@ async function handleDeepLink(url: string) {
       refresh_token: params.refresh_token,
     });
     router.replace('/auth/reset-password');
+    return;
+  }
+
+  // Shared profile: https://www.zivugmishamayim.com/profile/<id> (Universal Links) or shiduchimapp://profile/<id>
+  const profileId = extractProfileIdFromShareUrl(url);
+  if (profileId) {
+    router.replace(`/profile/${profileId}` as any);
   }
 }
 
