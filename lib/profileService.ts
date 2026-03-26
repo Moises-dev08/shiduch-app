@@ -474,21 +474,21 @@ class ProfileService {
         }
       }
 
-      // Notify all admins about new profile submission
-      // try {
-      //   await notificationService.notifyAdmins(
-      //     'New Profile Submitted',
-      //     `${profileData.firstName} ${profileData.lastName} has submitted their profile for review.`,
-      //     {
-      //       type: 'new_profile',
-      //       profileId: data.id,
-      //       userName: `${profileData.firstName} ${profileData.lastName}`,
-      //     }
-      //   );
-      // } catch (notifError) {
-      //   console.error('Failed to notify admins:', notifError);
-      //   // Don't fail profile creation if notification fails
-      // }
+      // Notify all admins about new profile pending review
+      try {
+        const displayName = `${profileData.firstName} ${profileData.lastName}`;
+        await notificationService.notifyAdmins(
+          'New profile pending review',
+          `${displayName} submitted a profile for approval.`,
+          {
+            type: 'admin_new_profile',
+            profileId: data.id,
+            userName: displayName,
+          }
+        );
+      } catch (notifError) {
+        console.error('Failed to notify admins:', notifError);
+      }
 
       return { success: true, profile: data };
     } catch (error) {
@@ -732,9 +732,26 @@ class ProfileService {
         }
       }
 
-      // Add a flag if profile was resubmitted
       if (shouldResetStatus) {
-        console.log('Profile was rejected and has been resubmitted for review');
+        console.log('Profile resubmitted for admin review');
+        try {
+          const displayName = `${profileData.firstName} ${profileData.lastName}`;
+          const wasApproved = currentProfile?.status === 'approved';
+          await notificationService.notifyAdmins(
+            wasApproved ? 'Profile update pending review' : 'Profile resubmitted',
+            wasApproved
+              ? `${displayName} updated an approved profile — needs confirmation.`
+              : `${displayName} resubmitted their profile after rejection.`,
+            {
+              type: 'admin_profile_resubmitted',
+              profileId: data.id,
+              userName: displayName,
+              wasApproved,
+            }
+          );
+        } catch (notifError) {
+          console.error('Failed to notify admins:', notifError);
+        }
       }
 
       return { success: true, profile: data, wasResubmitted: shouldResetStatus };

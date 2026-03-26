@@ -232,16 +232,17 @@ class NotificationService {
    */
   async getAdminUserIds(): Promise<string[]> {
     try {
-      const { data, error } = await supabase
-        .from('admin_users')
-        .select('user_id');
+      // Use RPC: RLS on admin_users only allows each admin to see their own row,
+      // so a direct select returns no IDs for normal users and breaks notifyAdmins.
+      const { data, error } = await supabase.rpc('get_admin_user_ids');
 
       if (error || !data) {
         console.error('Error fetching admin users:', error);
         return [];
       }
 
-      return data.map(admin => admin.user_id);
+      const rows = data as { user_id: string }[];
+      return rows.map((row) => row.user_id);
     } catch (error) {
       console.error('Error in getAdminUserIds:', error);
       return [];

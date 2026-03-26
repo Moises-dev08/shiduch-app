@@ -56,6 +56,13 @@ function getNotificationPath(data: Record<string, any>): string {
     case 'suggestion_rejected':
     case 'suggestion_reverted':
     case 'suggestion_both_accepted':
+      return '/(tabs)/connect';
+    case 'admin_new_profile':
+    case 'admin_profile_resubmitted':
+      if (data?.profileId) {
+        return `/admin/profile-review/${data.profileId}`;
+      }
+      return '/admin/dashboard';
     default:
       return '/(tabs)/connect';
   }

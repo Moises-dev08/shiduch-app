@@ -80,7 +80,14 @@ export default function SignupScreen() {
         return;
       }
 
-      if (data.session) {
+      // Prefer returned session; re-read in case the client persisted it asynchronously.
+      let session = data.session;
+      if (!session) {
+        const { data: refreshed } = await supabase.auth.getSession();
+        session = refreshed.session;
+      }
+
+      if (session) {
         router.replace("/(tabs)/profile");
       } else if (data.user) {
         Alert.alert(

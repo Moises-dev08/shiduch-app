@@ -72,6 +72,9 @@ function getIconConfig(type?: string): IconConfig {
     case 'profile_rejected':
     case 'profile_update_rejected':
       return { name: 'close-circle', color: '#F59E0B', bg: '#FFF8E1' };
+    case 'admin_new_profile':
+    case 'admin_profile_resubmitted':
+      return { name: 'clipboard', color: '#7C3AED', bg: '#EDE9FE' };
     case 'engagement_news':
       return { name: 'heart', color: '#E91E8C', bg: '#FCE4EC' };
     case 'engagement_proposal':
@@ -123,6 +126,13 @@ function getNavigationTarget(type?: string, data?: Record<string, any>): string 
     case 'engagement_confirmed':
     case 'engagement_confirmed_admin':
       return '/(tabs)/connect';
+
+    case 'admin_new_profile':
+    case 'admin_profile_resubmitted':
+      if (data?.profileId) {
+        return `/admin/profile-review/${data.profileId}`;
+      }
+      return '/admin/dashboard';
 
     default:
       return '/(tabs)/connect';

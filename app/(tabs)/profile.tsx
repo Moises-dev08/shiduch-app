@@ -76,6 +76,12 @@ export default function ProfileScreen() {
       if (profile.status === 'pending' || profile.status === 'rejected') {
         setShowStatusModal(true);
       }
+    } else if (profileResult?.success && !profileResult.profile) {
+      // New account: getProfile() returns success with no row (PGRST116) — start role/gender setup.
+      setExistingProfile(null);
+      setHasSubmitted(false);
+      setShowSetupModal(true);
+      setSetupStep(1);
     } else if (profileResult && !profileResult.success) {
       setShowSetupModal(true);
       setSetupStep(1);

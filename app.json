@@ -4,16 +4,14 @@
     "slug": "shiduchim-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./zm-logo.jpg",
+    "icon": "./logo-stores.png",
     "scheme": "shiduchimapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.zivugmishamayim",
-      "associatedDomains": [
-        "applinks:www.zivugmishamayim.com"
-      ],
+      "associatedDomains": ["applinks:www.zivugmishamayim.com"],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -21,15 +19,34 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#1235C8",
-        "foregroundImage": "./zm-logo.jpg"
+        "foregroundImage": "./logo-stores.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.zivugmishamayim"
+      "package": "com.zivugmishamayim",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "www.zivugmishamayim.com",
+              "pathPrefix": "/profile"
+            },
+            {
+              "scheme": "https",
+              "host": "zivugmishamayim.com",
+              "pathPrefix": "/profile"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "output": "static",
-      "favicon": "./zm-logo.jpg"
+      "favicon": "./logo-stores.png"
     },
     "plugins": [
       "expo-router",

@@ -61,16 +61,25 @@ function getIconConfig(type?: string): NotificationIconConfig {
       return { name: 'checkmark-circle', color: '#4CAF50', bg: '#E8F5E9' };
     case 'profile_rejected':
       return { name: 'close-circle', color: '#F59E0B', bg: '#FFF8E1' };
+    case 'admin_new_profile':
+    case 'admin_profile_resubmitted':
+      return { name: 'clipboard', color: '#7C3AED', bg: '#EDE9FE' };
     default:
       return { name: 'notifications', color: '#1293DA', bg: '#E3F2FD' };
   }
 }
 
-function getNavigationTarget(type?: string): string {
+function getNavigationTarget(type?: string, data?: Record<string, any>): string {
   switch (type) {
     case 'profile_approved':
     case 'profile_rejected':
       return '/(tabs)/profile';
+    case 'admin_new_profile':
+    case 'admin_profile_resubmitted':
+      if (data?.profileId) {
+        return `/admin/profile-review/${data.profileId}`;
+      }
+      return '/admin/dashboard';
     default:
       return '/(tabs)/connect';
   }
@@ -132,7 +141,7 @@ export default function NotificationsScreen() {
     }
 
     // Navigate to relevant screen
-    const target = getNavigationTarget(notification.data?.type);
+    const target = getNavigationTarget(notification.data?.type, notification.data);
     router.push(target as any);
   };
 
