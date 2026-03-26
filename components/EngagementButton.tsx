@@ -181,7 +181,12 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
         await notificationService.notifyAdmins(
           '💍 New Engagement Confirmed!',
           `${currentUserName} and ${otherUserName} have confirmed their engagement.`,
-          { type: 'engagement_confirmed_admin' }
+          { type: 'engagement_confirmed_admin' },
+          {
+            excludeUserIds: [user?.id, otherUserAuthId].filter(
+              (id): id is string => typeof id === 'string' && id.length > 0
+            ),
+          }
         );
         setSuccessMessage({
           title: 'Mazel Tov! 🎉',

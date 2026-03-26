@@ -484,7 +484,8 @@ class ProfileService {
             type: 'admin_new_profile',
             profileId: data.id,
             userName: displayName,
-          }
+          },
+          { excludeUserIds: [user.id] }
         );
       } catch (notifError) {
         console.error('Failed to notify admins:', notifError);
@@ -747,7 +748,8 @@ class ProfileService {
               profileId: data.id,
               userName: displayName,
               wasApproved,
-            }
+            },
+            { excludeUserIds: [user.id] }
           );
         } catch (notifError) {
           console.error('Failed to notify admins:', notifError);

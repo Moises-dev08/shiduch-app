@@ -71,13 +71,17 @@ class AdminService {
         return { success: false, error: 'Not authenticated' };
       }
 
-      // Fetch profile data BEFORE calling the edge function so the row is
-      // guaranteed to exist with its original is_update value.
-      const { data: profileMeta } = await supabase
+      // Real columns only — is_update is computed in get-pending-profiles, not in DB.
+      // approved_at != null while pending ⇒ previously approved resubmission (same rule as dashboard).
+      const { data: profileMeta, error: metaError } = await supabase
         .from('profiles')
-        .select('user_id, is_update')
+        .select('user_id, approved_at')
         .eq('id', profileId)
         .single();
+
+      if (metaError) {
+        console.warn('approveProfile: could not load profile meta', metaError.message);
+      }
 
       const response = await fetch(
         `${supabaseUrl}/functions/v1/approve-profile`,
@@ -97,12 +101,14 @@ class AdminService {
         return { success: false, error: data.error || 'Failed to approve profile' };
       }
 
-      // Notify the user their profile was approved
+      const ownerUserId = profileMeta?.user_id ?? data.profile?.user_id;
+      const isUpdate = !!profileMeta?.approved_at;
+
+      // Notify the profile owner (not the admin)
       try {
-        if (profileMeta?.user_id) {
-          const isUpdate = profileMeta.is_update;
+        if (ownerUserId) {
           await notificationService.sendNotification(
-            profileMeta.user_id,
+            ownerUserId,
             '✅ Profile Approved!',
             isUpdate
               ? 'Your profile update has been approved successfully.'
@@ -112,6 +118,8 @@ class AdminService {
               profileId,
             }
           );
+        } else {
+          console.warn('approveProfile: no user_id for approval notification');
         }
       } catch {
         // Notification failure should not block the approval
@@ -135,13 +143,15 @@ class AdminService {
         return { success: false, error: 'Not authenticated' };
       }
 
-      // Fetch profile data BEFORE calling the edge function so the row is
-      // guaranteed to exist with its original is_update value.
-      const { data: profileMeta } = await supabase
+      const { data: profileMeta, error: metaError } = await supabase
         .from('profiles')
-        .select('user_id, is_update')
+        .select('user_id, approved_at')
         .eq('id', profileId)
         .single();
+
+      if (metaError) {
+        console.warn('rejectProfile: could not load profile meta', metaError.message);
+      }
 
       const response = await fetch(
         `${supabaseUrl}/functions/v1/reject-profile`,
@@ -161,12 +171,13 @@ class AdminService {
         return { success: false, error: data.error || 'Failed to reject profile' };
       }
 
-      // Notify the user their profile was rejected
+      const ownerUserId = profileMeta?.user_id ?? data.profile?.user_id;
+      const isUpdate = !!profileMeta?.approved_at;
+
       try {
-        if (profileMeta?.user_id) {
-          const isUpdate = profileMeta.is_update;
+        if (ownerUserId) {
           await notificationService.sendNotification(
-            profileMeta.user_id,
+            ownerUserId,
             isUpdate ? '⚠️ Profile Update Rejected' : '⚠️ Profile Needs Attention',
             isUpdate
               ? `Your profile update was not approved: ${reason}`
@@ -177,6 +188,8 @@ class AdminService {
               reason,
             }
           );
+        } else {
+          console.warn('rejectProfile: no user_id for rejection notification');
         }
       } catch {
         // Notification failure should not block the rejection

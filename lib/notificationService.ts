@@ -228,6 +228,23 @@ class NotificationService {
   }
 
   /**
+   * Parse RPC result: PostgREST may return [{ user_id }, …] or, in edge cases, uuid[].
+   */
+  private parseAdminUserIdsFromRpc(data: unknown): string[] {
+    if (!data || !Array.isArray(data)) return [];
+    const ids: string[] = [];
+    for (const row of data) {
+      if (typeof row === 'string' && row.length > 0) {
+        ids.push(row);
+      } else if (row && typeof row === 'object' && 'user_id' in row) {
+        const id = (row as { user_id: string }).user_id;
+        if (typeof id === 'string' && id.length > 0) ids.push(id);
+      }
+    }
+    return [...new Set(ids)];
+  }
+
+  /**
    * Get all admin user IDs
    */
   async getAdminUserIds(): Promise<string[]> {
@@ -236,13 +253,12 @@ class NotificationService {
       // so a direct select returns no IDs for normal users and breaks notifyAdmins.
       const { data, error } = await supabase.rpc('get_admin_user_ids');
 
-      if (error || !data) {
+      if (error) {
         console.error('Error fetching admin users:', error);
         return [];
       }
 
-      const rows = data as { user_id: string }[];
-      return rows.map((row) => row.user_id);
+      return this.parseAdminUserIdsFromRpc(data);
     } catch (error) {
       console.error('Error in getAdminUserIds:', error);
       return [];
@@ -250,11 +266,19 @@ class NotificationService {
   }
 
   /**
-   * Notify all admins
+   * Notify all admins (e.g. moderation). Optionally skip ids (e.g. never notify the submitter).
    */
-  async notifyAdmins(title: string, body: string, data?: any): Promise<void> {
+  async notifyAdmins(
+    title: string,
+    body: string,
+    data?: any,
+    options?: { excludeUserIds?: string[] }
+  ): Promise<void> {
     try {
-      const adminIds = await this.getAdminUserIds();
+      const exclude = new Set(
+        (options?.excludeUserIds ?? []).filter((id): id is string => typeof id === 'string' && id.length > 0)
+      );
+      const adminIds = (await this.getAdminUserIds()).filter((id) => !exclude.has(id));
 
       for (const adminId of adminIds) {
         await this.sendNotification(adminId, title, body, data);
