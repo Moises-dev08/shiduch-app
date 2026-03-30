@@ -71,9 +71,10 @@ interface MatchmakerProfileFormProps {
   onSubmit: (data: any) => void;
   gender: 'male' | 'female';
   loading?: boolean;
+  roleSwitched?: boolean;
 }
 
-export default function MatchmakerProfileForm({ initialData, onSubmit, gender, loading }: MatchmakerProfileFormProps) {
+export default function MatchmakerProfileForm({ initialData, onSubmit, gender, loading, roleSwitched }: MatchmakerProfileFormProps) {
   // Images
   const [pictures, setPictures] = useState<string[]>(initialData?.pictures || []);
   const [picturePrivacy, setPicturePrivacy] = useState<'none' | 'always'>(
@@ -332,6 +333,14 @@ export default function MatchmakerProfileForm({ initialData, onSubmit, gender, l
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {roleSwitched && (
+        <View style={styles.roleSwitchBanner}>
+          <Ionicons name="information-circle" size={20} color="#1293DA" />
+          <Text style={styles.roleSwitchBannerText}>
+            You switched to Matchmaker. Please complete all required fields (*) below before submitting. Your previous matchmaker profile data has been restored where available.
+          </Text>
+        </View>
+      )}
       {/* Images */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Images *</Text>
@@ -766,6 +775,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  roleSwitchBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#E3F2FD',
+    borderLeftWidth: 4,
+    borderLeftColor: '#1293DA',
+    margin: 12,
+    marginBottom: 4,
+    padding: 14,
+    borderRadius: 8,
+  },
+  roleSwitchBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#1A5276',
+    lineHeight: 19,
   },
   section: {
     backgroundColor: '#fff',

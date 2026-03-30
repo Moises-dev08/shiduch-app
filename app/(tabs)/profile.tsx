@@ -54,6 +54,8 @@ export default function ProfileScreen() {
   const [selectedRole, setSelectedRole] = useState<'single' | 'matchmaker' | null>(null);
   const [selectedGender, setSelectedGender] = useState<'male' | 'female' | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false); // Track if profile was submitted
+  const [isSwitchingRole, setIsSwitchingRole] = useState(false);
+  const [roleSwitched, setRoleSwitched] = useState(false); // Show banner after a role switch
   
   // Success and status modals
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -141,16 +143,48 @@ export default function ProfileScreen() {
 
   const handleChangeRoleGender = () => {
     if (!hasSubmitted) {
-      // Reset and show setup modal
       setSetupStep(1);
       setShowSetupModal(true);
-    } else {
-      Alert.alert(
-        'Cannot Change',
-        'You cannot change your role or gender after submitting your profile.',
-        [{ text: 'OK' }]
-      );
     }
+  };
+
+  const handleSwitchRole = () => {
+    const targetRole = selectedRole === 'single' ? 'matchmaker' : 'single';
+    const targetLabel = targetRole === 'single' ? 'Single' : 'Matchmaker';
+
+    Alert.alert(
+      `Switch to ${targetLabel}?`,
+      `Your current role-specific data will be saved and restored if you switch back.\n\nYour profile will need admin approval again before you can use the app. You will need to fill in any required fields for your new role before submitting.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Switch',
+          style: 'default',
+          onPress: async () => {
+            setIsSwitchingRole(true);
+            try {
+              const result = await profileService.switchRole(targetRole);
+              if (result.success && result.profile) {
+                setExistingProfile(result.profile);
+                setSelectedRole(targetRole);
+                setProfileStatus('pending');
+                setHasSubmitted(true);
+                setRoleSwitched(true);
+                setFormKey((k) => k + 1);
+                queryClient.invalidateQueries({ queryKey: ['my_profile'] });
+                setShowStatusModal(true);
+              } else {
+                Alert.alert('Error', result.error || 'Failed to switch role');
+              }
+            } catch {
+              Alert.alert('Error', 'An unexpected error occurred');
+            } finally {
+              setIsSwitchingRole(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const transformProfileToFormData = (profile: Profile): any => {
@@ -222,7 +256,8 @@ export default function ProfileScreen() {
       if (result.success && result.profile) {
         setExistingProfile(result.profile);
         setProfileStatus(result.profile.status);
-        setHasSubmitted(true); // Mark as submitted
+        setHasSubmitted(true);
+        setRoleSwitched(false); // Banner dismisses after successful submit
         if (result.profile.rejection_reason) {
           setRejectionReason(result.profile.rejection_reason);
         }
@@ -340,6 +375,24 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        {hasSubmitted && (
+          <TouchableOpacity
+            style={[styles.switchRoleButton, isSwitchingRole && styles.changeButtonDisabled]}
+            onPress={handleSwitchRole}
+            disabled={isSwitchingRole}
+          >
+            {isSwitchingRole ? (
+              <ActivityIndicator size="small" color="#1293DA" />
+            ) : (
+              <>
+                <Ionicons name="swap-horizontal" size={18} color="#1293DA" />
+                <Text style={styles.switchRoleButtonText}>
+                  {selectedRole === 'single' ? 'Switch to Matchmaker' : 'Switch to Single'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Loading State or Form Content */}
@@ -356,17 +409,17 @@ export default function ProfileScreen() {
             onSubmit={handleFormSubmit}
             gender={selectedGender}
             loading={loading}
+            roleSwitched={roleSwitched}
           />
         ) : (
-          <>
-            <MatchmakerProfileForm
-              key={formKey}
-              initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
-              onSubmit={handleFormSubmit}
-              gender={selectedGender}
-              loading={loading}
-            />
-          </>
+          <MatchmakerProfileForm
+            key={formKey}
+            initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
+            onSubmit={handleFormSubmit}
+            gender={selectedGender}
+            loading={loading}
+            roleSwitched={roleSwitched}
+          />
         )
       ) : null}
 
@@ -432,7 +485,7 @@ export default function ProfileScreen() {
                 </View>
 
                 <Text style={styles.roleNote}>
-                  Note: Your role cannot be changed after submission
+                  You can change your role later from your profile page.
                 </Text>
               </>
             )}
@@ -546,6 +599,25 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   changeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1293DA',
+  },
+  changeButtonDisabled: {
+    opacity: 0.5,
+  },
+  switchRoleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: '#E3F2FD',
+    gap: 6,
+  },
+  switchRoleButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#1293DA',

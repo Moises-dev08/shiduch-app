@@ -880,12 +880,12 @@ export default function ProfileDetailsScreen() {
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Gender:</Text>
-            <Text style={styles.detailValue}>{profile.gender}</Text>
+            <Text style={styles.detailValue}>{profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)}</Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Role:</Text>
-            <Text style={styles.detailValue}>{profile.role}</Text>
+            <Text style={styles.detailValue}>{profile.role === 'single' ? 'Single' : 'Matchmaker'}</Text>
           </View>
 
           {renderDetailRow(

@@ -170,17 +170,25 @@ export default function ProfileReviewPage() {
         </TouchableOpacity>
         <View style={styles.titleContainer}>
           <Text style={styles.title}>Profile Review</Text>
-          {profile.is_update ? (
-            <View style={styles.updateBadge}>
-              <Ionicons name="refresh" size={12} color="#ff9800" />
-              <Text style={styles.updateBadgeText}>Profile Update</Text>
-            </View>
-          ) : (
-            <View style={styles.newBadge}>
-              <Ionicons name="add-circle" size={12} color="#4caf50" />
-              <Text style={styles.newBadgeText}>New Profile</Text>
-            </View>
-          )}
+          <View style={styles.badgeRow}>
+            {profile.is_update ? (
+              <View style={styles.updateBadge}>
+                <Ionicons name="refresh" size={12} color="#ff9800" />
+                <Text style={styles.updateBadgeText}>Profile Update</Text>
+              </View>
+            ) : (
+              <View style={styles.newBadge}>
+                <Ionicons name="add-circle" size={12} color="#4caf50" />
+                <Text style={styles.newBadgeText}>New Profile</Text>
+              </View>
+            )}
+            {profile.previous_role_data && (
+              <View style={styles.roleSwitchBadge}>
+                <Ionicons name="swap-horizontal" size={12} color="#9c27b0" />
+                <Text style={styles.roleSwitchBadgeText}>Role Switch</Text>
+              </View>
+            )}
+          </View>
         </View>
         <View style={{ width: 24 }} />
       </View>
@@ -196,6 +204,97 @@ export default function ProfileReviewPage() {
                 This profile was previously approved on {new Date(profile.last_approved_at).toLocaleDateString()}. 
                 The user has made changes that require your review.
               </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Role Switch Before / After */}
+        {profile.previous_role_data && (
+          <View style={styles.roleSwitchSection}>
+            <View style={styles.roleSwitchSectionHeader}>
+              <Ionicons name="swap-horizontal" size={18} color="#9c27b0" />
+              <Text style={styles.roleSwitchSectionTitle}>Role Switch</Text>
+            </View>
+            <Text style={styles.roleSwitchSectionSubtitle}>
+              This user switched from{' '}
+              <Text style={styles.roleSwitchHighlight}>
+                {profile.previous_role_data.role === 'single' ? 'Single' : 'Matchmaker'}
+              </Text>
+              {' '}to{' '}
+              <Text style={styles.roleSwitchHighlight}>
+                {profile.role === 'single' ? 'Single' : 'Matchmaker'}
+              </Text>
+              {' '}on {new Date(profile.previous_role_data.saved_at).toLocaleDateString()}.
+            </Text>
+
+            <View style={styles.beforeAfterRow}>
+              {/* BEFORE */}
+              <View style={[styles.beforeAfterCard, styles.beforeCard]}>
+                <View style={styles.beforeAfterCardHeader}>
+                  <Ionicons name="arrow-back-circle" size={16} color="#e53935" />
+                  <Text style={styles.beforeCardTitle}>
+                    Before — {profile.previous_role_data.role === 'single' ? 'Single' : 'Matchmaker'}
+                  </Text>
+                </View>
+                {Object.keys(profile.previous_role_data.fields).length === 0 ? (
+                  <Text style={styles.noDataText}>No data saved</Text>
+                ) : (
+                  Object.entries(profile.previous_role_data.fields).map(([key, value]) => (
+                    <View key={key} style={styles.roleDataRow}>
+                      <Text style={styles.roleDataLabel}>
+                        {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </Text>
+                      <Text style={styles.roleDataValueBefore}>
+                        {value === null || value === undefined
+                          ? '—'
+                          : typeof value === 'boolean'
+                          ? value ? 'Yes' : 'No'
+                          : String(value)}
+                      </Text>
+                    </View>
+                  ))
+                )}
+              </View>
+
+              {/* AFTER */}
+              <View style={[styles.beforeAfterCard, styles.afterCard]}>
+                <View style={styles.beforeAfterCardHeader}>
+                  <Ionicons name="arrow-forward-circle" size={16} color="#2e7d32" />
+                  <Text style={styles.afterCardTitle}>
+                    After — {profile.role === 'single' ? 'Single' : 'Matchmaker'}
+                  </Text>
+                </View>
+                {profile.role === 'single' ? (
+                  <>
+                    {profile.what_looking_for && <RoleDataRow label="What looking for" value={profile.what_looking_for} />}
+                    {profile.torah_learning && <RoleDataRow label="Torah learning" value={profile.torah_learning} />}
+                    {profile.praying && <RoleDataRow label="Praying" value={profile.praying} />}
+                    {profile.marital_status && <RoleDataRow label="Marital status" value={profile.marital_status} />}
+                    {profile.plan_after_marriage && <RoleDataRow label="Plan after marriage" value={profile.plan_after_marriage} />}
+                    {profile.post_high_school_path && <RoleDataRow label="Post high school" value={profile.post_high_school_path} />}
+                    {profile.head_covering && <RoleDataRow label="Head covering" value={profile.head_covering} />}
+                    {profile.dress_style && <RoleDataRow label="Dress style" value={profile.dress_style} />}
+                    {profile.is_cohen !== null && profile.is_cohen !== undefined && (
+                      <RoleDataRow label="Cohen" value={profile.is_cohen ? 'Yes' : 'No'} />
+                    )}
+                    {profile.wears_black_hat !== null && profile.wears_black_hat !== undefined && (
+                      <RoleDataRow label="Wears black hat" value={profile.wears_black_hat ? 'Yes' : 'No'} />
+                    )}
+                    {profile.resume_url && <RoleDataRow label="Resume" value="Uploaded" />}
+                    {!profile.what_looking_for && !profile.torah_learning && !profile.praying && (
+                      <Text style={styles.noDataText}>Fields not yet filled</Text>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {(profile as any).religious_level && <RoleDataRow label="Religious level" value={(profile as any).religious_level} />}
+                    {(profile as any).cultural_origin && <RoleDataRow label="Cultural origin" value={(profile as any).cultural_origin} />}
+                    {!(profile as any).religious_level && !(profile as any).cultural_origin && (
+                      <Text style={styles.noDataText}>Fields not yet filled</Text>
+                    )}
+                  </>
+                )}
+              </View>
             </View>
           </View>
         )}
@@ -257,7 +356,7 @@ export default function ProfileReviewPage() {
               <DetailRow label="Date of Birth" value={new Date(profile.dob).toLocaleDateString()} />
             </>
           )}
-          <DetailRow label="Gender" value={profile.gender} />
+          <DetailRow label="Gender" value={profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)} />
           <DetailRow label="Role" value={profile.role === 'single' ? 'Single' : 'Matchmaker'} />
           {profile.height && <DetailRow label="Height" value={profile.height} />}
           {profile.marital_status && <DetailRow label="Marital Status" value={profile.marital_status} />}
@@ -474,6 +573,13 @@ const DetailRow = ({ label, value }: { label: string; value: string }) => (
   </View>
 );
 
+const RoleDataRow = ({ label, value }: { label: string; value: string }) => (
+  <View style={styles.roleDataRow}>
+    <Text style={styles.roleDataLabel}>{label}</Text>
+    <Text style={styles.roleDataValueAfter}>{value}</Text>
+  </View>
+);
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -594,6 +700,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#666',
   },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 6,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
   updateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -621,6 +733,113 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#4caf50',
+  },
+  roleSwitchBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3e5f5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  roleSwitchBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9c27b0',
+  },
+  roleSwitchSection: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e1bee7',
+  },
+  roleSwitchSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  roleSwitchSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#7b1fa2',
+  },
+  roleSwitchSectionSubtitle: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 14,
+    lineHeight: 18,
+  },
+  roleSwitchHighlight: {
+    fontWeight: '700',
+    color: '#7b1fa2',
+  },
+  beforeAfterRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  beforeAfterCard: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 12,
+  },
+  beforeCard: {
+    backgroundColor: '#ffebee',
+    borderWidth: 1,
+    borderColor: '#ef9a9a',
+  },
+  afterCard: {
+    backgroundColor: '#e8f5e9',
+    borderWidth: 1,
+    borderColor: '#a5d6a7',
+  },
+  beforeAfterCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+  },
+  beforeCardTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#c62828',
+    flexShrink: 1,
+  },
+  afterCardTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2e7d32',
+    flexShrink: 1,
+  },
+  roleDataRow: {
+    marginBottom: 6,
+  },
+  roleDataLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#555',
+    textTransform: 'capitalize',
+  },
+  roleDataValueBefore: {
+    fontSize: 12,
+    color: '#b71c1c',
+    marginTop: 1,
+  },
+  roleDataValueAfter: {
+    fontSize: 12,
+    color: '#1b5e20',
+    marginTop: 1,
+  },
+  noDataText: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
   },
   picturesSection: {
     marginBottom: 20,

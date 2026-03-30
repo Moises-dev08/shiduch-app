@@ -163,6 +163,11 @@ export interface Profile {
   last_viewed_intro_requests_at?: string;
   last_viewed_matches_at?: string;
   last_viewed_suggestions_at?: string;
+  previous_role_data?: {
+    role: 'single' | 'matchmaker';
+    saved_at: string;
+    fields: Record<string, any>;
+  } | null;
 }
 
 class ProfileService {
@@ -759,6 +764,116 @@ class ProfileService {
       return { success: true, profile: data, wasResubmitted: shouldResetStatus };
     } catch (error) {
       console.error('Error updating profile:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
+   * Switch the user's role between 'single' and 'matchmaker'.
+   * - Snapshots current role-specific fields into `previous_role_data` for future restoration.
+   * - If the user previously held the target role, restores those saved fields.
+   * - Resets profile status to 'pending' for admin re-approval.
+   */
+  async switchRole(newRole: 'single' | 'matchmaker'): Promise<{
+    success: boolean;
+    profile?: Profile;
+    error?: string;
+  }> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) return { success: false, error: 'User not authenticated' };
+
+      const { data: current, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchError || !current) return { success: false, error: 'Profile not found' };
+
+      const currentRole = current.role as 'single' | 'matchmaker';
+      if (currentRole === newRole) return { success: false, error: 'Already on this role' };
+
+      // Fields exclusive to singles
+      const singleFields = [
+        'what_looking_for', 'torah_learning', 'praying', 'is_cohen',
+        'resume_url', 'wears_black_hat', 'plan_after_marriage', 'marital_status',
+        'has_children', 'post_high_school_path', 'head_covering', 'dress_style',
+      ];
+      // Fields exclusive to matchmakers
+      const matchmakerFields = ['religious_level', 'cultural_origin'];
+
+      const fieldsToSnapshot = currentRole === 'single' ? singleFields : matchmakerFields;
+
+      // Snapshot current role-specific fields
+      const snapshot: Record<string, any> = {};
+      for (const field of fieldsToSnapshot) {
+        if (current[field] !== null && current[field] !== undefined) {
+          snapshot[field] = current[field];
+        }
+      }
+
+      const previousRoleData = {
+        role: currentRole,
+        saved_at: new Date().toISOString(),
+        fields: snapshot,
+      };
+
+      // Check if there is saved data from a previous time in the target role
+      const existingSaved = current.previous_role_data as {
+        role: string;
+        fields: Record<string, any>;
+      } | null;
+      const hasRestorable = existingSaved && existingSaved.role === newRole;
+
+      // Build update payload: flip role, snapshot old data, reset status
+      const updatePayload: Record<string, any> = {
+        role: newRole,
+        status: 'pending',
+        rejection_reason: null,
+        previous_role_data: previousRoleData,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Null out old role's exclusive fields on the profile
+      for (const field of fieldsToSnapshot) {
+        updatePayload[field] = null;
+      }
+
+      // Restore saved fields from previous time as target role
+      if (hasRestorable && existingSaved) {
+        for (const [field, value] of Object.entries(existingSaved.fields)) {
+          updatePayload[field] = value;
+        }
+        // Consumed — clear so we don't accidentally restore again
+        updatePayload.previous_role_data = previousRoleData;
+      }
+
+      const { data: updated, error: updateError } = await supabase
+        .from('profiles')
+        .update(updatePayload)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (updateError) return { success: false, error: updateError.message };
+
+      // Notify admins about the role switch
+      try {
+        const displayName = `${current.first_name} ${current.last_name}`;
+        await notificationService.notifyAdmins(
+          'Profile role change pending review',
+          `${displayName} switched from ${currentRole} to ${newRole} — needs approval.`,
+          { type: 'admin_new_profile', profileId: current.id, userName: displayName },
+          { excludeUserIds: [user.id] }
+        );
+      } catch (notifError) {
+        console.error('Failed to notify admins of role switch:', notifError);
+      }
+
+      return { success: true, profile: updated };
+    } catch (error) {
+      console.error('Error switching role:', error);
       return { success: false, error: 'An unexpected error occurred' };
     }
   }
