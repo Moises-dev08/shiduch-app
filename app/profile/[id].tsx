@@ -1,12 +1,16 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../../lib/AuthContext';
 
+const PENDING_PROFILE_DEEP_LINK_KEY = 'pendingProfileDeepLink';
+
 /**
  * Entry point for the shiduchimapp://profile/<id> deep link.
  * Redirects to profile-details so privacy settings and the full UI are respected.
- * If the user is not logged in, sends them to the login screen first.
+ * If the user is not logged in, stashes the target id so navigation resumes
+ * after they sign in (see PendingDeepLinkResumer in app/_layout.tsx).
  */
 export default function ProfileDeepLinkRedirect() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,8 +20,9 @@ export default function ProfileDeepLinkRedirect() {
     if (loading) return; // wait for auth to resolve
 
     if (!session) {
-      // Not logged in — go to login; after login the deep link won't re-fire,
-      // but the user can search for the profile manually.
+      if (id) {
+        AsyncStorage.setItem(PENDING_PROFILE_DEEP_LINK_KEY, id).catch(() => {});
+      }
       router.replace('/auth/login');
       return;
     }

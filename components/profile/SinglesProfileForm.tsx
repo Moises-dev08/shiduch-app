@@ -1376,7 +1376,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
               <>
                 <Ionicons name="cloud-upload-outline" size={24} color="#1293DA" />
                 <Text style={styles.uploadResumeText}>Upload Resume</Text>
-                <Text style={styles.uploadResumeSubtext}>PDF or Image (max 5MB)</Text>
+                <Text style={styles.uploadResumeSubtext}>PDF or Image (max 8MB)</Text>
               </>
             )}
           </TouchableOpacity>

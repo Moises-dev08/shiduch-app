@@ -252,7 +252,16 @@ function SearchableCountryPicker({ visible, selectedValue, countries, onSelect, 
 
 export default function FiltersScreen() {
   const params = useLocalSearchParams();
-  const [currentUserGender, setCurrentUserGender] = useState<'male' | 'female' | null>(null);
+  const [currentUserGender, setCurrentUserGender] = useState<'male' | 'female' | null>(
+    (params.userGender as string) === 'male' || (params.userGender as string) === 'female'
+      ? (params.userGender as 'male' | 'female')
+      : null
+  );
+  const [currentUserRole, setCurrentUserRole] = useState<'single' | 'matchmaker' | null>(
+    (params.userRole as string) === 'matchmaker' || (params.userRole as string) === 'single'
+      ? (params.userRole as 'single' | 'matchmaker')
+      : null
+  );
   
   // Modal picker state
   const [activePickerModal, setActivePickerModal] = useState<{
@@ -274,6 +283,7 @@ export default function FiltersScreen() {
   const [filterState, setFilterState] = useState<FilterState>(() => {
     try {
       return params.filterState ? JSON.parse(params.filterState as string) : {
+        genderFilter: 'all' as const,
         selectedAgeOption: null,
         minAge: null,
         maxAge: null,
@@ -303,6 +313,7 @@ export default function FiltersScreen() {
       };
     } catch {
       return {
+        genderFilter: 'all' as const,
         selectedAgeOption: null,
         minAge: null,
         maxAge: null,
@@ -334,6 +345,7 @@ export default function FiltersScreen() {
   });
 
   const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({
+    seeFirst: true,
     sort: true,
     askMe: true,
     age: true,
@@ -349,13 +361,16 @@ export default function FiltersScreen() {
   });
 
   useEffect(() => {
-    loadUserGender();
+    if (!currentUserGender || !currentUserRole) {
+      loadUserGender();
+    }
   }, []);
 
   const loadUserGender = async () => {
     const result = await profileService.getProfile();
     if (result.success && result.profile) {
       setCurrentUserGender(result.profile.gender as 'male' | 'female');
+      setCurrentUserRole(result.profile.role as 'single' | 'matchmaker');
     }
   };
 
@@ -424,6 +439,7 @@ export default function FiltersScreen() {
 
   const clearAll = () => {
     setFilterState({
+      genderFilter: 'all',
       selectedAgeOption: null,
       minAge: null,
       maxAge: null,
@@ -494,6 +510,34 @@ export default function FiltersScreen() {
       </View>
 
       <ScrollView style={styles.content}>
+        {/* See First (matchmaker only) */}
+        {currentUserRole === 'matchmaker' && renderSection('See First', 'seeFirst', (
+          <View style={styles.chipRow}>
+            {(['all', 'male', 'female'] as const).map((value) => (
+              <TouchableOpacity
+                key={value}
+                style={[
+                  styles.chip,
+                  filterState.genderFilter === value && styles.chipSelected,
+                ]}
+                onPress={() => setFilterState({
+                  ...filterState,
+                  genderFilter: value,
+                })}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    filterState.genderFilter === value && styles.chipTextSelected,
+                  ]}
+                >
+                  {value === 'all' ? 'All' : value === 'male' ? 'Boys' : 'Girls'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ))}
+
         {/* Sorting Options */}
         {renderSection('Sort By', 'sort', (
           <View style={styles.chipRow}>

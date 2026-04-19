@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
@@ -83,6 +84,11 @@ export function useUnreadNotificationsCount() {
       }
     };
   }, [queryClient]);
+
+  // Keep the app icon badge in sync with the unread count
+  useEffect(() => {
+    Notifications.setBadgeCountAsync(unreadCount).catch(() => {});
+  }, [unreadCount]);
 
   return {
     unreadCount,

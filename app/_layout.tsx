@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { router, Stack } from "expo-router";
@@ -7,6 +8,8 @@ import { Linking } from "react-native";
 import { AuthProvider, useAuth } from "../lib/AuthContext";
 import { extractProfileIdFromShareUrl } from "../lib/profileShareUrls";
 import { supabase } from "../lib/supabase";
+
+const PENDING_PROFILE_DEEP_LINK_KEY = 'pendingProfileDeepLink';
 
 // Keep splash visible until we explicitly hide it
 SplashScreen.preventAutoHideAsync();
@@ -167,7 +170,15 @@ async function handleDeepLink(url: string) {
   // Shared profile: https://www.zivugmishamayim.com/profile/<id> (Universal Links) or shiduchimapp://profile/<id>
   const profileId = extractProfileIdFromShareUrl(url);
   if (profileId) {
-    router.replace(`/profile/${profileId}` as any);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      router.replace({ pathname: '/profile-details', params: { profileId } });
+    } else {
+      try {
+        await AsyncStorage.setItem(PENDING_PROFILE_DEEP_LINK_KEY, profileId);
+      } catch {}
+      router.replace('/auth/login');
+    }
   }
 }
 
@@ -179,6 +190,25 @@ function CacheClearer() {
       if (event === 'SIGNED_OUT') {
         queryClient.clear();
       }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+  return null;
+}
+
+// When the user signs in after tapping a share link, resume navigation to the
+// target profile that was stashed in AsyncStorage.
+function PendingDeepLinkResumer() {
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event !== 'SIGNED_IN') return;
+      try {
+        const pendingId = await AsyncStorage.getItem(PENDING_PROFILE_DEEP_LINK_KEY);
+        if (pendingId) {
+          await AsyncStorage.removeItem(PENDING_PROFILE_DEEP_LINK_KEY);
+          router.replace({ pathname: '/profile-details', params: { profileId: pendingId } });
+        }
+      } catch {}
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -218,6 +248,7 @@ export default function RootLayout() {
       <SplashController />
       <NotificationHandler />
       <PasswordResetHandler />
+      <PendingDeepLinkResumer />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="admin" options={{ headerShown: false }} />

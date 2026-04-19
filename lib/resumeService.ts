@@ -24,9 +24,9 @@ class ResumeService {
 
       const file = result.assets[0];
       
-      // Check file size (max 5MB)
-      if (file.size && file.size > 5 * 1024 * 1024) {
-        return { success: false, error: 'File size must be less than 5MB' };
+      // Check file size (max 8MB)
+      if (file.size && file.size > 8 * 1024 * 1024) {
+        return { success: false, error: 'File size must be less than 8MB' };
       }
 
       return {

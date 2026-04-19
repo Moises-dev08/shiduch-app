@@ -15,6 +15,7 @@ export interface Profile {
   height?: string;
   hasChildren?: boolean;
   picturePrivacy: 'none' | 'always' | 'private' | 'one_time';
+  picturesViewed?: boolean;
   
   // New comprehensive fields
   dob?: string; // Date of birth - age is calculated from this
@@ -63,6 +64,9 @@ export interface Profile {
 }
 
 export interface FilterState {
+  // Gender filter (matchmaker "See first")
+  genderFilter: 'all' | 'male' | 'female';
+
   // Age filter (from DOB)
   selectedAgeOption: string | null;
   minAge: number | null;

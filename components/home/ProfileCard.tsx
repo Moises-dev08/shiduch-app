@@ -26,6 +26,7 @@ export default function ProfileCard({
       profile.picturePrivacy === "private" ||
       profile.picturePrivacy === "one_time");
   const isBlurred = profile.picturePrivacy === "private";
+  const isOneTimeViewed = profile.picturePrivacy === "one_time" && profile.picturesViewed;
   const age = calculateAge(profile.dob);
 
   return (
@@ -40,11 +41,17 @@ export default function ProfileCard({
             source={{ uri: profile.picture }}
             style={styles.profileImage}
             onError={() => setImageError(true)}
-            blurRadius={isBlurred ? 15 : 0}
+            blurRadius={isBlurred ? 15 : isOneTimeViewed ? 15 : 0}
           />
           {isBlurred && (
             <View style={styles.blurOverlay}>
               <Ionicons name="lock-closed" size={24} color="#fff" />
+            </View>
+          )}
+          {isOneTimeViewed && (
+            <View style={styles.openedOverlay}>
+              <Ionicons name="eye" size={22} color="#fff" />
+              <Text style={styles.openedText}>Opened</Text>
             </View>
           )}
           <View style={styles.nameBadge}>
@@ -159,5 +166,22 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.3)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  openedOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  openedText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+    letterSpacing: 0.5,
   },
 });

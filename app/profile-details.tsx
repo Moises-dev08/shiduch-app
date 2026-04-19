@@ -10,7 +10,6 @@ import {
     Modal,
     Platform,
     ScrollView,
-    Share,
     Text,
     TextInput,
     TouchableOpacity,
@@ -25,15 +24,12 @@ import ContinuationChoiceModal from "../components/intro/ContinuationChoiceModal
 import MiddlePersonSelectionModal from "../components/intro/MiddlePersonSelectionModal";
 import PreviousSuggestionWarningModal from "../components/suggestion/PreviousSuggestionWarningModal";
 import ProfileGridSelectionModal from "../components/suggestion/ProfileGridSelectionModal";
+import { useProfileShare } from "../hooks/useProfileShare";
 import { PRIVACY_KEY_TO_DB_COLUMN } from "../lib/fieldLabels";
 import { infoRequestService } from "../lib/infoRequestService";
 import { introService } from "../lib/introService";
 import { pictureViewService } from "../lib/pictureViewService";
 import { Profile as DBProfile, profileService } from "../lib/profileService";
-import {
-    getProfileHttpsShareUrl,
-    PROFILE_SHARE_WEB_BASE,
-} from "../lib/profileShareUrls";
 import { suggestionService } from "../lib/suggestionService";
 import { supabase } from "../lib/supabase";
 import { calculateAge } from "../lib/utils";
@@ -131,7 +127,7 @@ async function fetchProfileDetails(profileId: string) {
   const showPictures =
     picturePrivacy === "always" ||
     picturePrivacy === "private" ||
-    (picturePrivacy === "one_time" && !hasPicturesBeenViewed);
+    picturePrivacy === "one_time";
 
   const firstPicture =
     showPictures && data.pictures?.length > 0
@@ -316,7 +312,7 @@ export default function ProfileDetailsScreen() {
 
   // Report and Share states
   const [showReportModal, setShowReportModal] = useState(false);
-  const [isSharing, setIsSharing] = useState(false);
+  const { isSharing, shareProfile } = useProfileShare();
 
   // Sync React Query result into local state
   useEffect(() => {
@@ -674,30 +670,7 @@ export default function ProfileDetailsScreen() {
 
   const handleShareProfile = async () => {
     if (!profile) return;
-
-    try {
-      setIsSharing(true);
-
-      const webUrl = getProfileHttpsShareUrl(profile.id);
-      const footer = `Don't have the app? Visit ${PROFILE_SHARE_WEB_BASE}/`;
-
-      await Share.share(
-        Platform.OS === "ios"
-          ? {
-              title: `${profile.name}'s Profile – Zivug Mishamayim`,
-              message: `Check out ${profile.name}'s profile on Zivug Mishamayim!\n\n📲 ${footer}`,
-              url: webUrl,
-            }
-          : {
-              title: `${profile.name}'s Profile – Zivug Mishamayim`,
-              message: `Check out ${profile.name}'s profile on Zivug Mishamayim!\n\n${webUrl}\n\n📲 ${footer}`,
-            },
-      );
-    } catch {
-      Alert.alert("Error", "Failed to share profile. Please try again.");
-    } finally {
-      setIsSharing(false);
-    }
+    await shareProfile(profile);
   };
 
   if (isLoading) {
@@ -802,13 +775,17 @@ export default function ProfileDetailsScreen() {
                 <Ionicons name="person" size={50} color="#ccc" />
               </View>
             ) : (
-              // Public or Private - show image
+              // Public, Private, or One-time - show image
               <>
                 <Image
                   source={{ uri: profile.picture }}
                   style={styles.profileImage}
                   onError={() => setImageError(true)}
-                  blurRadius={profile.picturePrivacy === "private" ? 20 : 0}
+                  blurRadius={
+                    profile.picturePrivacy === "private" ? 20
+                    : (profile.picturePrivacy === "one_time" && hasPicturesBeenViewed) ? 20
+                    : 0
+                  }
                 />
                 {profile.picturePrivacy === "private" && (
                   <TouchableOpacity
@@ -819,6 +796,12 @@ export default function ProfileDetailsScreen() {
                     <Ionicons name="lock-closed" size={32} color="#fff" />
                     <Text style={styles.seeMoreText}>See More</Text>
                   </TouchableOpacity>
+                )}
+                {profile.picturePrivacy === "one_time" && hasPicturesBeenViewed && (
+                  <View style={styles.openedOverlay}>
+                    <Ionicons name="eye" size={28} color="#fff" />
+                    <Text style={styles.openedText}>Opened</Text>
+                  </View>
                 )}
               </>
             )}
@@ -850,11 +833,21 @@ export default function ProfileDetailsScreen() {
                       source={{ uri: picture }}
                       style={styles.thumbnailImage}
                       resizeMode="cover"
-                      blurRadius={profile.picturePrivacy === "private" ? 15 : 0}
+                      blurRadius={
+                        profile.picturePrivacy === "private" ? 15
+                        : (profile.picturePrivacy === "one_time" && hasPicturesBeenViewed) ? 15
+                        : 0
+                      }
                     />
                     {profile.picturePrivacy === "private" && (
                       <View style={styles.blurOverlay}>
                         <Ionicons name="lock-closed" size={20} color="#fff" />
+                      </View>
+                    )}
+                    {profile.picturePrivacy === "one_time" && hasPicturesBeenViewed && (
+                      <View style={styles.openedThumbnailOverlay}>
+                        <Ionicons name="eye" size={18} color="#fff" />
+                        <Text style={styles.openedThumbnailText}>Opened</Text>
                       </View>
                     )}
                   </TouchableOpacity>

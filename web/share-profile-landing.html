@@ -4,6 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Zivug Mishamayim — View profile</title>
+
+  <!-- Open Graph tags so link previews look nice in Messages / WhatsApp / etc.
+       Ideally these are rendered server-side with the real profile data. -->
+  <meta property="og:title" content="Zivug Mishamayim — View a profile" />
+  <meta property="og:description" content="Someone shared a profile with you. Open it in the Zivug Mishamayim app." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://www.zivugmishamayim.com/logo-stores.png" />
+
+  <!-- iOS Smart App Banner: if the app is installed and Universal Links are
+       verified, iOS will skip this page entirely. This is an extra hint. -->
+  <!-- Replace APP_STORE_ID with the real numeric id once available. -->
+  <meta name="apple-itunes-app" content="app-id=APP_STORE_ID, app-argument=shiduchimapp://profile/PROFILE_ID" id="smartBanner" />
+
   <style>
     * { box-sizing: border-box; }
     body {
@@ -44,8 +57,7 @@
   <button type="button" class="btn btn-primary" id="openApp">Open in app</button>
 
   <div class="stores">
-    <h2>Don’t have the app yet?</h2>
-    <!-- Replace with your real store URLs when the app is published -->
+    <h2>Don't have the app yet?</h2>
     <a class="btn btn-secondary" id="appStore" href="https://apps.apple.com/" target="_blank" rel="noopener">Download for iPhone</a>
     <a class="btn btn-secondary" id="playStore" href="https://play.google.com/store" target="_blank" rel="noopener">Download for Android</a>
   </div>
@@ -54,10 +66,18 @@
 
   <script>
     (function () {
-      // TODO: Paste your real listing URLs here after store approval
-      var APP_STORE_URL = 'https://apps.apple.com/'; // e.g. https://apps.apple.com/app/id123456789
+      // =====================================================================
+      // Replace these with the real listing URLs after store approval.
+      // =====================================================================
+      var APP_STORE_URL  = 'https://apps.apple.com/';
       var PLAY_STORE_URL = 'https://play.google.com/store';
+      var ANDROID_PACKAGE = 'com.zivugmishamayim';
       var APP_SCHEME = 'shiduchimapp';
+      // Auto-attempt deep link on mobile page load.
+      // If the user doesn't have the app, the scheme won't open and we fall
+      // back to the store. Set to false to require a tap on "Open in app".
+      var AUTO_ATTEMPT_ON_MOBILE = true;
+      // =====================================================================
 
       document.getElementById('appStore').href = APP_STORE_URL;
       document.getElementById('playStore').href = PLAY_STORE_URL;
@@ -69,17 +89,56 @@
         document.getElementById('profileHint').textContent = 'Profile link is ready.';
       } else {
         document.getElementById('profileHint').textContent = 'Invalid link — open a profile link shared from the app.';
+        return;
       }
 
-      document.getElementById('openApp').addEventListener('click', function () {
-        if (!profileId) return;
-        window.location.href = APP_SCHEME + '://profile/' + profileId;
-      });
+      var ua = navigator.userAgent || '';
+      var isIOS = /iPhone|iPad|iPod/i.test(ua);
+      var isAndroid = /Android/i.test(ua);
 
-      // Optional: try opening the app once on load (can be annoying on desktop; comment out if you prefer)
-      // if (profileId && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-      //   window.location.href = APP_SCHEME + '://profile/' + profileId;
-      // }
+      function openApp() {
+        if (!profileId) return;
+        if (isAndroid) {
+          // Intent URL with built-in browser fallback to Play Store.
+          // If the app is installed Chrome will launch it; otherwise it will
+          // redirect to PLAY_STORE_URL automatically.
+          var intentUrl =
+            'intent://profile/' + profileId +
+            '#Intent;scheme=' + APP_SCHEME +
+            ';package=' + ANDROID_PACKAGE +
+            ';S.browser_fallback_url=' + encodeURIComponent(PLAY_STORE_URL) +
+            ';end';
+          window.location.href = intentUrl;
+          return;
+        }
+
+        // iOS + everything else: try the custom scheme. If nothing happens
+        // within 2 s, assume the app isn't installed and send the user to
+        // the App Store. (On iOS with Universal Links verified, the app
+        // would have intercepted the https link already — so reaching this
+        // page means the app likely isn't installed.)
+        var clicked = Date.now();
+        window.location.href = APP_SCHEME + '://profile/' + profileId;
+        setTimeout(function () {
+          if (Date.now() - clicked < 2200 && !document.hidden && isIOS) {
+            window.location.href = APP_STORE_URL;
+          }
+        }, 2000);
+      }
+
+      document.getElementById('openApp').addEventListener('click', openApp);
+
+      // Smart App Banner dynamic update
+      var banner = document.getElementById('smartBanner');
+      if (banner && profileId) {
+        var prev = banner.getAttribute('content') || '';
+        banner.setAttribute('content', prev.replace('PROFILE_ID', profileId));
+      }
+
+      if (AUTO_ATTEMPT_ON_MOBILE && (isIOS || isAndroid)) {
+        // Small delay so the page at least paints first.
+        setTimeout(openApp, 150);
+      }
     })();
   </script>
 </body>

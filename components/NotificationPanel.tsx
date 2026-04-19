@@ -107,19 +107,24 @@ function getNavigationTarget(type?: string, data?: Record<string, any>): string 
       return '/(tabs)/connect';
 
     case 'matchmaker_request':
-      // Someone asked the user to be their matchmaker → For Others > Awaiting Response
       return '/(tabs)/connect?category=for_others&forOthersSection=awaiting';
 
     case 'matchmaker_responded':
+      return '/(tabs)/connect?section=liked';
+
     case 'matchmaker_selected':
     case 'intro_request_from_matchmaker':
-      return '/(tabs)/connect?category=for_others&forOthersSection=awaiting';
-
     case 'suggestion':
     case 'info_request':
       return '/(tabs)/connect?section=action_needed';
 
+    case 'match_accepted':
     case 'suggestion_both_accepted':
+      return '/(tabs)/connect?section=matches';
+
+    case 'requested_responded':
+      return '/(tabs)/connect?category=for_others&forOthersSection=matched';
+
     case 'suggestion_rejected':
     case 'suggestion_reverted':
     case 'engagement_proposal':

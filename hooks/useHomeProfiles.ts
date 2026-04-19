@@ -32,7 +32,7 @@ function transformProfile(dbProfile: any, viewedProfileIds: string[]): Profile {
   const showPictures =
     picturePrivacy === 'always' ||
     picturePrivacy === 'private' ||
-    (picturePrivacy === 'one_time' && !hasBeenViewed);
+    picturePrivacy === 'one_time';
 
   const firstPicture =
     showPictures && dbProfile.pictures?.length > 0
@@ -76,6 +76,7 @@ function transformProfile(dbProfile: any, viewedProfileIds: string[]): Profile {
       ? undefined
       : dbProfile.current_occupation_study,
     picturePrivacy,
+    picturesViewed: picturePrivacy === 'one_time' && hasBeenViewed,
     field_privacy: fieldPrivacy,
   };
 }
@@ -99,6 +100,7 @@ export function useHomeProfiles() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const [filterState, setFilterState] = useState<FilterState>({
+    genderFilter: 'all',
     selectedAgeOption: null,
     minAge: null,
     maxAge: null,
@@ -155,11 +157,14 @@ export function useHomeProfiles() {
         filtered = filtered.filter((p) => p.gender !== userProfile.gender);
       } else if (userProfile.role === 'matchmaker') {
         filtered = filtered.filter((p) => p.role === 'single');
+        if (filterState.genderFilter !== 'all') {
+          filtered = filtered.filter((p) => p.gender === filterState.genderFilter);
+        }
       }
 
       return filtered.filter((p) => p.id !== userProfile.id);
     },
-    []
+    [filterState.genderFilter]
   );
 
   // ── Search helper ─────────────────────────────────────────────────────────

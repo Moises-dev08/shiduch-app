@@ -709,8 +709,8 @@ export default function ConnectScreen() {
         </ScrollView>
       )}
 
-      {/* Subtle loading bar shown during background refetches */}
-      {isFetching && !refreshing && (
+      {/* Loading bar shown only on initial cold load (no cached data yet) */}
+      {loading && !refreshing && (
         <View style={styles.fetchingBar}>
           <ActivityIndicator size="small" color="#1293DA" />
           <Text style={styles.fetchingText}>Updating…</Text>
@@ -853,17 +853,47 @@ export default function ConnectScreen() {
           </>
         )}
 
-        {/* Show profiles you liked in You Liked section (all statuses except completed) */}
+        {/* Show profiles you liked in You Liked section */}
         {activeCategory === 'for_you' && activeSection === 'liked' && (
           <>
             {sentIntroRequests
-              .filter(r => r.status !== 'completed')
+              .filter(r =>
+                r.status !== 'completed' &&
+                r.matchmaker_status !== 'rejected' &&
+                !(r.matchmaker_status === 'accepted' && r.requested_status === 'rejected')
+              )
               .map(request => (
                 <IntroRequestCard
                   key={request.id}
                   request={request}
                   isRequester={true}
                   onUpdate={invalidateIntroRequests}
+                />
+              ))}
+
+            {receivedIntroRequests
+              .filter(r => r.requested_status === 'accepted')
+              .map(request => (
+                <IntroRequestCard
+                  key={request.id}
+                  request={request}
+                  isRequester={false}
+                  onUpdate={invalidateIntroRequests}
+                />
+              ))}
+
+            {currentUserProfile && receivedSuggestions
+              .filter(s => {
+                const isProfileOne = s.profile_one_id === currentUserProfile.id;
+                const myStatus = isProfileOne ? s.profile_one_status : s.profile_two_status;
+                return myStatus === 'accepted' && s.status !== 'completed' && s.status !== 'rejected';
+              })
+              .map(suggestion => (
+                <SuggestionCard
+                  key={suggestion.id}
+                  suggestion={suggestion}
+                  currentProfileId={currentUserProfile.id}
+                  onUpdate={invalidateSuggestions}
                 />
               ))}
           </>

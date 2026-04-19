@@ -1,17 +1,23 @@
 import { useState } from 'react';
 import { Alert, Platform, Share } from 'react-native';
-import { Profile } from '../lib/profileService';
 import { getProfileHttpsShareUrl, PROFILE_SHARE_WEB_BASE } from '../lib/profileShareUrls';
+
+// Structural type — accepts any Profile shape as long as it has the fields we need.
+export interface ShareableProfile {
+  id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+}
 
 export interface UseProfileShareResult {
   isSharing: boolean;
-  shareProfile: (profile: Profile) => Promise<void>;
+  shareProfile: (profile: ShareableProfile) => Promise<void>;
 }
 
 export function useProfileShare(): UseProfileShareResult {
   const [isSharing, setIsSharing] = useState(false);
 
-  const shareProfile = async (profile: Profile): Promise<void> => {
+  const shareProfile = async (profile: ShareableProfile): Promise<void> => {
     if (!profile.id) {
       Alert.alert('Error', 'Profile must be saved before it can be shared.');
       return;

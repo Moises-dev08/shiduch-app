@@ -1,9 +1,10 @@
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
-import { Tabs, useFocusEffect, usePathname } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { Tabs, usePathname } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
 import { useNotificationCount } from "../../hooks/useNotificationCount";
 import { profileService } from "../../lib/profileService";
+import { supabase } from "../../lib/supabase";
 
 export default function TabLayout() {
   const [profileStatus, setProfileStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
@@ -18,20 +19,17 @@ export default function TabLayout() {
         if (result.status) {
           setHasProfile(true);
           setProfileStatus((prevStatus) => {
-            // If status changed from pending/rejected to approved, show success message
             if (prevStatus && prevStatus !== 'approved' && result.status === 'approved') {
               Alert.alert(
                 'Profile Approved!',
                 'Your profile has been approved! You now have access to all features.',
                 [{ text: 'Great!' }]
               );
-              // Refresh notifications when profile is approved
               refreshNotifications();
             }
             return result.status!;
           });
         } else {
-          // No profile found
           setHasProfile(false);
           setProfileStatus(null);
         }
@@ -41,14 +39,13 @@ export default function TabLayout() {
     }
   }, [refreshNotifications]);
 
+  // Initial check on mount + re-check when app returns to foreground
   useEffect(() => {
     checkProfileStatus();
     refreshNotifications();
 
-    // Listen for app state changes (foreground/background)
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        // App came to foreground, refresh status
         checkProfileStatus();
         refreshNotifications();
       }
@@ -59,48 +56,57 @@ export default function TabLayout() {
     };
   }, [checkProfileStatus, refreshNotifications]);
 
-  // Poll for status updates when profile is not approved
-  useEffect(() => {
-    let intervalId: ReturnType<typeof setInterval> | null = null;
+  // Realtime: re-check when the user's own profile row is updated (e.g. admin approval)
+  // or when a new notification arrives for the user
+  const checkProfileStatusRef = useRef(checkProfileStatus);
+  checkProfileStatusRef.current = checkProfileStatus;
 
-    // If profile is pending or rejected, poll every 5 seconds
-    if (profileStatus === 'pending' || profileStatus === 'rejected' || !hasProfile) {
-      intervalId = setInterval(() => {
-        console.log('Polling for profile status update...');
-        checkProfileStatus();
-      }, 5000); // Check every 5 seconds
-    }
+  useEffect(() => {
+    let profileChannel: string | null = null;
+    let notifChannel: string | null = null;
+
+    const setup = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      profileChannel = `profile-status-${user.id}`;
+      supabase
+        .channel(profileChannel)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `user_id=eq.${user.id}` },
+          () => { checkProfileStatusRef.current(); }
+        )
+        .subscribe();
+
+      notifChannel = `admin-notif-status-${user.id}`;
+      supabase
+        .channel(notifChannel)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'notifications' },
+          (payload) => {
+            const rowUserId = (payload.new as any)?.user_id;
+            if (!rowUserId || rowUserId === user.id) {
+              checkProfileStatusRef.current();
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    setup();
 
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      [profileChannel, notifChannel].forEach((name) => {
+        if (!name) return;
+        const ch = supabase.getChannels().find(c => c.topic === `realtime:${name}`);
+        if (ch) supabase.removeChannel(ch);
+      });
     };
-  }, [profileStatus, hasProfile, checkProfileStatus]);
+  }, []);
 
-  // Refresh status when navigating to tabs
-  useFocusEffect(
-    useCallback(() => {
-      console.log('Tab focused, checking profile status...');
-      checkProfileStatus();
-      refreshNotifications();
-    }, [checkProfileStatus, refreshNotifications])
-  );
-
-  // Check if Connect tab is currently active
   const isConnectTabActive = pathname === '/connect';
-
-  // Also check status when any tab screen is focused (more frequent checks)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Check status every 2 seconds when profile is pending/rejected to catch updates quickly
-      if (profileStatus === 'pending' || profileStatus === 'rejected') {
-        checkProfileStatus();
-      }
-    }, 2000); // Check every 2 seconds when not approved
-
-    return () => clearInterval(interval);
-  }, [profileStatus, checkProfileStatus]);
 
   const handleTabPress = (tabName: string) => {
 

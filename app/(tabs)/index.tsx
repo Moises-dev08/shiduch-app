@@ -4,7 +4,6 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -20,15 +19,12 @@ import NotificationPanel from '../../components/NotificationPanel';
 import { useEngagementCelebrations } from '../../hooks/useEngagementCelebrations';
 import { useHomeProfiles } from '../../hooks/useHomeProfiles';
 import { useUnreadNotificationsCount } from '../../hooks/useUnreadNotificationsCount';
-import { profileService } from '../../lib/profileService';
 import { supabase } from '../../lib/supabase';
 import { Profile } from '../../types/homeTypes';
 
 export default function HomeScreen() {
-  const [profileStatus, setProfileStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Get current user ID for engagement celebrations
   useEffect(() => {
     const loadCurrentUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -39,47 +35,33 @@ export default function HomeScreen() {
     loadCurrentUser();
   }, []);
 
-  // Engagement celebrations
   const { showCelebration, celebrationData, closeCelebration } = useEngagementCelebrations(currentUserId);
 
-  // Notification bell badge & panel
   const { unreadCount: unreadNotifCount } = useUnreadNotificationsCount();
   const [notificationPanelVisible, setNotificationPanelVisible] = useState(false);
 
-  // Check profile status and pending filters when screen is focused
+  // Pick up pending filters when returning from the filters screen
   useFocusEffect(
     useCallback(() => {
-      const checkStatus = async () => {
-        const result = await profileService.getProfileStatus();
-        if (result.success && result.status) {
-          setProfileStatus(result.status);
-          // If status is not approved, redirect to profile tab
-          if (result.status !== 'approved') {
-            router.replace('/(tabs)/profile');
-          }
-        }
-      };
-      
       const checkPendingFilters = async () => {
         try {
           const pendingFilters = await AsyncStorage.getItem('pendingFilters');
           if (pendingFilters) {
             const newFilters = JSON.parse(pendingFilters);
             setFilterState(newFilters);
-            // Clear the pending filters
             await AsyncStorage.removeItem('pendingFilters');
           }
         } catch (error) {
           console.error('Error loading pending filters:', error);
         }
       };
-      
-      checkStatus();
+
       checkPendingFilters();
     }, [setFilterState])
   );
   // Profile data and filters
   const {
+    currentUserProfile,
     filteredProfiles,
     visibleProfiles,
     hasMore,
@@ -110,6 +92,11 @@ export default function HomeScreen() {
   // Get active filters for display
   const getActiveFilters = () => {
     const activeFilters: Array<{ label: string; removeKey: string }> = [];
+
+    if (filterState.genderFilter !== 'all') {
+      const label = filterState.genderFilter === 'male' ? 'See first: Boys' : 'See first: Girls';
+      activeFilters.push({ label, removeKey: 'genderFilter' });
+    }
 
     // Age filters
     if (filterState.selectedAgeOption) {
@@ -251,7 +238,9 @@ export default function HomeScreen() {
   const removeFilter = (removeKey: string) => {
     const newFilterState = { ...filterState };
 
-    if (removeKey === 'selectedAgeOption') {
+    if (removeKey === 'genderFilter') {
+      newFilterState.genderFilter = 'all';
+    } else if (removeKey === 'selectedAgeOption') {
       newFilterState.selectedAgeOption = null;
     } else if (removeKey === 'exactAge') {
       newFilterState.exactAge = null;
@@ -333,24 +322,21 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Discover</Text>
-            <TouchableOpacity
-              style={styles.successMatchesButton}
-              onPress={() => router.push('/successful-matches')}
-            >
-              <Text style={styles.successMatchesEmoji}>🎉</Text>
-              <Text style={styles.successMatchesText}>Success Stories</Text>
-              <Ionicons name="chevron-forward" size={14} color="#1293DA" />
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.headerTitle}>Discover</Text>
+          <TouchableOpacity
+            style={styles.successMatchesButton}
+            onPress={() => router.push('/successful-matches')}
+          >
+            <Text style={styles.successMatchesEmoji}>🎉</Text>
+            <Text style={styles.successMatchesText}>Success Stories</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.notificationButton}
             onPress={() => setNotificationPanelVisible(true)}
           >
             <Ionicons
               name={unreadNotifCount > 0 ? 'notifications' : 'notifications-outline'}
-              size={26}
+              size={24}
               color="#333"
             />
             {unreadNotifCount > 0 && (
@@ -377,7 +363,11 @@ export default function HomeScreen() {
             style={styles.filterButton}
             onPress={() => router.push({ 
               pathname: '/filters', 
-              params: { filterState: JSON.stringify(filterState) } 
+              params: {
+                filterState: JSON.stringify(filterState),
+                userRole: currentUserProfile?.role ?? '',
+                userGender: currentUserProfile?.gender ?? '',
+              }
             })}
           >
             <Ionicons name="options" size={20} color="#1293DA" />
@@ -477,8 +467,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
   },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingTop: 12,
     paddingBottom: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -490,25 +480,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
   },
   successMatchesButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     backgroundColor: '#DAA520',
     borderRadius: 20,
-    gap: 6,
-    marginLeft: 12,
+    gap: 4,
     shadowColor: '#DAA520',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -516,11 +500,11 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   successMatchesEmoji: {
-    fontSize: 16,
+    fontSize: 14,
   },
   successMatchesText: {
     color: '#fff',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   notificationButton: {
@@ -550,14 +534,14 @@ const styles = StyleSheet.create({
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f0f0f0',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
   },
   searchIcon: {
@@ -571,7 +555,7 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 10,
     borderWidth: 1,
     borderColor: '#1293DA',

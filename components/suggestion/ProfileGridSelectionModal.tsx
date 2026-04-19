@@ -40,6 +40,7 @@ interface DatabaseProfile {
 }
 
 const DEFAULT_FILTER_STATE: FilterState = {
+  genderFilter: 'all',
   selectedAgeOption: null,
   minAge: null,
   maxAge: null,
@@ -95,9 +96,8 @@ export default function ProfileGridSelectionModal({
         )
         .eq("status", "approved")
         .eq("is_active", true)
-        .eq("role", "single"); // Only singles can be set up
+        .eq("role", "single");
 
-      // Exclude the current user
       if (excludedProfileId) {
         query = query.neq("id", excludedProfileId);
       }
