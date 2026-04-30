@@ -122,6 +122,7 @@ export function useHomeProfiles() {
     hasAskMeFields: false,
     hasPhoto: null,
     hasOneTimePhoto: false,
+    hasPrivatePhoto: false,
     selectedTorahLearning: [],
     selectedPraying: [],
     selectedHeadCovering: [],
@@ -328,6 +329,9 @@ export function useHomeProfiles() {
     if (filterState.hasOneTimePhoto) {
       filtered = filtered.filter((p) => p.picturePrivacy === 'one_time');
     }
+    if (filterState.hasPrivatePhoto) {
+      filtered = filtered.filter((p) => p.picturePrivacy === 'private');
+    }
 
     if (filterState.selectedTorahLearning.length > 0) {
       filtered = filtered.filter((p) => {
@@ -432,6 +436,52 @@ export function useHomeProfiles() {
   }, [queryClient]);
 
   useRealtimeProfiles(silentRefresh);
+
+  // ── Realtime: also invalidate when picture_views changes for the current user ─
+  // This ensures the "Opened" overlay on one-time photos updates immediately
+  // after viewing a profile, without needing a manual pull-to-refresh.
+  useEffect(() => {
+    let channelName: string | null = null;
+
+    const setup = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get the viewer's profile id
+      const { data: viewerProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      if (!viewerProfile) return;
+
+      channelName = `picture_views_viewer_${viewerProfile.id}`;
+      supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'picture_views',
+            filter: `viewer_profile_id=eq.${viewerProfile.id}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ['home_profiles'] });
+          }
+        )
+        .subscribe();
+    };
+
+    setup();
+
+    return () => {
+      if (channelName) {
+        const ch = supabase.getChannels().find(c => c.topic === `realtime:${channelName}`);
+        if (ch) supabase.removeChannel(ch);
+      }
+    };
+  }, [queryClient]);
 
   const visibleProfiles = filteredProfiles.slice(0, visibleCount);
   const hasMore = visibleCount < filteredProfiles.length;

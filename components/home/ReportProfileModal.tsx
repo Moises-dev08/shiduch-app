@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -56,6 +56,7 @@ export default function ReportProfileModal({
   const [selectedReasons, setSelectedReasons] = useState<ReportReason[]>([]);
   const [additionalDetails, setAdditionalDetails] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const handleReasonToggle = (reasonId: ReportReason) => {
     setSelectedReasons(prev => {
@@ -141,6 +142,7 @@ export default function ReportProfileModal({
       onRequestClose={handleClose}
     >
       <SafeAreaView style={styles.container}>
+        <View style={styles.kavContainer}>
         <View style={styles.header}>
           <View style={styles.placeholder} />
           <Text style={styles.title}>Report Profile</Text>
@@ -149,7 +151,12 @@ export default function ReportProfileModal({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content}>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.content}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+        >
           <View style={styles.infoSection}>
             <Ionicons name="alert-circle-outline" size={48} color="#ff9800" />
             <Text style={styles.infoTitle}>Why are you reporting {profileName}?</Text>
@@ -200,33 +207,39 @@ export default function ReportProfileModal({
               onChangeText={setAdditionalDetails}
               editable={!submitting}
               textAlignVertical="top"
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                }, 300);
+              }}
             />
           </View>
-        </ScrollView>
 
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.button, styles.cancelButton]}
-            onPress={handleClose}
-            disabled={submitting}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.button,
-              styles.submitButton,
-              (selectedReasons.length === 0 || submitting) && styles.submitButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={selectedReasons.length === 0 || submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.submitButtonText}>Submit Report</Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={[styles.button, styles.cancelButton]}
+              onPress={handleClose}
+              disabled={submitting}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.button,
+                styles.submitButton,
+                (selectedReasons.length === 0 || submitting) && styles.submitButtonDisabled,
+              ]}
+              onPress={handleSubmit}
+              disabled={selectedReasons.length === 0 || submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.submitButtonText}>Submit Report</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
         </View>
       </SafeAreaView>
     </Modal>
@@ -237,6 +250,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  kavContainer: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

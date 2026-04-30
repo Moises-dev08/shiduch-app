@@ -1471,10 +1471,10 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         </View>
       </Modal>
 
-      {/* Height Picker Modal */}
-      {Platform.OS === 'ios' ? (
-        <Modal visible={showHeightPicker} animationType="slide" presentationStyle="formSheet">
-          <View style={styles.modalContainer}>
+      {/* Height Picker Modal — unified bottom-sheet for all devices */}
+      <Modal visible={showHeightPicker} transparent animationType="slide">
+        <View style={styles.heightPickerModalOverlay}>
+          <View style={styles.heightPickerModalContent}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setShowHeightPicker(false)}>
                 <Text style={styles.cancelText}>Cancel</Text>
@@ -1491,6 +1491,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
                   selectedValue={heightFeet}
                   onValueChange={(itemValue) => setHeightFeet(itemValue)}
                   style={styles.heightPicker}
+                  itemStyle={{ height: 160, fontSize: 22 }}
                 >
                   {HEIGHT_FEET.map((feet) => (
                     <Picker.Item key={feet} label={`${feet}'`} value={feet} />
@@ -1503,6 +1504,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
                   selectedValue={heightInches}
                   onValueChange={(itemValue) => setHeightInches(itemValue)}
                   style={styles.heightPicker}
+                  itemStyle={{ height: 160, fontSize: 22 }}
                 >
                   {HEIGHT_INCHES.map((inches) => (
                     <Picker.Item key={inches} label={`${inches}"`} value={inches} />
@@ -1511,81 +1513,39 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
               </View>
             </View>
           </View>
-        </Modal>
-      ) : (
-        showHeightPicker && (
-          <Modal visible={showHeightPicker} transparent={true} animationType="slide">
-            <View style={styles.heightPickerModalOverlay}>
-              <View style={styles.heightPickerModalContent}>
-                <View style={styles.modalHeader}>
-                  <TouchableOpacity onPress={() => setShowHeightPicker(false)}>
-                    <Text style={styles.cancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.modalTitle}>Select Height</Text>
-                  <TouchableOpacity onPress={() => setShowHeightPicker(false)}>
-                    <Text style={styles.doneText}>Done</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.heightPickerModalContainer}>
-                  <View style={styles.heightPickerWrapper}>
-                    <Text style={styles.heightPickerLabel}>Feet</Text>
-                    <Picker
-                      selectedValue={heightFeet}
-                      onValueChange={(itemValue) => setHeightFeet(itemValue)}
-                      style={styles.heightPicker}
-                    >
-                      {HEIGHT_FEET.map((feet) => (
-                        <Picker.Item key={feet} label={`${feet}'`} value={feet} />
-                      ))}
-                    </Picker>
-                  </View>
-                  <View style={styles.heightPickerWrapper}>
-                    <Text style={styles.heightPickerLabel}>Inches</Text>
-                    <Picker
-                      selectedValue={heightInches}
-                      onValueChange={(itemValue) => setHeightInches(itemValue)}
-                      style={styles.heightPicker}
-                    >
-                      {HEIGHT_INCHES.map((inches) => (
-                        <Picker.Item key={inches} label={`${inches}"`} value={inches} />
-                      ))}
-                    </Picker>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </Modal>
-        )
-      )}
+        </View>
+      </Modal>
 
-      {/* Date Picker Modal for iOS */}
+      {/* Date Picker Modal — unified bottom-sheet for all devices */}
       {Platform.OS === 'ios' ? (
-        <Modal visible={showDatePicker} animationType="slide" presentationStyle="formSheet">
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>Select Date of Birth</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                <Text style={styles.doneText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.datePickerContainer}>
-              <DateTimePicker
-                value={dob}
-                mode="date"
-                display="spinner"
-                onChange={(event, selectedDate) => {
-                  if (selectedDate) {
-                    setDob(selectedDate);
-                    validateDOB(selectedDate);
-                  }
-                }}
-                maximumDate={getMaxDate()}
-                minimumDate={getMinDate()}
-                style={styles.datePicker}
-              />
+        <Modal visible={showDatePicker} transparent animationType="slide">
+          <View style={styles.heightPickerModalOverlay}>
+            <View style={styles.heightPickerModalContent}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>Select Date of Birth</Text>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                  <Text style={styles.doneText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.datePickerContainer}>
+                <DateTimePicker
+                  value={dob}
+                  mode="date"
+                  display="spinner"
+                  onChange={(event, selectedDate) => {
+                    if (selectedDate) {
+                      setDob(selectedDate);
+                      validateDOB(selectedDate);
+                    }
+                  }}
+                  maximumDate={getMaxDate()}
+                  minimumDate={getMinDate()}
+                  style={styles.datePicker}
+                />
+              </View>
             </View>
           </View>
         </Modal>
@@ -2002,7 +1962,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '70%',
+    paddingBottom: 30,
   },
   heightPickerModalContainer: {
     flexDirection: 'row',
@@ -2021,7 +1981,7 @@ const styles = StyleSheet.create({
   },
   heightPicker: {
     width: '100%',
-    height: 200,
+    height: 160,
   },
   resumeContainer: {
     flexDirection: 'row',

@@ -28,7 +28,7 @@ export default function UserDetailsScreen() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   
   // Action State
-  const [pendingAction, setPendingAction] = useState<'freeze' | 'unfreeze' | 'suspend' | 'unsuspend' | 'remove' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'freeze' | 'unfreeze' | 'suspend' | 'unsuspend' | 'remove' | 'restore' | null>(null);
   const [confirmStep, setConfirmStep] = useState<'confirm' | 'reason'>('confirm');
   const [actionReason, setActionReason] = useState('');
   const [processingActionType, setProcessingActionType] = useState<string | null>(null);
@@ -60,7 +60,7 @@ export default function UserDetailsScreen() {
     setRefreshing(false);
   };
 
-  const handleAdminAction = (action: 'freeze' | 'unfreeze' | 'suspend' | 'unsuspend' | 'remove') => {
+  const handleAdminAction = (action: 'freeze' | 'unfreeze' | 'suspend' | 'unsuspend' | 'remove' | 'restore') => {
     if (!profile) return;
     
     setPendingAction(action);
@@ -96,7 +96,7 @@ export default function UserDetailsScreen() {
     setActionReason('');
   };
 
-  const performAction = async (action: 'freeze' | 'unfreeze' | 'suspend' | 'unsuspend' | 'remove', reason?: string) => {
+  const performAction = async (action: 'freeze' | 'unfreeze' | 'suspend' | 'unsuspend' | 'remove' | 'restore', reason?: string) => {
     if (!profile) return;
     
     setProcessingActionType(action);
@@ -115,7 +115,8 @@ export default function UserDetailsScreen() {
         case 'unfreeze': title = 'User Unfrozen'; message = 'User is now visible.'; break;
         case 'suspend': title = 'User Suspended'; message = 'User access has been blocked.'; break;
         case 'unsuspend': title = 'User Unsuspended'; message = 'User access has been restored.'; break;
-        case 'remove': title = 'User Deleted'; message = 'User account has been permanently removed.'; break;
+        case 'remove': title = 'User Removed'; message = 'User account has been removed. You can restore it at any time.'; break;
+        case 'restore': title = 'Account Restored'; message = 'User account has been restored and is now active.'; break;
       }
 
       setSuccessMessage({ title, message });
@@ -123,13 +124,6 @@ export default function UserDetailsScreen() {
       
       // Reload profile to get updated status from backend
       await loadProfile();
-      
-      // If user was removed, go back to users list
-      if (action === 'remove') {
-        setTimeout(() => {
-          router.back();
-        }, 1500);
-      }
     } else {
       // Show error - could be enhanced with error modal
       setShowConfirmModal(false);
@@ -268,21 +262,38 @@ export default function UserDetailsScreen() {
              )}
           </TouchableOpacity>
 
-          {/* Remove */}
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.redButton]}
-            onPress={() => handleAdminAction('remove')}
-            disabled={!!processingActionType}
-          >
-           {processingActionType === 'remove' ? (
-               <ActivityIndicator color="#fff" />
-           ) : (
-               <>
-                <Ionicons name="trash" size={20} color="#fff" />
-                <Text style={styles.actionButtonText}>Remove User</Text>
-               </>
-           )}
-          </TouchableOpacity>
+          {/* Remove / Restore */}
+          {profile.account_status === 'removed' ? (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.blueButton]}
+              onPress={() => handleAdminAction('restore')}
+              disabled={!!processingActionType}
+            >
+              {processingActionType === 'restore' ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="refresh-circle" size={20} color="#fff" />
+                  <Text style={styles.actionButtonText}>Restore Account</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.redButton]}
+              onPress={() => handleAdminAction('remove')}
+              disabled={!!processingActionType}
+            >
+              {processingActionType === 'remove' ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="archive" size={20} color="#fff" />
+                  <Text style={styles.actionButtonText}>Remove User</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
 
@@ -307,14 +318,16 @@ export default function UserDetailsScreen() {
                   {pendingAction === 'unfreeze' && 'Unfreeze User'}
                   {pendingAction === 'suspend' && 'Suspend User'}
                   {pendingAction === 'unsuspend' && 'Unsuspend User'}
-                  {pendingAction === 'remove' && 'Delete User'}
+                  {pendingAction === 'remove' && 'Remove User'}
+                  {pendingAction === 'restore' && 'Restore Account'}
                 </Text>
                 <Text style={styles.dialogSubtitle}>
                   {pendingAction === 'freeze' && 'Are you sure you want to freeze this user? They will be hidden from other users.'}
                   {pendingAction === 'unfreeze' && 'Are you sure you want to unfreeze this user? They will be visible to other users again.'}
                   {pendingAction === 'suspend' && 'Are you sure you want to suspend this user? They will be blocked from accessing the app.'}
                   {pendingAction === 'unsuspend' && 'Are you sure you want to unsuspend this user? Their access will be restored.'}
-                  {pendingAction === 'remove' && 'Are you sure you want to PERMANENTLY delete this user? This action cannot be undone.'}
+                  {pendingAction === 'remove' && "This user will be removed and won't appear in the app. You can restore their account at any time."}
+                  {pendingAction === 'restore' && "Are you sure you want to restore this user's account? They will regain full access to the app."}
                 </Text>
                 <View style={styles.dialogButtons}>
                   <TouchableOpacity onPress={handleCancelConfirm} style={styles.dialogButtonCancel}>
@@ -328,12 +341,13 @@ export default function UserDetailsScreen() {
                         backgroundColor: 
                           pendingAction === 'freeze' || pendingAction === 'unfreeze' ? '#2196f3' :
                           pendingAction === 'suspend' || pendingAction === 'unsuspend' ? '#ff9800' :
-                          pendingAction === 'remove' ? '#f44336' : '#ff9800'
+                          pendingAction === 'remove' ? '#f44336' :
+                          pendingAction === 'restore' ? '#4caf50' : '#ff9800'
                       }
                     ]}
                   >
                     <Text style={styles.dialogButtonTextConfirm}>
-                      {pendingAction === 'remove' ? 'Delete' : 'Yes'}
+                      {pendingAction === 'remove' ? 'Remove' : pendingAction === 'restore' ? 'Restore' : 'Yes'}
                     </Text>
                   </TouchableOpacity>
                 </View>

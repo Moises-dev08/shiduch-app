@@ -86,21 +86,23 @@ export default function SuccessfulMatchesScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      {/* Statistics Card */}
-      <View style={styles.statsCard}>
-        <View style={styles.statsContent}>
-          <Ionicons name="heart" size={40} color="#ff4d4d" />
-          <View style={styles.statsTextContainer}>
-            <Text style={styles.statsNumber}>{engagements.length}</Text>
-            <Text style={styles.statsLabel}>
-              {engagements.length === 1 ? 'Couple Engaged' : 'Couples Engaged'}
-            </Text>
+      {/* Statistics Card — only shown when there is at least one engagement */}
+      {engagements.length > 0 && (
+        <View style={styles.statsCard}>
+          <View style={styles.statsContent}>
+            <Ionicons name="heart" size={40} color="#ff4d4d" />
+            <View style={styles.statsTextContainer}>
+              <Text style={styles.statsNumber}>{engagements.length}</Text>
+              <Text style={styles.statsLabel}>
+                {engagements.length === 1 ? 'Couple Engaged' : 'Couples Engaged'}
+              </Text>
+            </View>
           </View>
+          <Text style={styles.statsSubtext}>
+            Mazel Tov to all the happy couples! 🎉
+          </Text>
         </View>
-        <Text style={styles.statsSubtext}>
-          Mazel Tov to all the happy couples! 🎉
-        </Text>
-      </View>
+      )}
 
       <ScrollView
         style={styles.scrollView}

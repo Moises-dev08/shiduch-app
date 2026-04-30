@@ -62,6 +62,7 @@ const DEFAULT_FILTER_STATE: FilterState = {
   hasAskMeFields: false,
   hasPhoto: null,
   hasOneTimePhoto: false,
+    hasPrivatePhoto: false,
   selectedTorahLearning: [],
   selectedPraying: [],
   selectedHeadCovering: [],

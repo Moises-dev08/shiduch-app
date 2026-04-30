@@ -25,10 +25,12 @@ export default function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'new' | 'updates'>('all');
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
     loadProfiles();
     loadReportsCount();
+    adminService.isSuperAdmin().then(setIsSuperAdmin);
   }, []);
 
   // Reload profiles when screen comes into focus (e.g., after approving/rejecting)
@@ -144,6 +146,18 @@ export default function AdminDashboard() {
               <Text style={styles.actionButtonText}>Users</Text>
             </View>
           </TouchableOpacity>
+
+          {isSuperAdmin && (
+            <TouchableOpacity
+              onPress={() => router.push('/admin/admins')}
+              style={styles.actionButton}
+            >
+              <View style={styles.actionButtonContent}>
+                <Ionicons name="shield-checkmark" size={20} color="#1293DA" />
+                <Text style={[styles.actionButtonText, { color: '#1293DA' }]}>Admins</Text>
+              </View>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity 
             onPress={onRefresh} 

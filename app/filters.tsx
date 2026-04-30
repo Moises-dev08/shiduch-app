@@ -11,8 +11,11 @@ import { FilterState } from '../types/homeTypes';
 // Import options from profile form
 const NATIONALITY_OPTIONS = ['Sefardi', 'Ashkenaz', 'Chassidic', 'Yemenite', 'Mixed Background', 'Other'];
 const HASHKAFA_OPTIONS = ['Yeshivish', 'Open-minded Yeshivish', 'Modern Yeshivish', 'Chareidi', 'Orthodox', 'Modern Orthodox', 'Other'];
-const EDUCATION_OPTIONS = ['Yeshiva', 'Rabbinical Semicha', "Bachelor's degree", "Master's degree", 'Master\'s+', 'High school', 'Seminary', 'Other'];
-const OCCUPATION_OPTIONS = ['Full-time Yeshiva', 'Half learning / half working', 'Working', 'Part-working', 'Studying and working', 'Other'];
+// Full lists — gender-specific subsets are derived below
+const EDUCATION_OPTIONS_ALL = ['Yeshiva', 'Rabbinical Semicha', "Bachelor's degree", "Master's degree", "Master's+", 'High school', 'Seminary', 'Other'];
+const EDUCATION_OPTIONS_MALE_EXCLUDED = ['Yeshiva', 'Rabbinical Semicha']; // shown when filtering female profiles
+const OCCUPATION_OPTIONS_ALL = ['Full-time Yeshiva', 'Half learning / half working', 'Working', 'Part-working', 'Studying and working', 'Other'];
+const OCCUPATION_OPTIONS_MALE_EXCLUDED = ['Full-time Yeshiva', 'Half learning / half working'];
 const MARITAL_STATUS_OPTIONS = ['Single', 'Divorced', 'Divorced with kids', 'Widow/Widower', 'Widow/Widower with kids'];
 
 // Male-specific filters
@@ -305,6 +308,7 @@ export default function FiltersScreen() {
         hasAskMeFields: false,
         hasPhoto: null,
         hasOneTimePhoto: false,
+    hasPrivatePhoto: false,
         selectedTorahLearning: [],
         selectedPraying: [],
         selectedHeadCovering: [],
@@ -335,6 +339,7 @@ export default function FiltersScreen() {
         hasAskMeFields: false,
         hasPhoto: null,
         hasOneTimePhoto: false,
+    hasPrivatePhoto: false,
         selectedTorahLearning: [],
         selectedPraying: [],
         selectedHeadCovering: [],
@@ -364,6 +369,7 @@ export default function FiltersScreen() {
     if (!currentUserGender || !currentUserRole) {
       loadUserGender();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadUserGender = async () => {
@@ -460,9 +466,12 @@ export default function FiltersScreen() {
       sortBy: null,
       hasAskMeFields: false,
       hasPhoto: null,
+      hasOneTimePhoto: false,
+      hasPrivatePhoto: false,
       selectedTorahLearning: [],
       selectedPraying: [],
       selectedHeadCovering: [],
+      selectedPostHighSchool: [],
       wearsBlackHat: null,
     });
   };
@@ -732,6 +741,30 @@ export default function FiltersScreen() {
                   One Time Photo
                 </Text>
               </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[
+                  styles.chip, 
+                  filterState.hasPrivatePhoto && styles.chipSelected
+                ]}
+                onPress={() => setFilterState({
+                  ...filterState,
+                  hasPrivatePhoto: !filterState.hasPrivatePhoto,
+                })}
+              >
+                <Ionicons 
+                  name="lock-closed" 
+                  size={14} 
+                  color={filterState.hasPrivatePhoto ? "#fff" : "#666"} 
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[
+                  styles.chipText, 
+                  filterState.hasPrivatePhoto && styles.chipTextSelected
+                ]}>
+                  Private Photo
+                </Text>
+              </TouchableOpacity>
             </View>
           </>
         ))}
@@ -944,7 +977,9 @@ export default function FiltersScreen() {
         {/* Education Filter */}
         {renderSection('Education Level', 'education', (
           <View style={styles.chipRow}>
-            {EDUCATION_OPTIONS.map(education => (
+            {EDUCATION_OPTIONS_ALL.filter(e =>
+              !(currentUserGender === 'male' && EDUCATION_OPTIONS_MALE_EXCLUDED.includes(e))
+            ).map(education => (
               <TouchableOpacity 
                 key={education}
                 style={[
@@ -970,7 +1005,9 @@ export default function FiltersScreen() {
         {/* Occupation Filter */}
         {renderSection('Occupation / Study', 'occupation', (
           <View style={styles.chipRow}>
-            {OCCUPATION_OPTIONS.map(occupation => (
+            {OCCUPATION_OPTIONS_ALL.filter(o =>
+              !(currentUserGender === 'male' && OCCUPATION_OPTIONS_MALE_EXCLUDED.includes(o))
+            ).map(occupation => (
               <TouchableOpacity 
                 key={occupation}
                 style={[

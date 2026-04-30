@@ -559,6 +559,39 @@ class IntroService {
         return { success: false, error: error.message };
       }
 
+      // Notify parties when a matchmaker is selected for continuation
+      if (choice === 'with_middle_person' && middlePersonId) {
+        try {
+          const [requesterResult, requestedResult, matchmakerResult] = await Promise.all([
+            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', request.requester_id).single(),
+            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', request.requested_profile_id).single(),
+            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', middlePersonId).single(),
+          ]);
+          const requester = requesterResult.data;
+          const requested = requestedResult.data;
+          const matchmaker = matchmakerResult.data;
+          if (matchmaker?.user_id) {
+            await notificationService.sendNotification(
+              matchmaker.user_id,
+              "You've been selected as a matchmaker",
+              `You have been selected to facilitate the match between ${requester?.first_name ?? ''} ${requester?.last_name ?? ''} and ${requested?.first_name ?? ''} ${requested?.last_name ?? ''}.`,
+              { type: 'matchmaker_selected', requestId, requesterId: requester?.id, requestedProfileId: requested?.id }
+            );
+          }
+          const otherSingle = isRequester ? requested : requester;
+          if (otherSingle?.user_id) {
+            await notificationService.sendNotification(
+              otherSingle.user_id,
+              'Match will proceed through a matchmaker',
+              `Your match will proceed through matchmaker ${matchmaker?.first_name ?? ''} ${matchmaker?.last_name ?? ''}.`,
+              { type: 'matchmaker_selected', requestId }
+            );
+          }
+        } catch (notifErr) {
+          console.error('Error sending matchmaker_selected notifications (intro):', notifErr);
+        }
+      }
+
       return { success: true };
     } catch (error: any) {
       console.error('Error in setContinuationChoice:', error);

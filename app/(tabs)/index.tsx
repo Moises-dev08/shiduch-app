@@ -199,6 +199,10 @@ export default function HomeScreen() {
       activeFilters.push({ label: 'One Time Photo', removeKey: 'hasOneTimePhoto' });
     }
 
+    if (filterState.hasPrivatePhoto) {
+      activeFilters.push({ label: 'Private Photo', removeKey: 'hasPrivatePhoto' });
+    }
+
     // Gender-specific filters
     if (filterState.selectedTorahLearning) {
       filterState.selectedTorahLearning.forEach(learning => {
@@ -285,6 +289,8 @@ export default function HomeScreen() {
       newFilterState.hasPhoto = null;
     } else if (removeKey === 'hasOneTimePhoto') {
       newFilterState.hasOneTimePhoto = false;
+    } else if (removeKey === 'hasPrivatePhoto') {
+      newFilterState.hasPrivatePhoto = false;
     } else if (removeKey.startsWith('torahLearning_')) {
       const learning = removeKey.replace('torahLearning_', '');
       newFilterState.selectedTorahLearning = newFilterState.selectedTorahLearning.filter(l => l !== learning);

@@ -95,6 +95,7 @@ export interface FilterState {
   hasAskMeFields: boolean;
   hasPhoto: boolean | null; // null = any, true = has photo, false = no photo
   hasOneTimePhoto: boolean; // Filter for profiles with one-time photo privacy
+  hasPrivatePhoto: boolean; // Filter for profiles with private photo privacy
   
   // Gender-specific filters
   selectedTorahLearning: string[];

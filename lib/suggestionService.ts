@@ -607,6 +607,38 @@ class SuggestionService {
         return { success: false, error: error.message };
       }
 
+      if (choice === 'with_middle_person' && middlePersonId) {
+        try {
+          const [profileOneResult, profileTwoResult, matchmakerResult] = await Promise.all([
+            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', suggestion.profile_one_id).single(),
+            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', suggestion.profile_two_id).single(),
+            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', middlePersonId).single(),
+          ]);
+          const profileOne = profileOneResult.data;
+          const profileTwo = profileTwoResult.data;
+          const matchmaker = matchmakerResult.data;
+          if (matchmaker?.user_id) {
+            await notificationService.sendNotification(
+              matchmaker.user_id,
+              "You've been selected as a matchmaker",
+              `You have been selected to facilitate the match between ${profileOne?.first_name ?? ''} ${profileOne?.last_name ?? ''} and ${profileTwo?.first_name ?? ''} ${profileTwo?.last_name ?? ''}.`,
+              { type: 'matchmaker_selected', suggestionId }
+            );
+          }
+          const otherProfile = isProfileOne ? profileTwo : profileOne;
+          if (otherProfile?.user_id) {
+            await notificationService.sendNotification(
+              otherProfile.user_id,
+              'Match will proceed through a matchmaker',
+              `Your match will proceed through matchmaker ${matchmaker?.first_name ?? ''} ${matchmaker?.last_name ?? ''}.`,
+              { type: 'matchmaker_selected', suggestionId }
+            );
+          }
+        } catch (notifErr) {
+          console.error('Error sending matchmaker_selected notifications (suggestion):', notifErr);
+        }
+      }
+
       return { success: true };
     } catch (error: any) {
       console.error('Error in setContinuationChoice:', error);
@@ -645,7 +677,7 @@ class SuggestionService {
           .from('suggestions')
           .select(`
             *,
-            suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, dob, pictures, gender),
+            suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, dob, pictures, gender, role),
             profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
             profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
             profile_one_middle_person:profiles!suggestions_profile_one_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
@@ -657,7 +689,7 @@ class SuggestionService {
           .from('suggestions')
           .select(`
             *,
-            suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, dob, pictures, gender),
+            suggester_profile:profiles!suggestions_suggester_id_fkey(id, first_name, last_name, dob, pictures, gender, role),
             profile_one:profiles!suggestions_profile_one_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
             profile_two:profiles!suggestions_profile_two_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
             profile_one_middle_person:profiles!suggestions_profile_one_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),

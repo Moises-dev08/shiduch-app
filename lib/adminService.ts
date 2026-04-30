@@ -3,6 +3,81 @@ import { Profile } from './profileService';
 import { supabase, supabaseUrl } from './supabase';
 
 class AdminService {
+  async isSuperAdmin(): Promise<boolean> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('is_super_admin')
+        .eq('user_id', user.id)
+        .single();
+      return !error && !!data?.is_super_admin;
+    } catch {
+      return false;
+    }
+  }
+
+  async listAdmins(): Promise<{ success: boolean; admins?: { id: string; user_id: string; email: string; is_super_admin: boolean; created_at: string }[]; error?: string }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { success: false, error: 'Not authenticated' };
+      const response = await fetch(`${supabaseUrl}/functions/v1/admin-manage-admins`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'list' }),
+      });
+      const data = await response.json();
+      if (!response.ok) return { success: false, error: data.error || 'Failed to list admins' };
+      return { success: true, admins: data.admins };
+    } catch (error: any) { return { success: false, error: error.message }; }
+  }
+
+  async addAdmin(email: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { success: false, error: 'Not authenticated' };
+      const response = await fetch(`${supabaseUrl}/functions/v1/admin-manage-admins`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', email }),
+      });
+      const data = await response.json();
+      if (!response.ok) return { success: false, error: data.error || 'Failed to add admin' };
+      return { success: true };
+    } catch (error: any) { return { success: false, error: error.message }; }
+  }
+
+  async removeAdmin(adminId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { success: false, error: 'Not authenticated' };
+      const response = await fetch(`${supabaseUrl}/functions/v1/admin-manage-admins`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'remove', adminId }),
+      });
+      const data = await response.json();
+      if (!response.ok) return { success: false, error: data.error || 'Failed to remove admin' };
+      return { success: true };
+    } catch (error: any) { return { success: false, error: error.message }; }
+  }
+
+  async setSuperAdmin(adminId: string, value: boolean): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { success: false, error: 'Not authenticated' };
+      const response = await fetch(`${supabaseUrl}/functions/v1/admin-manage-admins`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_super', adminId, value }),
+      });
+      const data = await response.json();
+      if (!response.ok) return { success: false, error: data.error || 'Failed to update super admin status' };
+      return { success: true };
+    } catch (error: any) { return { success: false, error: error.message }; }
+  }
+
   /**
    * Check if current user is an admin
    */
@@ -242,7 +317,7 @@ class AdminService {
    */
   async performAdminAction(
     userId: string, 
-    action: 'freeze' | 'unfreeze' | 'suspend' | 'unsuspend' | 'remove', 
+    action: 'freeze' | 'unfreeze' | 'suspend' | 'unsuspend' | 'remove' | 'restore', 
     reason?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {

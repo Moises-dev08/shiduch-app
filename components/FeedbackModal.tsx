@@ -4,7 +4,10 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -86,6 +89,7 @@ export default function FeedbackModal({ visible, onClose }: FeedbackModalProps) 
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.overlay}>
           <TouchableWithoutFeedback>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.kavContainer}>
             <View style={styles.modalContainer}>
               {/* Header */}
               <View style={styles.header}>
@@ -103,7 +107,7 @@ export default function FeedbackModal({ visible, onClose }: FeedbackModalProps) 
               </View>
 
               {/* Content */}
-              <View style={styles.content}>
+              <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentContainer} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 <Text style={styles.description}>
                   We'd love to hear your thoughts! Your feedback helps us improve the app and provide a better experience for everyone.
                 </Text>
@@ -124,7 +128,7 @@ export default function FeedbackModal({ visible, onClose }: FeedbackModalProps) 
                 <Text style={styles.characterCount}>
                   {message.length} / 1000 characters
                 </Text>
-              </View>
+              </ScrollView>
 
               {/* Actions */}
               <View style={styles.actions}>
@@ -156,6 +160,7 @@ export default function FeedbackModal({ visible, onClose }: FeedbackModalProps) 
                 </TouchableOpacity>
               </View>
             </View>
+            </KeyboardAvoidingView>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
@@ -169,11 +174,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
+  kavContainer: {
+    width: '100%',
+  },
   modalContainer: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '80%',
+    maxHeight: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,
@@ -202,7 +210,10 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
-  content: {
+  scrollContent: {
+    flexShrink: 1,
+  },
+  scrollContentContainer: {
     padding: 20,
   },
   description: {

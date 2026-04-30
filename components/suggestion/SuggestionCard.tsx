@@ -72,7 +72,30 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
   };
 
   const handleContinuationChoice = async (choice: 'by_themselves' | 'with_middle_person') => {
+    const suggesterIsMatchmaker = (suggester as any)?.role === 'matchmaker';
+
     if (choice === 'with_middle_person') {
+      if (suggesterIsMatchmaker && suggestion.suggester_id) {
+        setShowContinuationModal(false);
+        setIsResponding(true);
+        const statusKey = isProfileOne ? 'profile_one_status' : 'profile_two_status';
+        const choiceKey = isProfileOne ? 'profile_one_continuation_choice' : 'profile_two_continuation_choice';
+        patchSuggestionCache({ [statusKey]: 'accepted', [choiceKey]: 'with_middle_person' });
+        try {
+          await suggestionService.respondToSuggestion(suggestion.id, 'accepted');
+          await suggestionService.setContinuationChoice(suggestion.id, 'with_middle_person', suggestion.suggester_id);
+          Alert.alert('Success', 'You have accepted the suggestion!');
+          onAccepted?.();
+          onUpdate();
+        } catch (error) {
+          console.error('Error accepting suggestion:', error);
+          onUpdate();
+          Alert.alert('Error', 'Failed to accept suggestion');
+        } finally {
+          setIsResponding(false);
+        }
+        return;
+      }
       setShowContinuationModal(false);
       setShowMiddlePersonModal(true);
       return;
