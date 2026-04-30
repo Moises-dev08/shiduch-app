@@ -468,7 +468,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
                     }}
                   >
                     <Ionicons name="document-text" size={20} color="#1293DA" />
-                    <Text style={styles.resumeButtonText}>Download Resume 📄</Text>
+                    <Text style={styles.resumeButtonText}>View Resume 📄</Text>
                   </TouchableOpacity>
                 )}
               </View>

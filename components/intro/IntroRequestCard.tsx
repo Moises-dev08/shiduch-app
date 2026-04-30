@@ -469,7 +469,7 @@ export default function IntroRequestCardNew({
                     }
                   >
                     <Ionicons name="document-text" size={20} color="#1293DA" />
-                    <Text style={styles.unifiedResumeButtonText}>Download Resume 📄</Text>
+                    <Text style={styles.unifiedResumeButtonText}>View Resume 📄</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -570,7 +570,7 @@ export default function IntroRequestCardNew({
                     }
                   >
                     <Ionicons name="document-text" size={20} color="#1293DA" />
-                    <Text style={styles.unifiedResumeButtonText}>Download Resume 📄</Text>
+                    <Text style={styles.unifiedResumeButtonText}>View Resume 📄</Text>
                   </TouchableOpacity>
                 )}
               </View>

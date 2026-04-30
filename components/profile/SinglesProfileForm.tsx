@@ -1343,15 +1343,23 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
         {resumeUrl ? (
           <View style={styles.resumeContainer}>
-            <View style={styles.resumeInfo}>
+            <TouchableOpacity
+              style={styles.resumeInfo}
+              onPress={async () => {
+                const { resumeService } = await import('../../lib/resumeService');
+                const result = await resumeService.downloadResume(resumeUrl, resumeFileName || 'resume');
+                if (!result.success) Alert.alert('Error', result.error || 'Failed to open resume');
+              }}
+              activeOpacity={0.7}
+            >
               <Ionicons name="document-text" size={24} color="#1293DA" />
               <View style={styles.resumeDetails}>
                 <Text style={styles.resumeText}>Resume uploaded</Text>
-                <Text style={styles.resumeSubtext}>
-                  {resumeFileName || 'resume document'}
+                <Text style={[styles.resumeSubtext, { color: '#1293DA' }]}>
+                  {resumeFileName || 'resume document'} · Tap to preview
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.deleteResumeButton}
               onPress={handleDeleteResume}

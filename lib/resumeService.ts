@@ -1,7 +1,7 @@
 import { decode } from 'base64-arraybuffer';
 import { getDocumentAsync } from 'expo-document-picker';
 import { readAsStringAsync } from 'expo-file-system/legacy';
-import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from './supabase';
 
 class ResumeService {
@@ -159,15 +159,21 @@ class ResumeService {
   }
 
   /**
-   * Download resume (opens in browser/external app)
+   * Open resume in an in-app browser preview sheet.
+   * Works for both PDFs and images without leaving the app.
    */
-  async downloadResume(resumeUrl: string, fileName: string = 'resume'): Promise<{ success: boolean; error?: string }> {
+  async downloadResume(resumeUrl: string, _fileName: string = 'resume'): Promise<{ success: boolean; error?: string }> {
     try {
-
-      await Linking.openURL(resumeUrl);
+      const result = await WebBrowser.openBrowserAsync(resumeUrl, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+        controlsColor: '#1293DA',
+      });
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        return { success: true }; // user closed the preview — not an error
+      }
       return { success: true };
     } catch (error: any) {
-      console.error('Error downloading resume:', error);
+      console.error('Error opening resume preview:', error);
       return { success: false, error: error.message };
     }
   }

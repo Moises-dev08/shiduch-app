@@ -318,19 +318,24 @@ export function useHomeProfiles() {
         return vals.length > 0 && vals.some((v) => v === true);
       });
     }
-    if (filterState.hasPhoto !== null) {
+    // Photo filters — OR logic within the group, AND with other filter categories
+    const photoFiltersActive =
+      filterState.hasPhoto !== null ||
+      filterState.hasOneTimePhoto ||
+      filterState.hasPrivatePhoto;
+
+    if (photoFiltersActive) {
       filtered = filtered.filter((p) => {
-        const hasPhoto = p.picture && p.picture.length > 0 && p.picturePrivacy !== 'none';
-        return filterState.hasPhoto === true
-          ? hasPhoto
-          : !hasPhoto || p.picturePrivacy === 'none';
+        const hasVisiblePhoto = p.picture && p.picture.length > 0 && p.picturePrivacy !== 'none';
+        const hasNoPhoto = !p.picture || p.picture.length === 0 || p.picturePrivacy === 'none';
+
+        if (filterState.hasPhoto === true && hasVisiblePhoto) return true;
+        if (filterState.hasPhoto === false && hasNoPhoto) return true;
+        if (filterState.hasOneTimePhoto && p.picturePrivacy === 'one_time') return true;
+        if (filterState.hasPrivatePhoto && p.picturePrivacy === 'private') return true;
+
+        return false;
       });
-    }
-    if (filterState.hasOneTimePhoto) {
-      filtered = filtered.filter((p) => p.picturePrivacy === 'one_time');
-    }
-    if (filterState.hasPrivatePhoto) {
-      filtered = filtered.filter((p) => p.picturePrivacy === 'private');
     }
 
     if (filterState.selectedTorahLearning.length > 0) {
