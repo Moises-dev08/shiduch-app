@@ -1,6 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface ProfileActionsProps {
   onSetupPress: () => void;
@@ -38,7 +44,7 @@ export default function ProfileActions({
             disabled={isSubmittingInfoRequest}
           >
             <Ionicons name="heart" size={20} color="#fff" />
-            <Text style={styles.primaryButtonText}>Ask for Intro</Text>
+            <Text style={styles.primaryButtonText}>Ask for Info</Text>
           </TouchableOpacity>
         )}
 
@@ -52,7 +58,11 @@ export default function ProfileActions({
               <ActivityIndicator color="#1293DA" />
             ) : (
               <>
-                <Ionicons name="information-circle-outline" size={20} color="#1293DA" />
+                <Ionicons
+                  name="information-circle-outline"
+                  size={20}
+                  color="#1293DA"
+                />
                 <Text style={styles.secondaryButtonText}>Ask for Info</Text>
               </>
             )}
@@ -98,52 +108,52 @@ export default function ProfileActions({
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: "#e0e0e0",
   },
   mainActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginBottom: 12,
   },
   button: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 8,
     gap: 8,
   },
   primaryButton: {
-    backgroundColor: '#1293DA',
+    backgroundColor: "#1293DA",
   },
   primaryButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#fff",
   },
   secondaryButton: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 2,
-    borderColor: '#1293DA',
+    borderColor: "#1293DA",
   },
   secondaryButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1293DA',
+    fontWeight: "600",
+    color: "#1293DA",
   },
   secondaryActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   iconButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 8,
@@ -151,22 +161,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   reportButton: {
-    backgroundColor: '#FFF8E1',
-    borderColor: '#FFE082',
+    backgroundColor: "#FFF8E1",
+    borderColor: "#FFE082",
   },
   reportButtonText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#F59E0B',
+    fontWeight: "500",
+    color: "#F59E0B",
   },
   shareButton: {
-    backgroundColor: '#e3f2fd',
-    borderColor: '#bbdefb',
+    backgroundColor: "#e3f2fd",
+    borderColor: "#bbdefb",
   },
   shareButtonText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#1293DA',
+    fontWeight: "500",
+    color: "#1293DA",
   },
 });
-

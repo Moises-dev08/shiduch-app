@@ -157,58 +157,33 @@ class SuggestionService {
         return { success: false, error: error.message };
       }
 
-      // Send push notifications to both suggested profiles
-      try {
-        // Get profile information for notifications
-        const { data: profileOne } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name')
-          .eq('id', profileOneId)
-          .single();
-
-        const { data: profileTwo } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name')
-          .eq('id', profileTwoId)
-          .single();
-
-        const { data: suggesterProfile } = await supabase
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('id', profile.id)
-          .single();
-
-        // Notify profile one
-        if (profileOne && suggesterProfile && profileTwo) {
-          await notificationService.sendNotification(
-            profileOne.user_id,
-            'New Match Suggestion',
-            `${suggesterProfile.first_name} ${suggesterProfile.last_name} suggested a match with ${profileTwo.first_name} ${profileTwo.last_name}`,
-            {
-              type: 'suggestion',
-              suggestionId: data.id,
-              suggesterId: profile.id,
-            }
-          );
-        }
-
-        // Notify profile two
-        if (profileTwo && suggesterProfile && profileOne) {
-          await notificationService.sendNotification(
-            profileTwo.user_id,
-            'New Match Suggestion',
-            `${suggesterProfile.first_name} ${suggesterProfile.last_name} suggested a match with ${profileOne.first_name} ${profileOne.last_name}`,
-            {
-              type: 'suggestion',
-              suggestionId: data.id,
-              suggesterId: profile.id,
-            }
-          );
-        }
-      } catch (notifError) {
-        console.error('Error sending notifications:', notifError);
-        // Don't fail the request if notification fails
-      }
+      // Fire-and-forget: notify both suggested profiles
+      const _csId = data.id;
+      const _csSuggesterId = profile.id;
+      ;(async () => {
+        const [p1Result, p2Result, suggesterResult] = await Promise.all([
+          supabase.from('profiles').select('user_id, first_name, last_name').eq('id', profileOneId).single(),
+          supabase.from('profiles').select('user_id, first_name, last_name').eq('id', profileTwoId).single(),
+          supabase.from('profiles').select('first_name, last_name').eq('id', _csSuggesterId).single(),
+        ]);
+        const p1 = p1Result.data;
+        const p2 = p2Result.data;
+        const sg = suggesterResult.data;
+        if (!p1 || !p2 || !sg) return;
+        const sgName = `${sg.first_name} ${sg.last_name}`;
+        await Promise.allSettled([
+          notificationService.sendNotification(
+            p1.user_id, 'New Match Suggestion',
+            `${sgName} suggested a match with ${p2.first_name} ${p2.last_name}`,
+            { type: 'suggestion', suggestionId: _csId, suggesterId: _csSuggesterId }
+          ),
+          notificationService.sendNotification(
+            p2.user_id, 'New Match Suggestion',
+            `${sgName} suggested a match with ${p1.first_name} ${p1.last_name}`,
+            { type: 'suggestion', suggestionId: _csId, suggesterId: _csSuggesterId }
+          ),
+        ]);
+      })().catch((e) => console.error('Error sending createSuggestion notifications:', e));
 
       return { success: true, suggestion: data };
     } catch (error: any) {
@@ -290,101 +265,63 @@ class SuggestionService {
         return { success: false, error: error.message };
       }
 
-      // If this person accepted, check if both have now accepted → notify suggester
-      if (response === 'accepted') {
-        try {
-          const { data: updatedSuggestion } = await supabase
-            .from('suggestions')
-            .select(`
-              *,
-              suggester_profile:profiles!suggestions_suggester_id_fkey(id, user_id, first_name, last_name),
-              profile_one:profiles!suggestions_profile_one_id_fkey(id, user_id, first_name, last_name),
-              profile_two:profiles!suggestions_profile_two_id_fkey(id, user_id, first_name, last_name)
-            `)
-            .eq('id', suggestionId)
-            .single();
+      // Fire-and-forget notifications for accepted/rejected response
+      const _rtsId = suggestionId;
+      const _rtsPid = profile.id;
+      const _rtsIsP1 = isProfileOne;
+      const _rtsResp = response;
+      const _rtsNote = rejectionNote;
+      ;(async () => {
+        const { data: updatedSuggestion } = await supabase
+          .from('suggestions')
+          .select(`
+            *,
+            suggester_profile:profiles!suggestions_suggester_id_fkey(id, user_id, first_name, last_name),
+            profile_one:profiles!suggestions_profile_one_id_fkey(id, user_id, first_name, last_name),
+            profile_two:profiles!suggestions_profile_two_id_fkey(id, user_id, first_name, last_name)
+          `)
+          .eq('id', _rtsId)
+          .single();
+        if (!updatedSuggestion) return;
+        const suggester = updatedSuggestion.suggester_profile as any;
+        const p1 = updatedSuggestion.profile_one as any;
+        const p2 = updatedSuggestion.profile_two as any;
 
+        if (_rtsResp === 'accepted') {
           if (
-            updatedSuggestion &&
             updatedSuggestion.profile_one_status === 'accepted' &&
-            updatedSuggestion.profile_two_status === 'accepted'
+            updatedSuggestion.profile_two_status === 'accepted' &&
+            suggester?.user_id && suggester.id !== _rtsPid
           ) {
-            const suggester = updatedSuggestion.suggester_profile;
-            const p1 = updatedSuggestion.profile_one;
-            const p2 = updatedSuggestion.profile_two;
-
-            if (suggester?.user_id && suggester.id !== profile.id) {
-              await notificationService.sendNotification(
-                suggester.user_id,
-                '🎉 Both Accepted Your Suggestion!',
-                `${p1?.first_name} ${p1?.last_name} and ${p2?.first_name} ${p2?.last_name} both accepted your match suggestion!`,
-                {
-                  type: 'suggestion_both_accepted',
-                  suggestionId,
-                }
-              );
-            }
+            await notificationService.sendNotification(
+              suggester.user_id,
+              '🎉 Both Accepted Your Suggestion!',
+              `${p1?.first_name} ${p1?.last_name} and ${p2?.first_name} ${p2?.last_name} both accepted your match suggestion!`,
+              { type: 'suggestion_both_accepted', suggestionId: _rtsId }
+            );
           }
-        } catch (notifError) {
-          console.error('Error sending both-accepted notification:', notifError);
+        } else {
+          const rejectingProfile = _rtsIsP1 ? p1 : p2;
+          const otherProfile = _rtsIsP1 ? p2 : p1;
+          const rejectingName = `${rejectingProfile?.first_name} ${rejectingProfile?.last_name}`;
+          await Promise.allSettled([
+            suggester?.user_id && suggester.id !== _rtsPid
+              ? notificationService.sendNotification(
+                  suggester.user_id, 'Match Suggestion Declined',
+                  `${rejectingName} declined your match suggestion${_rtsNote ? ': ' + _rtsNote : '.'}`,
+                  { type: 'suggestion_rejected', suggestionId: _rtsId, rejectedBy: _rtsPid }
+                )
+              : Promise.resolve(),
+            otherProfile?.user_id && otherProfile.id !== _rtsPid
+              ? notificationService.sendNotification(
+                  otherProfile.user_id, 'Match Suggestion Declined',
+                  `${rejectingName} declined the match suggestion${_rtsNote ? ': ' + _rtsNote : '.'}`,
+                  { type: 'suggestion_rejected', suggestionId: _rtsId, rejectedBy: _rtsPid }
+                )
+              : Promise.resolve(),
+          ]);
         }
-      }
-
-      // Send notifications if rejected
-      if (response === 'rejected') {
-        try {
-          // Get the full suggestion with profile information
-          const { data: suggestion } = await supabase
-            .from('suggestions')
-            .select(`
-              *,
-              suggester_profile:profiles!suggestions_suggester_id_fkey(id, user_id, first_name, last_name),
-              profile_one:profiles!suggestions_profile_one_id_fkey(id, user_id, first_name, last_name),
-              profile_two:profiles!suggestions_profile_two_id_fkey(id, user_id, first_name, last_name)
-            `)
-            .eq('id', suggestionId)
-            .single();
-
-          if (suggestion) {
-            const profileOne = suggestion.profile_one;
-            const profileTwo = suggestion.profile_two;
-            const suggester = suggestion.suggester_profile;
-            const rejectingProfile = isProfileOne ? profileOne : profileTwo;
-            const otherProfile = isProfileOne ? profileTwo : profileOne;
-
-            // Notify the suggester
-            if (suggester && suggester.user_id && suggester.id !== profile.id) {
-              await notificationService.sendNotification(
-                suggester.user_id,
-                'Match Suggestion Declined',
-                `${rejectingProfile?.first_name} ${rejectingProfile?.last_name} declined your match suggestion${rejectionNote ? ': ' + rejectionNote : '.'}`,
-                {
-                  type: 'suggestion_rejected',
-                  suggestionId: suggestionId,
-                  rejectedBy: profile.id,
-                }
-              );
-            }
-
-            // Notify the other profile (the one who wasn't the one rejecting)
-            if (otherProfile && otherProfile.user_id && otherProfile.id !== profile.id) {
-              await notificationService.sendNotification(
-                otherProfile.user_id,
-                'Match Suggestion Declined',
-                `${rejectingProfile?.first_name} ${rejectingProfile?.last_name} declined the match suggestion${rejectionNote ? ': ' + rejectionNote : '.'}`,
-                {
-                  type: 'suggestion_rejected',
-                  suggestionId: suggestionId,
-                  rejectedBy: profile.id,
-                }
-              );
-            }
-          }
-        } catch (notifError) {
-          console.error('Error sending rejection notifications:', notifError);
-          // Don't fail the rejection if notification fails
-        }
-      }
+      })().catch((e) => console.error('Error sending respondToSuggestion notifications:', e));
 
       return { success: true };
     } catch (error: any) {
@@ -476,8 +413,11 @@ class SuggestionService {
         return { success: false, error: error.message };
       }
 
-      // Send notification to the suggester and other profile that the rejection was reverted
-      try {
+      // Fire-and-forget: notify suggester and other profile of revert
+      const _rrSgId = suggestionId;
+      const _rrPid = profile.id;
+      const _rrIsP1 = isProfileOne;
+      ;(async () => {
         const { data: updatedSuggestion } = await supabase
           .from('suggestions')
           .select(`
@@ -486,55 +426,170 @@ class SuggestionService {
             profile_one:profiles!suggestions_profile_one_id_fkey(id, user_id, first_name, last_name),
             profile_two:profiles!suggestions_profile_two_id_fkey(id, user_id, first_name, last_name)
           `)
-          .eq('id', suggestionId)
+          .eq('id', _rrSgId)
           .single();
-
-        if (updatedSuggestion) {
-          const profileOne = updatedSuggestion.profile_one;
-          const profileTwo = updatedSuggestion.profile_two;
-          const suggester = updatedSuggestion.suggester_profile;
-          const revertingProfile = isProfileOne ? profileOne : profileTwo;
-          const otherProfile = isProfileOne ? profileTwo : profileOne;
-
-          // Notify the suggester
-          if (suggester && suggester.user_id && suggester.id !== profile.id) {
-            await notificationService.sendNotification(
-              suggester.user_id,
-              'Suggestion Response Changed',
-              `${revertingProfile?.first_name} ${revertingProfile?.last_name} changed their mind and is now considering the match suggestion.`,
-              {
-                type: 'suggestion_reverted',
-                suggestionId: suggestionId,
-                revertedBy: profile.id,
-              }
-            );
-          }
-
-          // Notify the other profile if they had accepted
-          if (otherProfile && otherProfile.user_id && otherProfile.id !== profile.id) {
-            const otherStatus = isProfileOne ? updatedSuggestion.profile_two_status : updatedSuggestion.profile_one_status;
-            if (otherStatus === 'accepted' || otherStatus === 'pending') {
-              await notificationService.sendNotification(
-                otherProfile.user_id,
-                'Suggestion Response Changed',
-                `${revertingProfile?.first_name} ${revertingProfile?.last_name} changed their mind and is now considering the match suggestion.`,
-                {
-                  type: 'suggestion_reverted',
-                  suggestionId: suggestionId,
-                  revertedBy: profile.id,
-                }
-              );
-            }
-          }
-        }
-      } catch (notifError) {
-        console.error('Error sending revert notifications:', notifError);
-        // Don't fail the revert if notification fails
-      }
+        if (!updatedSuggestion) return;
+        const p1 = updatedSuggestion.profile_one as any;
+        const p2 = updatedSuggestion.profile_two as any;
+        const suggester = updatedSuggestion.suggester_profile as any;
+        const revertingProfile = _rrIsP1 ? p1 : p2;
+        const otherProfile = _rrIsP1 ? p2 : p1;
+        const revertingName = `${revertingProfile?.first_name} ${revertingProfile?.last_name}`;
+        const otherStatus = _rrIsP1 ? updatedSuggestion.profile_two_status : updatedSuggestion.profile_one_status;
+        await Promise.allSettled([
+          suggester?.user_id && suggester.id !== _rrPid
+            ? notificationService.sendNotification(
+                suggester.user_id, 'Suggestion Response Changed',
+                `${revertingName} changed their mind and is now considering the match suggestion.`,
+                { type: 'suggestion_reverted', suggestionId: _rrSgId, revertedBy: _rrPid }
+              )
+            : Promise.resolve(),
+          otherProfile?.user_id && otherProfile.id !== _rrPid && (otherStatus === 'accepted' || otherStatus === 'pending')
+            ? notificationService.sendNotification(
+                otherProfile.user_id, 'Suggestion Response Changed',
+                `${revertingName} changed their mind and is now considering the match suggestion.`,
+                { type: 'suggestion_reverted', suggestionId: _rrSgId, revertedBy: _rrPid }
+              )
+            : Promise.resolve(),
+        ]);
+      })().catch((e) => console.error('Error sending revert notifications:', e));
 
       return { success: true };
     } catch (error: any) {
       console.error('Error in revertRejection:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Atomic: accept suggestion AND set continuation choice in a single DB write.
+   * Prevents the intermediate state (accepted but no continuation choice) that would
+   * briefly show the "Response Required" card again via a Realtime-triggered refetch.
+   */
+  async acceptWithContinuation(
+    suggestionId: string,
+    choice: 'by_themselves' | 'with_middle_person',
+    middlePersonId?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { success: false, error: 'Not authenticated' };
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .eq('user_id', user.id)
+        .single();
+      if (!profile) return { success: false, error: 'Profile not found' };
+
+      const { data: suggestion } = await supabase
+        .from('suggestions')
+        .select('*')
+        .eq('id', suggestionId)
+        .single();
+      if (!suggestion) return { success: false, error: 'Suggestion not found' };
+
+      const isProfileOne = suggestion.profile_one_id === profile.id;
+      const isProfileTwo = suggestion.profile_two_id === profile.id;
+      if (!isProfileOne && !isProfileTwo) {
+        return { success: false, error: 'You are not part of this suggestion' };
+      }
+
+      const now = new Date().toISOString();
+      const updateData: any = { updated_at: now };
+
+      if (isProfileOne) {
+        updateData.profile_one_status = 'accepted';
+        updateData.profile_one_continuation_choice = choice;
+        if (middlePersonId) updateData.profile_one_middle_person_id = middlePersonId;
+      } else {
+        updateData.profile_two_status = 'accepted';
+        updateData.profile_two_continuation_choice = choice;
+        if (middlePersonId) updateData.profile_two_middle_person_id = middlePersonId;
+      }
+
+      // Determine final statuses to decide if suggestion is now completed
+      const otherStatus = isProfileOne ? suggestion.profile_two_status : suggestion.profile_one_status;
+      const otherChoice = isProfileOne
+        ? suggestion.profile_two_continuation_choice
+        : suggestion.profile_one_continuation_choice;
+
+      if (otherStatus === 'accepted' && otherChoice) {
+        updateData.status = 'completed';
+      } else {
+        updateData.status = 'accepted';
+      }
+
+      const { error } = await supabase
+        .from('suggestions')
+        .update(updateData)
+        .eq('id', suggestionId);
+
+      if (error) return { success: false, error: error.message };
+
+      // Fire-and-forget notifications
+      const _awcSgId = suggestionId;
+      const _awcPid = profile.id;
+      const _awcIsP1 = isProfileOne;
+      const _awcChoice = choice;
+      const _awcMpId = middlePersonId;
+      ;(async () => {
+        const { data: fullSuggestion } = await supabase
+          .from('suggestions')
+          .select(`
+            *,
+            suggester_profile:profiles!suggestions_suggester_id_fkey(id, user_id, first_name, last_name),
+            profile_one:profiles!suggestions_profile_one_id_fkey(id, user_id, first_name, last_name),
+            profile_two:profiles!suggestions_profile_two_id_fkey(id, user_id, first_name, last_name)
+          `)
+          .eq('id', _awcSgId)
+          .single();
+        if (!fullSuggestion) return;
+        const p1 = fullSuggestion.profile_one as any;
+        const p2 = fullSuggestion.profile_two as any;
+        const suggester = fullSuggestion.suggester_profile as any;
+        const notifs: Promise<any>[] = [];
+
+        if (
+          fullSuggestion.profile_one_status === 'accepted' &&
+          fullSuggestion.profile_two_status === 'accepted' &&
+          suggester?.user_id && suggester.id !== _awcPid
+        ) {
+          notifs.push(notificationService.sendNotification(
+            suggester.user_id,
+            '🎉 Both Accepted Your Suggestion!',
+            `${p1?.first_name} ${p1?.last_name} and ${p2?.first_name} ${p2?.last_name} both accepted your match suggestion!`,
+            { type: 'suggestion_both_accepted', suggestionId: _awcSgId }
+          ));
+        }
+
+        if (_awcChoice === 'with_middle_person' && _awcMpId) {
+          const { data: matchmaker } = await supabase
+            .from('profiles').select('id, user_id, first_name, last_name').eq('id', _awcMpId).single();
+          const otherProfile = _awcIsP1 ? p2 : p1;
+          if (matchmaker?.user_id) {
+            notifs.push(notificationService.sendNotification(
+              matchmaker.user_id,
+              "You've been selected as a matchmaker",
+              `You have been selected to facilitate the match between ${p1?.first_name ?? ''} ${p1?.last_name ?? ''} and ${p2?.first_name ?? ''} ${p2?.last_name ?? ''}.`,
+              { type: 'matchmaker_selected', purpose: 'facilitator_chosen', suggestionId: _awcSgId }
+            ));
+          }
+          if (otherProfile?.user_id) {
+            notifs.push(notificationService.sendNotification(
+              otherProfile.user_id,
+              'Match will proceed through a matchmaker',
+              `Your match will proceed through matchmaker ${(matchmaker as any)?.first_name ?? ''} ${(matchmaker as any)?.last_name ?? ''}.`,
+              { type: 'matchmaker_selected', purpose: 'counterpart_notice', suggestionId: _awcSgId }
+            ));
+          }
+        }
+        await Promise.allSettled(notifs);
+      })().catch((e) => console.error('Error sending acceptWithContinuation notifications:', e));
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error in acceptWithContinuation (suggestion):', error);
       return { success: false, error: error.message };
     }
   }
@@ -607,36 +662,42 @@ class SuggestionService {
         return { success: false, error: error.message };
       }
 
+      // Fire-and-forget: notify matchmaker + counterpart when a middle person is selected
       if (choice === 'with_middle_person' && middlePersonId) {
-        try {
-          const [profileOneResult, profileTwoResult, matchmakerResult] = await Promise.all([
-            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', suggestion.profile_one_id).single(),
-            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', suggestion.profile_two_id).single(),
-            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', middlePersonId).single(),
+        const _sccSgId = suggestionId;
+        const _sccMpId = middlePersonId;
+        const _sccP1Id = suggestion.profile_one_id;
+        const _sccP2Id = suggestion.profile_two_id;
+        const _sccIsP1 = isProfileOne;
+        ;(async () => {
+          const [p1Result, p2Result, mmResult] = await Promise.all([
+            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', _sccP1Id).single(),
+            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', _sccP2Id).single(),
+            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', _sccMpId).single(),
           ]);
-          const profileOne = profileOneResult.data;
-          const profileTwo = profileTwoResult.data;
-          const matchmaker = matchmakerResult.data;
-          if (matchmaker?.user_id) {
-            await notificationService.sendNotification(
-              matchmaker.user_id,
-              "You've been selected as a matchmaker",
-              `You have been selected to facilitate the match between ${profileOne?.first_name ?? ''} ${profileOne?.last_name ?? ''} and ${profileTwo?.first_name ?? ''} ${profileTwo?.last_name ?? ''}.`,
-              { type: 'matchmaker_selected', suggestionId }
-            );
-          }
-          const otherProfile = isProfileOne ? profileTwo : profileOne;
-          if (otherProfile?.user_id) {
-            await notificationService.sendNotification(
-              otherProfile.user_id,
-              'Match will proceed through a matchmaker',
-              `Your match will proceed through matchmaker ${matchmaker?.first_name ?? ''} ${matchmaker?.last_name ?? ''}.`,
-              { type: 'matchmaker_selected', suggestionId }
-            );
-          }
-        } catch (notifErr) {
-          console.error('Error sending matchmaker_selected notifications (suggestion):', notifErr);
-        }
+          const p1 = p1Result.data;
+          const p2 = p2Result.data;
+          const mm = mmResult.data;
+          const otherProfile = _sccIsP1 ? p2 : p1;
+          await Promise.allSettled([
+            mm?.user_id
+              ? notificationService.sendNotification(
+                  mm.user_id,
+                  "You've been selected as a matchmaker",
+                  `You have been selected to facilitate the match between ${p1?.first_name ?? ''} ${p1?.last_name ?? ''} and ${p2?.first_name ?? ''} ${p2?.last_name ?? ''}.`,
+                  { type: 'matchmaker_selected', purpose: 'facilitator_chosen', suggestionId: _sccSgId }
+                )
+              : Promise.resolve(),
+            otherProfile?.user_id
+              ? notificationService.sendNotification(
+                  otherProfile.user_id,
+                  'Match will proceed through a matchmaker',
+                  `Your match will proceed through matchmaker ${mm?.first_name ?? ''} ${mm?.last_name ?? ''}.`,
+                  { type: 'matchmaker_selected', purpose: 'counterpart_notice', suggestionId: _sccSgId }
+                )
+              : Promise.resolve(),
+          ]);
+        })().catch((e) => console.error('Error sending matchmaker_selected notifications (suggestion):', e));
       }
 
       return { success: true };

@@ -19,7 +19,7 @@ import {
 import { profileService } from '../../lib/profileService';
 import { Suggestion, suggestionService } from '../../lib/suggestionService';
 import ContinuationChoiceModal from '../intro/ContinuationChoiceModal';
-import MiddlePersonSelectionModal from '../intro/MiddlePersonSelectionModal';
+
 
 interface SuggestionCardProps {
   suggestion: Suggestion;
@@ -36,7 +36,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
   const [rejectNote, setRejectNote] = useState('');
   const [isResponding, setIsResponding] = useState(false);
   const [showContinuationModal, setShowContinuationModal] = useState(false);
-  const [showMiddlePersonModal, setShowMiddlePersonModal] = useState(false);
+
   const [showContactInfo, setShowContactInfo] = useState(false);
 
   const isProfileOne = suggestion.profile_one_id === currentProfileId;
@@ -72,43 +72,49 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
   };
 
   const handleContinuationChoice = async (choice: 'by_themselves' | 'with_middle_person') => {
-    const suggesterIsMatchmaker = (suggester as any)?.role === 'matchmaker';
-
     if (choice === 'with_middle_person') {
-      if (suggesterIsMatchmaker && suggestion.suggester_id) {
-        setShowContinuationModal(false);
-        setIsResponding(true);
-        const statusKey = isProfileOne ? 'profile_one_status' : 'profile_two_status';
-        const choiceKey = isProfileOne ? 'profile_one_continuation_choice' : 'profile_two_continuation_choice';
-        patchSuggestionCache({ [statusKey]: 'accepted', [choiceKey]: 'with_middle_person' });
-        try {
-          await suggestionService.respondToSuggestion(suggestion.id, 'accepted');
-          await suggestionService.setContinuationChoice(suggestion.id, 'with_middle_person', suggestion.suggester_id);
-          Alert.alert('Success', 'You have accepted the suggestion!');
-          onAccepted?.();
-          onUpdate();
-        } catch (error) {
-          console.error('Error accepting suggestion:', error);
-          onUpdate();
-          Alert.alert('Error', 'Failed to accept suggestion');
-        } finally {
-          setIsResponding(false);
-        }
-        return;
-      }
+      // Always use the suggester (X) as the matchmaker — no manual selection allowed
       setShowContinuationModal(false);
-      setShowMiddlePersonModal(true);
+      setIsResponding(true);
+      const statusKey = isProfileOne ? 'profile_one_status' : 'profile_two_status';
+      const choiceKey = isProfileOne ? 'profile_one_continuation_choice' : 'profile_two_continuation_choice';
+      patchSuggestionCache({ [statusKey]: 'accepted', [choiceKey]: 'with_middle_person' });
+      try {
+        await suggestionService.acceptWithContinuation(suggestion.id, 'with_middle_person', suggestion.suggester_id);
+        const suggesterName = suggester
+          ? `${suggester.first_name} ${suggester.last_name}`
+          : 'The suggester';
+        const pronoun = suggester?.gender === 'male' ? 'he' : suggester?.gender === 'female' ? 'she' : 'they';
+        Alert.alert(
+          'Matchmaker Assigned',
+          `${suggesterName} will be your matchmaker since ${pronoun} made this suggestion.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                onUpdate();
+                router.setParams({ section: 'liked' });
+              },
+            },
+          ]
+        );
+      } catch (error) {
+        console.error('Error accepting suggestion:', error);
+        onUpdate();
+        Alert.alert('Error', 'Failed to accept suggestion');
+      } finally {
+        setIsResponding(false);
+      }
       return;
     }
 
+    setShowContinuationModal(false);
     setIsResponding(true);
     const statusKey = isProfileOne ? 'profile_one_status' : 'profile_two_status';
     const choiceKey = isProfileOne ? 'profile_one_continuation_choice' : 'profile_two_continuation_choice';
     patchSuggestionCache({ [statusKey]: 'accepted', [choiceKey]: choice });
     try {
-      await suggestionService.respondToSuggestion(suggestion.id, 'accepted');
-      await suggestionService.setContinuationChoice(suggestion.id, choice);
-      setShowContinuationModal(false);
+      await suggestionService.acceptWithContinuation(suggestion.id, choice);
       Alert.alert('Success', 'You have accepted the suggestion!');
       onAccepted?.();
       onUpdate();
@@ -121,26 +127,6 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
     }
   };
 
-  const handleMiddlePersonSelected = async (person: any) => {
-    setShowMiddlePersonModal(false);
-    setIsResponding(true);
-    const statusKey = isProfileOne ? 'profile_one_status' : 'profile_two_status';
-    const choiceKey = isProfileOne ? 'profile_one_continuation_choice' : 'profile_two_continuation_choice';
-    patchSuggestionCache({ [statusKey]: 'accepted', [choiceKey]: 'with_middle_person' });
-    try {
-      await suggestionService.respondToSuggestion(suggestion.id, 'accepted');
-      await suggestionService.setContinuationChoice(suggestion.id, 'with_middle_person', person.id);
-      Alert.alert('Success', 'You have accepted the suggestion!');
-      onAccepted?.();
-      onUpdate();
-    } catch (error) {
-      console.error('Error accepting suggestion:', error);
-      onUpdate(); // rollback via refetch
-      Alert.alert('Error', 'Failed to accept suggestion');
-    } finally {
-      setIsResponding(false);
-    }
-  };
 
   const handleReject = async () => {
     setIsResponding(true);
@@ -574,19 +560,11 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
         </View>
       </Modal>
 
-      {/* Modals */}
-      <MiddlePersonSelectionModal
-        visible={showMiddlePersonModal}
-        excludedProfileId={currentProfileId}
-        requestedProfileId={otherProfile.id}
-        onSelect={handleMiddlePersonSelected}
-        onCancel={() => setShowMiddlePersonModal(false)}
-      />
-
       {otherProfile && (
         <ContinuationChoiceModal
           visible={showContinuationModal}
           profileName={`${otherProfile?.first_name} ${otherProfile?.last_name}`}
+          suggesterName={suggester ? `${suggester.first_name} ${suggester.last_name}` : undefined}
           onSelectChoice={handleContinuationChoice}
           onCancel={() => setShowContinuationModal(false)}
           loading={isResponding}

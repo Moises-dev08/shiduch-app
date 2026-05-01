@@ -3,17 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AskForInfoModal from "../components/AskForInfoModal";
@@ -86,6 +86,20 @@ async function fetchProfileDetails(profileId: string) {
         activeStatuses.includes(r.status as any),
     );
     existingIntroRequest = sent ?? received ?? null;
+  }
+
+  // Existing suggestion match (accepted or completed) — prevents info requests to matched profiles
+  let existingSuggestionMatch = false;
+  if (currentUserProfile?.id) {
+    const { data: suggMatch } = await supabase
+      .from("suggestions")
+      .select("id")
+      .or(
+        `and(profile_one_id.eq.${currentUserProfile.id},profile_two_id.eq.${profileId}),and(profile_one_id.eq.${profileId},profile_two_id.eq.${currentUserProfile.id})`,
+      )
+      .in("status", ["accepted", "completed"])
+      .limit(1);
+    existingSuggestionMatch = (suggMatch?.length ?? 0) > 0;
   }
 
   // Approved info fields.
@@ -224,6 +238,7 @@ async function fetchProfileDetails(profileId: string) {
     currentUserProfile,
     rawData: data,
     existingIntroRequest,
+    existingSuggestionMatch,
     hasPicturesBeenViewed,
     // Pass the approved-fields set to the component so isFieldPrivate can use it
     approvedFields: Array.from(currentApprovedFields),
@@ -306,6 +321,7 @@ export default function ProfileDetailsScreen() {
   const [showAskForInfoModal, setShowAskForInfoModal] = useState(false);
   const [selectedFieldForInfo, setSelectedFieldForInfo] = useState<string>("");
   const [isSubmittingInfoRequest, setIsSubmittingInfoRequest] = useState(false);
+  const [existingSuggestionMatch, setExistingSuggestionMatch] = useState(false);
 
   // One-time picture view tracking
   const [hasPicturesBeenViewed, setHasPicturesBeenViewed] = useState(false);
@@ -323,6 +339,9 @@ export default function ProfileDetailsScreen() {
     setApprovedFields(profileQueryData.approvedFields ?? []);
     setHasPicturesBeenViewed(profileQueryData.hasPicturesBeenViewed);
     setExistingIntroRequest(profileQueryData.existingIntroRequest ?? null);
+    setExistingSuggestionMatch(
+      profileQueryData.existingSuggestionMatch ?? false,
+    );
   }, [profileQueryData]);
 
   // Navigate back if profile could not be loaded
@@ -366,6 +385,21 @@ export default function ProfileDetailsScreen() {
   };
 
   const handleAskForInfo = async (fieldName: string) => {
+    // Block info requests when already matched (via suggestion or accepted intro request)
+    const isMatchedViaIntro =
+      existingIntroRequest &&
+      (existingIntroRequest.status === "accepted" ||
+        existingIntroRequest.status === "completed");
+
+    if (existingSuggestionMatch || isMatchedViaIntro) {
+      Alert.alert(
+        "Already Matched! 🎉",
+        `You already have a match with ${profile?.first_name ?? "this person"}. Check the Connect tab to see their contact information.`,
+        [{ text: "OK" }],
+      );
+      return;
+    }
+
     // Check if there's already a pending or approved request for this field
     const result = await infoRequestService.getSentRequests();
     if (result.success && result.requests) {
@@ -427,6 +461,16 @@ export default function ProfileDetailsScreen() {
   };
 
   const handleAskForIntro = () => {
+    // Block if already matched via suggestion
+    if (existingSuggestionMatch) {
+      Alert.alert(
+        "Already Matched! 🎉",
+        `You already have a match with ${profile?.first_name ?? "this person"}. Check the Connect tab to see their contact information.`,
+        [{ text: "OK" }],
+      );
+      return;
+    }
+
     // Check if there's already a request
     if (existingIntroRequest) {
       let message = "";
@@ -782,9 +826,12 @@ export default function ProfileDetailsScreen() {
                   style={styles.profileImage}
                   onError={() => setImageError(true)}
                   blurRadius={
-                    profile.picturePrivacy === "private" ? 20
-                    : (profile.picturePrivacy === "one_time" && hasPicturesBeenViewed) ? 20
-                    : 0
+                    profile.picturePrivacy === "private"
+                      ? 20
+                      : profile.picturePrivacy === "one_time" &&
+                          hasPicturesBeenViewed
+                        ? 20
+                        : 0
                   }
                 />
                 {profile.picturePrivacy === "private" && (
@@ -797,12 +844,13 @@ export default function ProfileDetailsScreen() {
                     <Text style={styles.seeMoreText}>See More</Text>
                   </TouchableOpacity>
                 )}
-                {profile.picturePrivacy === "one_time" && hasPicturesBeenViewed && (
-                  <View style={styles.openedOverlay}>
-                    <Ionicons name="eye" size={28} color="#fff" />
-                    <Text style={styles.openedText}>Opened</Text>
-                  </View>
-                )}
+                {profile.picturePrivacy === "one_time" &&
+                  hasPicturesBeenViewed && (
+                    <View style={styles.openedOverlay}>
+                      <Ionicons name="eye" size={28} color="#fff" />
+                      <Text style={styles.openedText}>Opened</Text>
+                    </View>
+                  )}
               </>
             )}
           </View>
@@ -834,9 +882,12 @@ export default function ProfileDetailsScreen() {
                       style={styles.thumbnailImage}
                       resizeMode="cover"
                       blurRadius={
-                        profile.picturePrivacy === "private" ? 15
-                        : (profile.picturePrivacy === "one_time" && hasPicturesBeenViewed) ? 15
-                        : 0
+                        profile.picturePrivacy === "private"
+                          ? 15
+                          : profile.picturePrivacy === "one_time" &&
+                              hasPicturesBeenViewed
+                            ? 15
+                            : 0
                       }
                     />
                     {profile.picturePrivacy === "private" && (
@@ -844,12 +895,13 @@ export default function ProfileDetailsScreen() {
                         <Ionicons name="lock-closed" size={20} color="#fff" />
                       </View>
                     )}
-                    {profile.picturePrivacy === "one_time" && hasPicturesBeenViewed && (
-                      <View style={styles.openedThumbnailOverlay}>
-                        <Ionicons name="eye" size={18} color="#fff" />
-                        <Text style={styles.openedThumbnailText}>Opened</Text>
-                      </View>
-                    )}
+                    {profile.picturePrivacy === "one_time" &&
+                      hasPicturesBeenViewed && (
+                        <View style={styles.openedThumbnailOverlay}>
+                          <Ionicons name="eye" size={18} color="#fff" />
+                          <Text style={styles.openedThumbnailText}>Opened</Text>
+                        </View>
+                      )}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -873,12 +925,16 @@ export default function ProfileDetailsScreen() {
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Gender:</Text>
-            <Text style={styles.detailValue}>{profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)}</Text>
+            <Text style={styles.detailValue}>
+              {profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)}
+            </Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Role:</Text>
-            <Text style={styles.detailValue}>{profile.role === 'single' ? 'Single' : 'Matchmaker'}</Text>
+            <Text style={styles.detailValue}>
+              {profile.role === "single" ? "Single" : "Matchmaker"}
+            </Text>
           </View>
 
           {renderDetailRow(
@@ -1158,13 +1214,23 @@ export default function ProfileDetailsScreen() {
               style={[
                 styles.actionButton,
                 styles.introButton,
-                existingIntroRequest && styles.disabledButton,
+                (existingIntroRequest || existingSuggestionMatch) &&
+                  styles.disabledButton,
               ]}
               onPress={handleAskForIntro}
-              disabled={isSubmittingIntro || !!existingIntroRequest}
+              disabled={
+                isSubmittingIntro ||
+                !!existingIntroRequest ||
+                existingSuggestionMatch
+              }
             >
               {isSubmittingIntro ? (
                 <ActivityIndicator color="#fff" size="small" />
+              ) : existingSuggestionMatch ? (
+                <>
+                  <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                  <Text style={styles.actionButtonText}>Already Matched</Text>
+                </>
               ) : existingIntroRequest ? (
                 <>
                   <Ionicons name="checkmark-circle" size={20} color="#fff" />
@@ -1179,7 +1245,7 @@ export default function ProfileDetailsScreen() {
               ) : (
                 <>
                   <Ionicons name="hand-right" size={20} color="#fff" />
-                  <Text style={styles.actionButtonText}>Ask for Intro</Text>
+                  <Text style={styles.actionButtonText}>Ask for Info</Text>
                 </>
               )}
             </TouchableOpacity>

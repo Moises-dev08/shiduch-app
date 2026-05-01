@@ -109,19 +109,22 @@ class IntroService {
         supabase.from('profiles').select('user_id, first_name, last_name').eq('id', matchmakerId).single(),
       ]);
 
-      // Notify the matchmaker (NEW: only matchmaker gets notified, not requested person yet)
+      // Fire-and-forget: notify the matchmaker without blocking the caller
       if (matchmakerResult.data && requestedProfileResult.data) {
-        await notificationService.sendNotification(
-          matchmakerResult.data.user_id,
+        const _m = matchmakerResult.data;
+        const _r = requestedProfileResult.data;
+        const _requestId = data.id;
+        notificationService.sendNotification(
+          _m.user_id,
           'New Matchmaking Request',
-          `${profile.first_name} ${profile.last_name} is asking for an intro to ${requestedProfileResult.data.first_name} ${requestedProfileResult.data.last_name} and wants you to be the matchmaker`,
+          `${profile.first_name} ${profile.last_name} is asking for an intro to ${_r.first_name} ${_r.last_name} and wants you to be the matchmaker`,
           {
             type: 'matchmaker_request',
-            requestId: data.id,
+            requestId: _requestId,
             requesterId: profile.id,
             requestedProfileId: requestedProfileId,
           }
-        );
+        ).catch((e) => console.error('Error sending matchmaker_request notification:', e));
       }
 
       return { success: true, request: data };
@@ -206,45 +209,38 @@ class IntroService {
         return { success: false, error: error.message };
       }
 
-      // Send notifications
-      try {
+      // Fire-and-forget notifications
+      const _requestId = requestId;
+      const _response = response;
+      const _matchmakerId = profile.id;
+      const _matchmakerName = profile.first_name;
+      const _noteToRequester = noteToRequester;
+      ;(async () => {
         const [requesterResult, requestedResult] = await Promise.all([
           supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requester_id).single(),
           supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requested_profile_id).single(),
         ]);
-
-        // Notify requester about matchmaker's response
-        if (requesterResult.data) {
-          await notificationService.sendNotification(
-            requesterResult.data.user_id,
-            response === 'accepted' ? 'Matchmaker Accepted!' : 'Matchmaker Declined',
-            response === 'accepted'
-              ? `Your matchmaker accepted your intro request${noteToRequester ? ': ' + noteToRequester : ''}`
-              : `Your matchmaker declined your intro request${noteToRequester ? ': ' + noteToRequester : ''}`,
-            {
-              type: 'matchmaker_responded',
-              requestId: requestId,
-              response: response,
-            }
-          );
-        }
-
-        // If accepted, notify the requested person
-        if (response === 'accepted' && requestedResult.data && requesterResult.data) {
-          await notificationService.sendNotification(
-            requestedResult.data.user_id,
-            'New Intro Request',
-            `${profile.first_name} ${profile.last_name} is facilitating an intro request from ${requesterResult.data.first_name}`,
-            {
-              type: 'intro_request_from_matchmaker',
-              requestId: requestId,
-              matchmakerId: profile.id,
-            }
-          );
-        }
-      } catch (notifError) {
-        console.error('Error sending notifications:', notifError);
-      }
+        await Promise.allSettled([
+          requesterResult.data
+            ? notificationService.sendNotification(
+                requesterResult.data.user_id,
+                _response === 'accepted' ? 'Matchmaker Accepted!' : 'Matchmaker Declined',
+                _response === 'accepted'
+                  ? `Your matchmaker accepted your intro request${_noteToRequester ? ': ' + _noteToRequester : ''}`
+                  : `Your matchmaker declined your intro request${_noteToRequester ? ': ' + _noteToRequester : ''}`,
+                { type: 'matchmaker_responded', requestId: _requestId, response: _response }
+              )
+            : Promise.resolve(),
+          _response === 'accepted' && requestedResult.data && requesterResult.data
+            ? notificationService.sendNotification(
+                requestedResult.data.user_id,
+                'New Intro Request',
+                `${_matchmakerName} is facilitating an intro request from ${requesterResult.data.first_name}`,
+                { type: 'intro_request_from_matchmaker', requestId: _requestId, matchmakerId: _matchmakerId }
+              )
+            : Promise.resolve(),
+        ]);
+      })().catch((e) => console.error('Error sending matchmakerRespondToRequest notifications:', e));
 
       return { success: true };
     } catch (error: any) {
@@ -323,44 +319,37 @@ class IntroService {
         return { success: false, error: error.message };
       }
 
-      // Send notifications
-      try {
+      // Fire-and-forget notifications
+      const _rqId = requestId;
+      const _resp = response;
+      const _profileName = `${profile.first_name} ${profile.last_name}`;
+      const _noteToMM = noteToMatchmaker;
+      ;(async () => {
         const [matchmakerResult, requesterResult] = await Promise.all([
           supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requester_middle_person_id).single(),
           supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requester_id).single(),
         ]);
-
-        // Notify matchmaker about requested person's response
-        if (matchmakerResult.data) {
-          await notificationService.sendNotification(
-            matchmakerResult.data.user_id,
-            response === 'accepted' ? 'Match Accepted!' : 'Intro Declined',
-            response === 'accepted'
-              ? `${profile.first_name} ${profile.last_name} accepted the intro request${noteToMatchmaker ? ': ' + noteToMatchmaker : ''}`
-              : `${profile.first_name} ${profile.last_name} declined the intro request${noteToMatchmaker ? ': ' + noteToMatchmaker : ''}`,
-            {
-              type: 'requested_responded',
-              requestId: requestId,
-              response: response,
-            }
-          );
-        }
-
-        // If accepted, notify requester too
-        if (response === 'accepted' && requesterResult.data) {
-          await notificationService.sendNotification(
-            requesterResult.data.user_id,
-            'Match Accepted!',
-            `${profile.first_name} ${profile.last_name} accepted your intro request! Choose how you want to continue.`,
-            {
-              type: 'match_accepted',
-              requestId: requestId,
-            }
-          );
-        }
-      } catch (notifError) {
-        console.error('Error sending notifications:', notifError);
-      }
+        await Promise.allSettled([
+          matchmakerResult.data
+            ? notificationService.sendNotification(
+                matchmakerResult.data.user_id,
+                _resp === 'accepted' ? 'Match Accepted!' : 'Intro Declined',
+                _resp === 'accepted'
+                  ? `${_profileName} accepted the intro request${_noteToMM ? ': ' + _noteToMM : ''}`
+                  : `${_profileName} declined the intro request${_noteToMM ? ': ' + _noteToMM : ''}`,
+                { type: 'requested_responded', requestId: _rqId, response: _resp }
+              )
+            : Promise.resolve(),
+          _resp === 'accepted' && requesterResult.data
+            ? notificationService.sendNotification(
+                requesterResult.data.user_id,
+                'Match Accepted!',
+                `${_profileName} accepted your intro request! Choose how you want to continue.`,
+                { type: 'match_accepted', requestId: _rqId }
+              )
+            : Promise.resolve(),
+        ]);
+      })().catch((e) => console.error('Error sending requestedPersonRespond notifications:', e));
 
       return { success: true };
     } catch (error: any) {
@@ -440,31 +429,33 @@ class IntroService {
 
       if (error) return { success: false, error: error.message };
 
-      // Send notifications
-      try {
+      // Fire-and-forget notifications
+      const _awcReqId = requestId;
+      const _awcName = `${profile.first_name} ${profile.last_name}`;
+      ;(async () => {
         const [matchmakerResult, requesterResult] = await Promise.all([
           supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requester_middle_person_id).single(),
           supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requester_id).single(),
         ]);
-        if (matchmakerResult.data) {
-          await notificationService.sendNotification(
-            matchmakerResult.data.user_id,
-            'Match Accepted!',
-            `${profile.first_name} ${profile.last_name} accepted the intro request`,
-            { type: 'requested_responded', requestId, response: 'accepted' }
-          );
-        }
-        if (requesterResult.data) {
-          await notificationService.sendNotification(
-            requesterResult.data.user_id,
-            'Match Accepted!',
-            `${profile.first_name} ${profile.last_name} accepted your intro request! Choose how you want to continue.`,
-            { type: 'match_accepted', requestId }
-          );
-        }
-      } catch (notifError) {
-        console.error('Error sending notifications:', notifError);
-      }
+        await Promise.allSettled([
+          matchmakerResult.data
+            ? notificationService.sendNotification(
+                matchmakerResult.data.user_id,
+                'Match Accepted!',
+                `${_awcName} accepted the intro request`,
+                { type: 'requested_responded', requestId: _awcReqId, response: 'accepted' }
+              )
+            : Promise.resolve(),
+          requesterResult.data
+            ? notificationService.sendNotification(
+                requesterResult.data.user_id,
+                'Match Accepted!',
+                `${_awcName} accepted your intro request! Choose how you want to continue.`,
+                { type: 'match_accepted', requestId: _awcReqId }
+              )
+            : Promise.resolve(),
+        ]);
+      })().catch((e) => console.error('Error sending acceptWithContinuation notifications:', e));
 
       return { success: true };
     } catch (error: any) {
@@ -559,37 +550,40 @@ class IntroService {
         return { success: false, error: error.message };
       }
 
-      // Notify parties when a matchmaker is selected for continuation
+      // Fire-and-forget: notify parties when a matchmaker is selected for continuation
       if (choice === 'with_middle_person' && middlePersonId) {
-        try {
+        const _sccReqId = requestId;
+        const _sccMpId = middlePersonId;
+        const _isRequester = isRequester;
+        ;(async () => {
           const [requesterResult, requestedResult, matchmakerResult] = await Promise.all([
             supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', request.requester_id).single(),
             supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', request.requested_profile_id).single(),
-            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', middlePersonId).single(),
+            supabase.from('profiles').select('id, user_id, first_name, last_name').eq('id', _sccMpId).single(),
           ]);
           const requester = requesterResult.data;
           const requested = requestedResult.data;
           const matchmaker = matchmakerResult.data;
-          if (matchmaker?.user_id) {
-            await notificationService.sendNotification(
-              matchmaker.user_id,
-              "You've been selected as a matchmaker",
-              `You have been selected to facilitate the match between ${requester?.first_name ?? ''} ${requester?.last_name ?? ''} and ${requested?.first_name ?? ''} ${requested?.last_name ?? ''}.`,
-              { type: 'matchmaker_selected', requestId, requesterId: requester?.id, requestedProfileId: requested?.id }
-            );
-          }
-          const otherSingle = isRequester ? requested : requester;
-          if (otherSingle?.user_id) {
-            await notificationService.sendNotification(
-              otherSingle.user_id,
-              'Match will proceed through a matchmaker',
-              `Your match will proceed through matchmaker ${matchmaker?.first_name ?? ''} ${matchmaker?.last_name ?? ''}.`,
-              { type: 'matchmaker_selected', requestId }
-            );
-          }
-        } catch (notifErr) {
-          console.error('Error sending matchmaker_selected notifications (intro):', notifErr);
-        }
+          const otherSingle = _isRequester ? requested : requester;
+          await Promise.allSettled([
+            matchmaker?.user_id
+              ? notificationService.sendNotification(
+                  matchmaker.user_id,
+                  "You've been selected as a matchmaker",
+                  `You have been selected to facilitate the match between ${requester?.first_name ?? ''} ${requester?.last_name ?? ''} and ${requested?.first_name ?? ''} ${requested?.last_name ?? ''}.`,
+                  { type: 'matchmaker_selected', purpose: 'facilitator_chosen', requestId: _sccReqId, requesterId: requester?.id, requestedProfileId: requested?.id }
+                )
+              : Promise.resolve(),
+            otherSingle?.user_id
+              ? notificationService.sendNotification(
+                  otherSingle.user_id,
+                  'Match will proceed through a matchmaker',
+                  `Your match will proceed through matchmaker ${matchmaker?.first_name ?? ''} ${matchmaker?.last_name ?? ''}.`,
+                  { type: 'matchmaker_selected', purpose: 'counterpart_notice', requestId: _sccReqId }
+                )
+              : Promise.resolve(),
+          ]);
+        })().catch((e) => console.error('Error sending matchmaker_selected notifications (intro):', e));
       }
 
       return { success: true };

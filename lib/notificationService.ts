@@ -197,22 +197,31 @@ class NotificationService {
         return { success: false, error: 'Not authenticated' };
       }
 
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/send-notification`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId,
-            title,
-            body,
-            data,
-          }),
-        }
-      );
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      let response: Response;
+      try {
+        response = await fetch(
+          `${supabaseUrl}/functions/v1/send-notification`,
+          {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId,
+              title,
+              body,
+              data,
+            }),
+          }
+        );
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       const result = await response.json();
 
@@ -221,7 +230,11 @@ class NotificationService {
       }
 
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        console.warn('sendNotification timed out after 8s');
+        return { success: false, error: 'Request timed out' };
+      }
       console.error('Error sending notification:', error);
       return { success: false, error: 'An unexpected error occurred' };
     }
@@ -280,9 +293,9 @@ class NotificationService {
       );
       const adminIds = (await this.getAdminUserIds()).filter((id) => !exclude.has(id));
 
-      for (const adminId of adminIds) {
-        await this.sendNotification(adminId, title, body, data);
-      }
+      await Promise.allSettled(
+        adminIds.map((adminId) => this.sendNotification(adminId, title, body, data))
+      );
     } catch (error) {
       console.error('Error notifying admins:', error);
     }
@@ -310,9 +323,9 @@ class NotificationService {
         return;
       }
 
-      for (const profile of profiles) {
-        await this.sendNotification(profile.user_id, title, body, data);
-      }
+      await Promise.allSettled(
+        profiles.map((profile) => this.sendNotification(profile.user_id, title, body, data))
+      );
     } catch (error) {
       console.error('Error in notifyAllUsersExcept:', error);
     }

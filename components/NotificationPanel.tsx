@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UNREAD_COUNT_QUERY_KEY, useUnreadNotificationsCount } from '../hooks/useUnreadNotificationsCount';
+import { getNavigationTarget } from '../lib/notificationRoutes';
 import { notificationService } from '../lib/notificationService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -84,63 +85,6 @@ function getIconConfig(type?: string): IconConfig {
       return { name: 'heart-circle', color: '#DAA520', bg: '#FFF8E1' };
     default:
       return { name: 'notifications', color: '#1293DA', bg: '#E3F2FD' };
-  }
-}
-
-function getNavigationTarget(type?: string, data?: Record<string, any>): string {
-  switch (type) {
-    case 'engagement_news':
-      return '/successful-matches';
-
-    case 'profile_approved':
-    case 'profile_rejected':
-    case 'profile_update_approved':
-    case 'profile_update_rejected':
-      return '/(tabs)/profile';
-
-    case 'info_request_approved':
-    case 'info_request_declined':
-      // Navigate directly to the profile that approved/declined
-      if (data?.requestedProfileId) {
-        return `/profile-details?profileId=${data.requestedProfileId}`;
-      }
-      return '/(tabs)/connect';
-
-    case 'matchmaker_request':
-      return '/(tabs)/connect?category=for_others&forOthersSection=awaiting';
-
-    case 'matchmaker_responded':
-      return '/(tabs)/connect?section=liked';
-
-    case 'matchmaker_selected':
-    case 'intro_request_from_matchmaker':
-    case 'suggestion':
-    case 'info_request':
-      return '/(tabs)/connect?section=action_needed';
-
-    case 'match_accepted':
-    case 'suggestion_both_accepted':
-      return '/(tabs)/connect?section=matches';
-
-    case 'requested_responded':
-      return '/(tabs)/connect?category=for_others&forOthersSection=matched';
-
-    case 'suggestion_rejected':
-    case 'suggestion_reverted':
-    case 'engagement_proposal':
-    case 'engagement_confirmed':
-    case 'engagement_confirmed_admin':
-      return '/(tabs)/connect';
-
-    case 'admin_new_profile':
-    case 'admin_profile_resubmitted':
-      if (data?.profileId) {
-        return `/admin/profile-review/${data.profileId}`;
-      }
-      return '/admin/dashboard';
-
-    default:
-      return '/(tabs)/connect';
   }
 }
 
@@ -306,7 +250,10 @@ export default function NotificationPanel({ visible, onClose }: NotificationPane
     }
 
     handleClose();
-    const target = getNavigationTarget(notification.data?.type, notification.data);
+    const target = getNavigationTarget(notification.data?.type, notification.data, {
+      title: notification.title,
+      body: notification.body,
+    });
     router.push(target as any);
   };
 

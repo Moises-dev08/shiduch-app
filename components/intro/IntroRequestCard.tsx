@@ -324,6 +324,53 @@ export default function IntroRequestCardNew({
 
   const profileImage = getProfileImage(otherProfile);
 
+  const rejectNoteModalScroll = (
+    <ScrollView
+      style={styles.rejectModalScroll}
+      contentContainerStyle={styles.rejectModalScrollContent}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+      {...(Platform.OS === 'ios' ? { automaticallyAdjustKeyboardInsets: true as const } : {})}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Decline Intro Request</Text>
+        <Text style={styles.modalSubtitle}>
+          You can optionally add a note for the matchmaker:
+        </Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder="Optional note..."
+          value={rejectNote}
+          onChangeText={setRejectNote}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+        />
+        <View style={styles.modalActions}>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.cancelButton]}
+            onPress={() => setShowRejectNote(false)}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.submitButton]}
+            onPress={handleReject}
+            disabled={isResponding}
+          >
+            {isResponding ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.submitButtonText}>Decline</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
   return (
     <View style={styles.card}>
       {/* Matchmaker Context (for requested person) */}
@@ -672,48 +719,17 @@ export default function IntroRequestCardNew({
       {/* Reject Note Modal */}
       <Modal
         visible={showRejectNote}
-        animationType="slide"
+        animationType="fade"
         transparent
         onRequestClose={() => setShowRejectNote(false)}
       >
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <ScrollView contentContainerStyle={styles.modalScrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Decline Intro Request</Text>
-            <Text style={styles.modalSubtitle}>
-              You can optionally add a note for the matchmaker:
-            </Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Optional note..."
-              value={rejectNote}
-              onChangeText={setRejectNote}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowRejectNote(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.submitButton]}
-                onPress={handleReject}
-                disabled={isResponding}
-              >
-                {isResponding ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.submitButtonText}>Decline</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+        {Platform.OS === 'android' ? (
+          <KeyboardAvoidingView style={styles.modalOverlay} behavior="height">
+            {rejectNoteModalScroll}
+          </KeyboardAvoidingView>
+        ) : (
+          <View style={styles.modalOverlay}>{rejectNoteModalScroll}</View>
+        )}
       </Modal>
 
       {/* Confirm Accept Modal - for requested person before continuation choice */}
@@ -967,14 +983,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
   },
-  modalScrollContent: {
+  rejectModalScroll: {
+    width: '100%',
+  },
+  rejectModalScrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    paddingVertical: 24,
   },
   modalContent: {
     backgroundColor: '#fff',
@@ -982,6 +999,7 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
     maxWidth: 400,
+    alignSelf: 'center',
   },
   modalTitle: {
     fontSize: 20,

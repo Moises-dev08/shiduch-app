@@ -12,6 +12,7 @@ import {
 interface ContinuationChoiceModalProps {
   visible: boolean;
   profileName: string;
+  suggesterName?: string; // When set, shows the suggester as the pre-assigned matchmaker
   onSelectChoice: (choice: 'by_themselves' | 'with_middle_person') => void;
   onCancel: () => void;
   loading?: boolean;
@@ -21,6 +22,7 @@ interface ContinuationChoiceModalProps {
 export default function ContinuationChoiceModal({
   visible,
   profileName,
+  suggesterName,
   onSelectChoice,
   onCancel,
   loading = false,
@@ -107,7 +109,9 @@ export default function ContinuationChoiceModal({
                   <View style={styles.buttonTextContainer}>
                     <Text style={styles.buttonTitle}>With a Matchmaker/Shadchan</Text>
                     <Text style={styles.buttonDescription}>
-                      Use a Matchmaker/Shadchan to help coordinate
+                      {suggesterName
+                        ? `${suggesterName} (who suggested you) will be the matchmaker`
+                        : 'Use a Matchmaker/Shadchan to help coordinate'}
                     </Text>
                   </View>
                 </View>

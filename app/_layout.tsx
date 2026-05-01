@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
 import { Linking } from "react-native";
 import { AuthProvider, useAuth } from "../lib/AuthContext";
 import { extractProfileIdFromShareUrl } from "../lib/profileShareUrls";
+import { getNavigationTarget } from "../lib/notificationRoutes";
 import { supabase } from "../lib/supabase";
 
 const PENDING_PROFILE_DEEP_LINK_KEY = 'pendingProfileDeepLink';
@@ -19,56 +20,28 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 2 * 60 * 1000,   // 2 minutes — data is fresh, no background refetch
       gcTime: 10 * 60 * 1000,     // 10 minutes — keep unused cache in memory
-      retry: 1,
+      retry: 0,
     },
   },
 });
 
-// Maps a notification data payload to the route the user should land on.
-function getNotificationPath(data: Record<string, any>): string {
-  switch (data.type) {
-    case 'profile_approved':
-    case 'profile_rejected':
-    case 'profile_update_approved':
-    case 'profile_update_rejected':
-      return '/(tabs)/profile';
-    case 'matchmaker_request':
-    case 'matchmaker_responded':
-    case 'matchmaker_selected':
-    case 'intro_request_from_matchmaker':
-      return '/(tabs)/connect?category=for_others&forOthersSection=awaiting';
-    case 'info_request_approved':
-    case 'info_request_declined':
-      if (data.requestedProfileId) {
-        return `/profile-details?profileId=${data.requestedProfileId}`;
-      }
-      return '/(tabs)/connect';
-    case 'engagement_news':
-      return '/successful-matches';
-    case 'engagement_proposal':
-    case 'engagement_confirmed':
-    case 'engagement_confirmed_admin':
-    case 'intro_accepted':
-    case 'intro_rejected':
-    case 'match_accepted':
-    case 'requested_responded':
-    case 'continuation_choice':
-    case 'suggestion':
-    case 'info_request':
-      return '/(tabs)/connect?section=action_needed';
-    case 'suggestion_rejected':
-    case 'suggestion_reverted':
-    case 'suggestion_both_accepted':
-      return '/(tabs)/connect';
-    case 'admin_new_profile':
-    case 'admin_profile_resubmitted':
-      if (data?.profileId) {
-        return `/admin/profile-review/${data.profileId}`;
-      }
-      return '/admin/dashboard';
-    default:
-      return '/(tabs)/connect';
-  }
+/** Push payloads use the same routing table as NotificationPanel (+ title/body for type disambiguation). */
+function pathFromPushContent(content: Notifications.NotificationContent): string | null {
+  const data = content.data as Record<string, any>;
+  if (!data?.type || typeof data.type !== "string") return null;
+  const title =
+    typeof content.title === "string"
+      ? content.title
+      : content.title != null
+        ? String(content.title)
+        : "";
+  const body =
+    typeof content.body === "string"
+      ? content.body
+      : content.body != null
+        ? String(content.body)
+        : "";
+  return getNavigationTarget(data.type, data, { title, body });
 }
 
 function NotificationHandler() {
@@ -98,10 +71,12 @@ function NotificationHandler() {
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (!response) return;
       coldStartId.current = response.notification.request.identifier;
-      const data = response.notification.request.content.data as Record<string, any>;
+      const content = response.notification.request.content;
+      const data = content.data as Record<string, any>;
       if (!data?.type) return;
       bustCacheForNotification(data);
-      pendingPath.current = getNotificationPath(data);
+      const path = pathFromPushContent(content);
+      if (path) pendingPath.current = path;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -124,13 +99,17 @@ function NotificationHandler() {
       // Skip the cold-start tap — already handled by the effect above
       if (response.notification.request.identifier === coldStartId.current) return;
 
-      const data = response.notification.request.content.data as Record<string, any>;
+      const content = response.notification.request.content;
+      const data = content.data as Record<string, any>;
       if (!data?.type) return;
 
       bustCacheForNotification(data);
-      try {
-        router.push(getNotificationPath(data) as any);
-      } catch {}
+      const path = pathFromPushContent(content);
+      if (path) {
+        try {
+          router.push(path as any);
+        } catch {}
+      }
     });
 
     return () => subscription.remove();
