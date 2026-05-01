@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { adminService } from '../../lib/adminService';
+import { supabase } from '../../lib/supabase';
 
 interface AdminRow {
   id: string;
@@ -32,6 +33,7 @@ export default function ManageAdminsScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addEmail, setAddEmail] = useState('');
   const [adding, setAdding] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -40,7 +42,11 @@ export default function ManageAdminsScreen() {
 
   const load = async () => {
     setLoading(true);
-    const result = await adminService.listAdmins();
+    const [{ data: authData }, result] = await Promise.all([
+      supabase.auth.getUser(),
+      adminService.listAdmins(),
+    ]);
+    setCurrentUserId(authData.user?.id ?? null);
     if (result.success && result.admins) setAdmins(result.admins);
     setLoading(false);
   };
@@ -71,6 +77,10 @@ export default function ManageAdminsScreen() {
   };
 
   const handleRemove = (admin: AdminRow) => {
+    if (currentUserId && admin.user_id === currentUserId) {
+      Alert.alert('Not allowed', 'You cannot remove yourself from the admin list.');
+      return;
+    }
     Alert.alert(
       'Remove admin',
       `Remove admin access for ${admin.email}? Their regular account will remain.`,
@@ -92,25 +102,30 @@ export default function ManageAdminsScreen() {
     );
   };
 
-  const handleToggleSuper = (admin: AdminRow) => {
-    const action = admin.is_super_admin ? 'Demote' : 'Promote';
-    const desc = admin.is_super_admin
-      ? `Remove super admin privileges from ${admin.email}?`
-      : `Grant super admin privileges to ${admin.email}? They will be able to manage all other admins.`;
-    Alert.alert(`${action} super admin`, desc, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: action,
-        onPress: async () => {
-          const result = await adminService.setSuperAdmin(admin.id, !admin.is_super_admin);
-          if (result.success) {
-            await load();
-          } else {
-            Alert.alert('Error', result.error || 'Failed to update super admin status');
-          }
+  const handleDemoteSuper = (admin: AdminRow) => {
+    if (!admin.is_super_admin) return;
+    if (currentUserId && admin.user_id === currentUserId) {
+      Alert.alert('Not allowed', 'You cannot remove your own super admin privileges.');
+      return;
+    }
+    Alert.alert(
+      'Demote super admin',
+      `Remove super admin privileges from ${admin.email}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Demote',
+          onPress: async () => {
+            const result = await adminService.setSuperAdmin(admin.id, false);
+            if (result.success) {
+              await load();
+            } else {
+              Alert.alert('Error', result.error || 'Failed to update super admin status');
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   if (!isSuperAdmin && !loading) {
@@ -152,7 +167,9 @@ export default function ManageAdminsScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1293DA']} />}
           contentContainerStyle={styles.list}
         >
-          {admins.map((admin) => (
+          {admins.map((admin) => {
+            const isSelf = !!currentUserId && admin.user_id === currentUserId;
+            return (
             <View key={admin.id} style={styles.adminRow}>
               <View style={styles.adminInfo}>
                 <View style={styles.adminEmailRow}>
@@ -162,6 +179,11 @@ export default function ManageAdminsScreen() {
                     color={admin.is_super_admin ? '#1293DA' : '#666'}
                   />
                   <Text style={styles.adminEmail} numberOfLines={1}>{admin.email}</Text>
+                  {isSelf && (
+                    <View style={styles.youBadge}>
+                      <Text style={styles.youBadgeText}>You</Text>
+                    </View>
+                  )}
                   {admin.is_super_admin && (
                     <View style={styles.superBadge}>
                       <Text style={styles.superBadgeText}>Super</Text>
@@ -172,20 +194,33 @@ export default function ManageAdminsScreen() {
                   Added {new Date(admin.created_at).toLocaleDateString()}
                 </Text>
               </View>
+              {!isSelf && (
               <View style={styles.adminActions}>
-                <TouchableOpacity style={styles.iconButton} onPress={() => handleToggleSuper(admin)}>
-                  <Ionicons
-                    name={admin.is_super_admin ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'}
-                    size={22}
-                    color={admin.is_super_admin ? '#ff9800' : '#4caf50'}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconButton} onPress={() => handleRemove(admin)}>
+                {admin.is_super_admin && (
+                  <TouchableOpacity
+                    style={styles.iconButton}
+                    onPress={() => handleDemoteSuper(admin)}
+                    accessibilityLabel="Demote super admin"
+                  >
+                    <Ionicons
+                      name="arrow-down-circle-outline"
+                      size={22}
+                      color="#ff9800"
+                    />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={() => handleRemove(admin)}
+                  accessibilityLabel="Remove admin"
+                >
                   <Ionicons name="trash-outline" size={22} color="#f44336" />
                 </TouchableOpacity>
               </View>
+              )}
             </View>
-          ))}
+            );
+          })}
           {admins.length === 0 && (
             <Text style={styles.emptyText}>No admins found.</Text>
           )}
@@ -258,6 +293,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6, paddingVertical: 2,
   },
   superBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  youBadge: {
+    backgroundColor: '#eceff1', borderRadius: 8,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  youBadgeText: { color: '#546e7a', fontSize: 11, fontWeight: '600' },
   adminMeta: { fontSize: 12, color: '#999' },
   adminActions: { flexDirection: 'row', gap: 8 },
   iconButton: { padding: 6 },

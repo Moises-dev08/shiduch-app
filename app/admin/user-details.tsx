@@ -33,8 +33,10 @@ export default function UserDetailsScreen() {
   const [actionReason, setActionReason] = useState('');
   const [processingActionType, setProcessingActionType] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
+    adminService.isSuperAdmin().then(setIsSuperAdmin);
     if (userId) {
       loadProfile();
     }
@@ -222,7 +224,8 @@ export default function UserDetailsScreen() {
           <Text style={styles.detailText}>Last Active: {profile.last_active_at ? new Date(profile.last_active_at).toLocaleDateString() : 'Never'}</Text>
         </View>
 
-        {/* Admin Actions */}
+        {/* Admin Actions — freeze / suspend / remove / restore only for super admins (logic kept below) */}
+        {isSuperAdmin && (
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>Admin Actions</Text>
           
@@ -295,6 +298,7 @@ export default function UserDetailsScreen() {
             </TouchableOpacity>
           )}
         </View>
+        )}
       </ScrollView>
 
       {/* Confirmation Modal - Same as in users.tsx */}
