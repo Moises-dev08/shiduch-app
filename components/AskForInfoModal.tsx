@@ -3,9 +3,7 @@ import React, { useState } from 'react';
 import { getFieldLabel } from '../lib/fieldLabels';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -62,41 +60,42 @@ export default function AskForInfoModal({
           <View style={{ width: 28 }} />
         </View>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.content}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
         >
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={styles.infoBox}>
-              <Ionicons name="lock-closed" size={40} color="#1293DA" />
-              <Text style={styles.infoTitle}>Private Information</Text>
-              <Text style={styles.infoText}>
-                You&apos;re requesting to see {profileName}&apos;s {fieldLabel.toLowerCase()}.
-              </Text>
-              <Text style={styles.infoSubtext}>
-                They will be notified and can choose to share this information with you.
-              </Text>
-            </View>
+          <View style={styles.infoBox}>
+            <Ionicons name="lock-closed" size={40} color="#1293DA" />
+            <Text style={styles.infoTitle}>Private Information</Text>
+            <Text style={styles.infoText}>
+              You&apos;re requesting to see {profileName}&apos;s {fieldLabel.toLowerCase()}.
+            </Text>
+            <Text style={styles.infoSubtext}>
+              They will be notified and can choose to share this information with you.
+            </Text>
+          </View>
 
-            <View style={styles.noteSection}>
-              <Text style={styles.label}>Your Message</Text>
-              <Text style={styles.helperText}>
-                Personalize your message to increase the chances of approval
-              </Text>
-              <TextInput
-                style={styles.textInput}
-                value={note}
-                onChangeText={setNote}
-                placeholder="Type your message..."
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                editable={!isSubmitting}
-              />
-            </View>
-          </ScrollView>
+          <View style={styles.noteSection}>
+            <Text style={styles.label}>Your Message</Text>
+            <Text style={styles.helperText}>
+              Personalize your message to increase the chances of approval
+            </Text>
+            <TextInput
+              style={styles.textInput}
+              value={note}
+              onChangeText={setNote}
+              placeholder="Type your message..."
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              editable={!isSubmitting}
+            />
+          </View>
 
-          <View style={styles.footer}>
+          <View style={styles.actions}>
             <TouchableOpacity
               style={[styles.button, styles.cancelButton]}
               onPress={handleClose}
@@ -120,7 +119,7 @@ export default function AskForInfoModal({
               )}
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+        </ScrollView>
       </SafeAreaView>
     </Modal>
   );
@@ -144,8 +143,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
-  content: {
+  scroll: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 24,
+    flexGrow: 1,
   },
   infoBox: {
     margin: 20,
@@ -195,12 +198,12 @@ const styles = StyleSheet.create({
     minHeight: 100,
     backgroundColor: '#f9f9f9',
   },
-  footer: {
+  actions: {
     flexDirection: 'row',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    marginTop: 4,
     gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
   },
   button: {
     flex: 1,

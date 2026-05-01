@@ -3,11 +3,12 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 
 interface AskMeRequestModalProps {
@@ -54,7 +55,12 @@ export default function AskMeRequestModal({
           <View style={{ width: 28 }} />
         </View>
 
-        <View style={styles.content}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+        >
           <View style={styles.infoBox}>
             <Ionicons name="lock-closed" size={20} color="#1293DA" />
             <Text style={styles.infoText}>
@@ -77,29 +83,29 @@ export default function AskMeRequestModal({
           <Text style={styles.hint}>
             This message will be sent to the profile owner. They can approve or reject your request.
           </Text>
-        </View>
 
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.button, styles.cancelButton]}
-            onPress={onCancel}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={[styles.button, styles.cancelButton]}
+              onPress={onCancel}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.button, styles.sendButton, isSubmitting && styles.disabledButton]}
-            onPress={handleSend}
-            disabled={isSubmitting || !message.trim()}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.sendButtonText}>Send Request</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[styles.button, styles.sendButton, isSubmitting && styles.disabledButton]}
+              onPress={handleSend}
+              disabled={isSubmitting || !message.trim()}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.sendButtonText}>Send Request</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </View>
     </Modal>
   );
@@ -123,9 +129,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
-  content: {
+  scroll: {
     flex: 1,
-    padding: 20,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
+    flexGrow: 1,
   },
   infoBox: {
     flexDirection: 'row',
@@ -167,9 +178,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: 12,
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    marginTop: 24,
   },
   button: {
     flex: 1,

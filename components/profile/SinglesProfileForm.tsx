@@ -1337,7 +1337,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
             <Ionicons name="share-social" size={20} color="#1293DA" />
           </View>
           <Text style={styles.infoTileText}>
-            Upload a PDF or image of your resume (optional). This will be shared automatically when you successfully matched with someone.
+            Upload a photo of your resume from your gallery (optional). It will be shared automatically when you successfully match with someone.
           </Text>
         </View>
 
@@ -1384,7 +1384,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
               <>
                 <Ionicons name="cloud-upload-outline" size={24} color="#1293DA" />
                 <Text style={styles.uploadResumeText}>Upload Resume</Text>
-                <Text style={styles.uploadResumeSubtext}>PDF or Image (max 8MB)</Text>
+                <Text style={styles.uploadResumeSubtext}>Photo from gallery · max 8MB</Text>
               </>
             )}
           </TouchableOpacity>

@@ -1,42 +1,86 @@
 import { decode } from 'base64-arraybuffer';
-import { getDocumentAsync } from 'expo-document-picker';
-import { readAsStringAsync } from 'expo-file-system/legacy';
+import { readAsStringAsync, getInfoAsync } from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from './supabase';
+
+const MAX_BYTES = 8 * 1024 * 1024;
+
+function extensionFromMime(mime?: string | null): string {
+  if (!mime) return 'jpg';
+  if (mime.includes('png')) return 'png';
+  if (mime.includes('heif') || mime.includes('heic')) return 'heic';
+  if (mime.includes('webp')) return 'webp';
+  if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
+  return 'jpg';
+}
+
+function deriveResumeFileName(asset: ImagePicker.ImagePickerAsset): string {
+  const rawName = asset.fileName?.trim();
+  if (rawName && /\.[a-zA-Z0-9]{2,8}$/.test(rawName)) {
+    return rawName;
+  }
+  const ext = extensionFromMime(asset.mimeType ?? null);
+  return `resume.${ext}`;
+}
 
 class ResumeService {
   private readonly BUCKET_NAME = 'resumes';
   
   /**
-   * Pick a document (PDF or image) for resume upload
+   * Pick a resume image from the device photo library (gallery).
    */
   async pickDocument(): Promise<{ success: boolean; uri?: string; name?: string; type?: string; error?: string }> {
     try {
-     
-      const result = await getDocumentAsync({
-        type: ['application/pdf', 'image/*'],
-        copyToCacheDirectory: true,
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        return {
+          success: false,
+          error: 'Photo library access is needed to attach a resume image.',
+        };
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.92,
       });
 
       if (result.canceled) {
         return { success: false, error: 'Selection cancelled' };
       }
 
-      const file = result.assets[0];
-      
-      // Check file size (max 8MB)
-      if (file.size && file.size > 8 * 1024 * 1024) {
-        return { success: false, error: 'File size must be less than 8MB' };
+      const asset = result.assets[0];
+      if (!asset?.uri) {
+        return { success: false, error: 'Could not read the selected photo' };
       }
+
+      let sizeBytes = asset.fileSize;
+      if (sizeBytes == null) {
+        try {
+          const info = await getInfoAsync(asset.uri, { size: true });
+          if (info.exists && typeof info.size === 'number') {
+            sizeBytes = info.size;
+          }
+        } catch {
+          /* size unknown — allow upload attempt */
+        }
+      }
+
+      if (sizeBytes != null && sizeBytes > MAX_BYTES) {
+        return { success: false, error: 'Image must be less than 8MB' };
+      }
+
+      const name = deriveResumeFileName(asset);
 
       return {
         success: true,
-        uri: file.uri,
-        name: file.name,
-        type: file.mimeType,
+        uri: asset.uri,
+        name,
+        type: asset.mimeType ?? undefined,
       };
     } catch (error: any) {
-      console.error('Error picking document:', error);
+      console.error('Error picking resume from gallery:', error);
       return { success: false, error: error.message };
     }
   }
@@ -68,7 +112,9 @@ class ResumeService {
       const { data, error } = await supabase.storage
         .from(this.BUCKET_NAME)
         .upload(filePath, decode(base64), {
-          contentType: fileName.endsWith('.pdf') ? 'application/pdf' : 'image/*',
+          contentType: fileName.toLowerCase().endsWith('.pdf')
+            ? 'application/pdf'
+            : 'image/*',
           upsert: true,
         });
 
