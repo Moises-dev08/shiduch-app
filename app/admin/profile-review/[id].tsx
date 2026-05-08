@@ -1,34 +1,37 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import SuccessModal from '../../../components/SuccessModal';
-import { adminService } from '../../../lib/adminService';
-import { Profile, profileService } from '../../../lib/profileService';
-import { calculateAge } from '../../../lib/utils';
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import SuccessModal from "../../../components/SuccessModal";
+import { adminService } from "../../../lib/adminService";
+import { Profile, profileService } from "../../../lib/profileService";
+import { calculateAge } from "../../../lib/utils";
 
 export default function ProfileReviewPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectionReason, setRejectionReason] = useState("");
   const [processingApprove, setProcessingApprove] = useState(false);
   const [processingReject, setProcessingReject] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
+  const [successMessage, setSuccessMessage] = useState({
+    title: "",
+    message: "",
+  });
 
   const loadProfile = useCallback(async () => {
     if (!id) {
@@ -39,17 +42,17 @@ export default function ProfileReviewPage() {
     setLoading(true);
     const result = await adminService.getPendingProfiles();
     if (result.success && result.profiles) {
-      const foundProfile = result.profiles.find(p => p.id === id);
+      const foundProfile = result.profiles.find((p) => p.id === id);
       if (foundProfile) {
         setProfile(foundProfile);
       } else {
-        Alert.alert('Error', 'Profile not found', [
-          { text: 'OK', onPress: () => router.back() }
+        Alert.alert("Error", "Profile not found", [
+          { text: "OK", onPress: () => router.back() },
         ]);
       }
     } else {
-      Alert.alert('Error', result.error || 'Failed to load profile', [
-        { text: 'OK', onPress: () => router.back() }
+      Alert.alert("Error", result.error || "Failed to load profile", [
+        { text: "OK", onPress: () => router.back() },
       ]);
     }
     setLoading(false);
@@ -58,47 +61,47 @@ export default function ProfileReviewPage() {
   useFocusEffect(
     useCallback(() => {
       loadProfile();
-    }, [loadProfile])
+    }, [loadProfile]),
   );
 
   const handleApprove = async (profileId: string) => {
     if (!profile) return;
-    
+
     const isUpdate = profile.is_update;
     Alert.alert(
-      'Approve Profile',
+      "Approve Profile",
       isUpdate
-        ? 'Are you sure you want to approve this profile update? The user will be able to use the app again.'
-        : 'Are you sure you want to approve this profile? It will be visible to other users.',
+        ? "Are you sure you want to approve this profile update? The user will be able to use the app again."
+        : "Are you sure you want to approve this profile? It will be visible to other users.",
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Approve',
+          text: "Approve",
           onPress: async () => {
             setProcessingApprove(true);
             const result = await adminService.approveProfile(profileId);
             setProcessingApprove(false);
-            
+
             if (result.success) {
               setSuccessMessage({
-                title: 'Profile Approved!',
-                message: isUpdate 
-                  ? 'The profile update has been approved successfully. The user can now use the app again.'
-                  : 'The profile has been approved successfully and is now visible to other users.',
+                title: "Profile Approved!",
+                message: isUpdate
+                  ? "The profile update has been approved successfully. The user can now use the app again."
+                  : "The profile has been approved successfully and is now visible to other users.",
               });
               setShowSuccessModal(true);
             } else {
-              Alert.alert('Error', result.error || 'Failed to approve profile');
+              Alert.alert("Error", result.error || "Failed to approve profile");
             }
           },
         },
-      ]
+      ],
     );
   };
 
   const handleReject = () => {
     if (!profile) return;
-    setRejectionReason('');
+    setRejectionReason("");
     setShowRejectModal(true);
   };
 
@@ -106,26 +109,29 @@ export default function ProfileReviewPage() {
     if (!profile) return;
 
     if (!rejectionReason.trim()) {
-      Alert.alert('Error', 'Please provide a reason for rejection');
+      Alert.alert("Error", "Please provide a reason for rejection");
       return;
     }
 
     setProcessingReject(true);
-    const result = await adminService.rejectProfile(profile.id, rejectionReason);
+    const result = await adminService.rejectProfile(
+      profile.id,
+      rejectionReason,
+    );
     setProcessingReject(false);
 
     if (result.success) {
       const isUpdate = profile.is_update;
       setSuccessMessage({
-        title: 'Profile Rejected',
+        title: "Profile Rejected",
         message: isUpdate
-          ? 'The profile update has been rejected. The user will be notified and must update their profile again.'
-          : 'The profile has been rejected and the user will be notified.',
+          ? "The profile update has been rejected. The user will be notified and must update their profile again."
+          : "The profile has been rejected and the user will be notified.",
       });
       setShowSuccessModal(true);
       setShowRejectModal(false);
     } else {
-      Alert.alert('Error', result.error || 'Failed to reject profile');
+      Alert.alert("Error", result.error || "Failed to reject profile");
     }
   };
 
@@ -154,7 +160,10 @@ export default function ProfileReviewPage() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Profile not found</Text>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -201,8 +210,9 @@ export default function ProfileReviewPage() {
             <View style={styles.infoBannerContent}>
               <Text style={styles.infoBannerTitle}>Profile Update</Text>
               <Text style={styles.infoBannerText}>
-                This profile was previously approved on {new Date(profile.last_approved_at).toLocaleDateString()}. 
-                The user has made changes that require your review.
+                This profile was previously approved on{" "}
+                {new Date(profile.last_approved_at).toLocaleDateString()}. The
+                user has made changes that require your review.
               </Text>
             </View>
           </View>
@@ -216,82 +226,170 @@ export default function ProfileReviewPage() {
               <Text style={styles.roleSwitchSectionTitle}>Role Switch</Text>
             </View>
             <Text style={styles.roleSwitchSectionSubtitle}>
-              This user switched from{' '}
+              This user switched from{" "}
               <Text style={styles.roleSwitchHighlight}>
-                {profile.previous_role_data.role === 'single' ? 'Single' : 'Matchmaker'}
-              </Text>
-              {' '}to{' '}
+                {profile.previous_role_data.role === "single"
+                  ? "Single"
+                  : "Matchmaker"}
+              </Text>{" "}
+              to{" "}
               <Text style={styles.roleSwitchHighlight}>
-                {profile.role === 'single' ? 'Single' : 'Matchmaker'}
-              </Text>
-              {' '}on {new Date(profile.previous_role_data.saved_at).toLocaleDateString()}.
+                {profile.role === "single" ? "Single" : "Matchmaker"}
+              </Text>{" "}
+              on{" "}
+              {new Date(
+                profile.previous_role_data.saved_at,
+              ).toLocaleDateString()}
+              .
             </Text>
 
             <View style={styles.beforeAfterRow}>
               {/* BEFORE */}
               <View style={[styles.beforeAfterCard, styles.beforeCard]}>
                 <View style={styles.beforeAfterCardHeader}>
-                  <Ionicons name="arrow-back-circle" size={16} color="#e53935" />
+                  <Ionicons
+                    name="arrow-back-circle"
+                    size={16}
+                    color="#e53935"
+                  />
                   <Text style={styles.beforeCardTitle}>
-                    Before — {profile.previous_role_data.role === 'single' ? 'Single' : 'Matchmaker'}
+                    Before —{" "}
+                    {profile.previous_role_data.role === "single"
+                      ? "Single"
+                      : "Matchmaker"}
                   </Text>
                 </View>
                 {Object.keys(profile.previous_role_data.fields).length === 0 ? (
                   <Text style={styles.noDataText}>No data saved</Text>
                 ) : (
-                  Object.entries(profile.previous_role_data.fields).map(([key, value]) => (
-                    <View key={key} style={styles.roleDataRow}>
-                      <Text style={styles.roleDataLabel}>
-                        {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </Text>
-                      <Text style={styles.roleDataValueBefore}>
-                        {value === null || value === undefined
-                          ? '—'
-                          : typeof value === 'boolean'
-                          ? value ? 'Yes' : 'No'
-                          : String(value)}
-                      </Text>
-                    </View>
-                  ))
+                  Object.entries(profile.previous_role_data.fields).map(
+                    ([key, value]) => (
+                      <View key={key} style={styles.roleDataRow}>
+                        <Text style={styles.roleDataLabel}>
+                          {key
+                            .replace(/_/g, " ")
+                            .replace(/\b\w/g, (l) => l.toUpperCase())}
+                        </Text>
+                        <Text style={styles.roleDataValueBefore}>
+                          {value === null || value === undefined
+                            ? "—"
+                            : typeof value === "boolean"
+                              ? value
+                                ? "Yes"
+                                : "No"
+                              : String(value)}
+                        </Text>
+                      </View>
+                    ),
+                  )
                 )}
               </View>
 
               {/* AFTER */}
               <View style={[styles.beforeAfterCard, styles.afterCard]}>
                 <View style={styles.beforeAfterCardHeader}>
-                  <Ionicons name="arrow-forward-circle" size={16} color="#2e7d32" />
+                  <Ionicons
+                    name="arrow-forward-circle"
+                    size={16}
+                    color="#2e7d32"
+                  />
                   <Text style={styles.afterCardTitle}>
-                    After — {profile.role === 'single' ? 'Single' : 'Matchmaker'}
+                    After —{" "}
+                    {profile.role === "single" ? "Single" : "Matchmaker"}
                   </Text>
                 </View>
-                {profile.role === 'single' ? (
+                {profile.role === "single" ? (
                   <>
-                    {profile.what_looking_for && <RoleDataRow label="What looking for" value={profile.what_looking_for} />}
-                    {profile.torah_learning && <RoleDataRow label="Torah learning" value={profile.torah_learning} />}
-                    {profile.praying && <RoleDataRow label="Praying" value={profile.praying} />}
-                    {profile.marital_status && <RoleDataRow label="Marital status" value={profile.marital_status} />}
-                    {profile.plan_after_marriage && <RoleDataRow label="Plan after marriage" value={profile.plan_after_marriage} />}
-                    {profile.post_high_school_path && <RoleDataRow label="Post high school" value={profile.post_high_school_path} />}
-                    {profile.head_covering && <RoleDataRow label="Head covering" value={profile.head_covering} />}
-                    {profile.dress_style && <RoleDataRow label="Dress style" value={profile.dress_style} />}
-                    {profile.is_cohen !== null && profile.is_cohen !== undefined && (
-                      <RoleDataRow label="Cohen" value={profile.is_cohen ? 'Yes' : 'No'} />
+                    {profile.what_looking_for && (
+                      <RoleDataRow
+                        label="What looking for"
+                        value={profile.what_looking_for}
+                      />
                     )}
-                    {profile.wears_black_hat !== null && profile.wears_black_hat !== undefined && (
-                      <RoleDataRow label="Wears black hat" value={profile.wears_black_hat ? 'Yes' : 'No'} />
+                    {profile.torah_learning && (
+                      <RoleDataRow
+                        label="Torah learning"
+                        value={profile.torah_learning}
+                      />
                     )}
-                    {profile.resume_url && <RoleDataRow label="Resume" value="Uploaded" />}
-                    {!profile.what_looking_for && !profile.torah_learning && !profile.praying && (
-                      <Text style={styles.noDataText}>Fields not yet filled</Text>
+                    {profile.praying && (
+                      <RoleDataRow label="Praying" value={profile.praying} />
                     )}
+                    {profile.marital_status && (
+                      <RoleDataRow
+                        label="Marital status"
+                        value={profile.marital_status}
+                      />
+                    )}
+                    {profile.plan_after_marriage && (
+                      <RoleDataRow
+                        label="Plan after marriage"
+                        value={profile.plan_after_marriage}
+                      />
+                    )}
+                    {profile.post_high_school_path && (
+                      <RoleDataRow
+                        label="Post high school"
+                        value={profile.post_high_school_path}
+                      />
+                    )}
+                    {profile.head_covering && (
+                      <RoleDataRow
+                        label="Head covering"
+                        value={profile.head_covering}
+                      />
+                    )}
+                    {profile.dress_style && (
+                      <RoleDataRow
+                        label="Dress style"
+                        value={profile.dress_style}
+                      />
+                    )}
+                    {profile.is_cohen !== null &&
+                      profile.is_cohen !== undefined && (
+                        <RoleDataRow
+                          label="Cohen"
+                          value={profile.is_cohen ? "Yes" : "No"}
+                        />
+                      )}
+                    {profile.wears_black_hat !== null &&
+                      profile.wears_black_hat !== undefined && (
+                        <RoleDataRow
+                          label="Wears black hat"
+                          value={profile.wears_black_hat ? "Yes" : "No"}
+                        />
+                      )}
+                    {profile.resume_url && (
+                      <RoleDataRow label="Resume" value="Uploaded" />
+                    )}
+                    {!profile.what_looking_for &&
+                      !profile.torah_learning &&
+                      !profile.praying && (
+                        <Text style={styles.noDataText}>
+                          Fields not yet filled
+                        </Text>
+                      )}
                   </>
                 ) : (
                   <>
-                    {(profile as any).religious_level && <RoleDataRow label="Religious level" value={(profile as any).religious_level} />}
-                    {(profile as any).cultural_origin && <RoleDataRow label="Cultural origin" value={(profile as any).cultural_origin} />}
-                    {!(profile as any).religious_level && !(profile as any).cultural_origin && (
-                      <Text style={styles.noDataText}>Fields not yet filled</Text>
+                    {(profile as any).religious_level && (
+                      <RoleDataRow
+                        label="Religious level"
+                        value={(profile as any).religious_level}
+                      />
                     )}
+                    {(profile as any).cultural_origin && (
+                      <RoleDataRow
+                        label="Cultural origin"
+                        value={(profile as any).cultural_origin}
+                      />
+                    )}
+                    {!(profile as any).religious_level &&
+                      !(profile as any).cultural_origin && (
+                        <Text style={styles.noDataText}>
+                          Fields not yet filled
+                        </Text>
+                      )}
                   </>
                 )}
               </View>
@@ -308,32 +406,37 @@ export default function ProfileReviewPage() {
                 {profile.pending_changes.summary}
               </Text>
             </View>
-            {profile.pending_changes.changes && profile.pending_changes.changes.length > 0 && (
-              <View style={styles.changesList}>
-                {profile.pending_changes.changes.map((change, index) => (
-                  <View key={index} style={styles.changeItem}>
-                    <Text style={styles.changeFieldName}>{change.displayName}:</Text>
-                    <View style={styles.changeValues}>
-                      <Text style={styles.changeOldValue}>
-                        <Text style={styles.changeLabel}>From: </Text>
-                        {change.oldValue || 'Not set'}
+            {profile.pending_changes.changes &&
+              profile.pending_changes.changes.length > 0 && (
+                <View style={styles.changesList}>
+                  {profile.pending_changes.changes.map((change, index) => (
+                    <View key={index} style={styles.changeItem}>
+                      <Text style={styles.changeFieldName}>
+                        {change.displayName}:
                       </Text>
-                      <Text style={styles.changeNewValue}>
-                        <Text style={styles.changeLabel}>To: </Text>
-                        {change.newValue || 'Not set'}
-                      </Text>
+                      <View style={styles.changeValues}>
+                        <Text style={styles.changeOldValue}>
+                          <Text style={styles.changeLabel}>From: </Text>
+                          {change.oldValue || "Not set"}
+                        </Text>
+                        <Text style={styles.changeNewValue}>
+                          <Text style={styles.changeLabel}>To: </Text>
+                          {change.newValue || "Not set"}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                ))}
-              </View>
-            )}
+                  ))}
+                </View>
+              )}
           </View>
         )}
-        
+
         {/* Pictures */}
         {profile.pictures && profile.pictures.length > 0 && (
           <View style={styles.picturesSection}>
-            <Text style={styles.sectionTitle}>Photos ({profile.pictures.length})</Text>
+            <Text style={styles.sectionTitle}>
+              Photos ({profile.pictures.length})
+            </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {profile.pictures.map((picture, index) => (
                 <Image
@@ -349,17 +452,38 @@ export default function ProfileReviewPage() {
         {/* Personal Info */}
         <View style={styles.detailSection}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
-          <DetailRow label="Name" value={`${profile.first_name} ${profile.last_name}`} />
+          <DetailRow
+            label="Name"
+            value={`${profile.first_name} ${profile.last_name}`}
+          />
           {profile.dob && (
             <>
-              <DetailRow label="Age" value={`${calculateAge(profile.dob)} years old`} />
-              <DetailRow label="Date of Birth" value={new Date(profile.dob).toLocaleDateString()} />
+              <DetailRow
+                label="Age"
+                value={`${calculateAge(profile.dob)} years old`}
+              />
+              <DetailRow
+                label="Date of Birth"
+                value={new Date(profile.dob).toLocaleDateString()}
+              />
             </>
           )}
-          <DetailRow label="Gender" value={profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)} />
-          <DetailRow label="Role" value={profile.role === 'single' ? 'Single' : 'Matchmaker'} />
-          {profile.height && <DetailRow label="Height" value={profile.height} />}
-          {profile.marital_status && <DetailRow label="Marital Status" value={profile.marital_status} />}
+          <DetailRow
+            label="Gender"
+            value={
+              profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)
+            }
+          />
+          <DetailRow
+            label="Role"
+            value={profile.role === "single" ? "Single" : "Matchmaker"}
+          />
+          {profile.height && (
+            <DetailRow label="Height" value={profile.height} />
+          )}
+          {profile.marital_status && (
+            <DetailRow label="Marital Status" value={profile.marital_status} />
+          )}
         </View>
 
         {/* Bio */}
@@ -369,7 +493,7 @@ export default function ProfileReviewPage() {
         </View>
 
         {/* What Looking For (Singles only) */}
-        {profile.role === 'single' && profile.what_looking_for && (
+        {profile.role === "single" && profile.what_looking_for && (
           <View style={styles.detailSection}>
             <Text style={styles.sectionTitle}>What I&apos;m Looking For</Text>
             <Text style={styles.bioText}>{profile.what_looking_for}</Text>
@@ -377,46 +501,78 @@ export default function ProfileReviewPage() {
         )}
 
         {/* Location */}
-        {(profile.location_country || profile.location_state || profile.location_city) && (
+        {(profile.location_country ||
+          profile.location_state ||
+          profile.location_city) && (
           <View style={styles.detailSection}>
             <Text style={styles.sectionTitle}>Location</Text>
-            {profile.location_country && <DetailRow label="Country" value={profile.location_country} />}
-            {profile.location_state && <DetailRow label="State" value={profile.location_state} />}
-            {profile.location_city && <DetailRow label="City" value={profile.location_city} />}
+            {profile.location_country && (
+              <DetailRow label="Country" value={profile.location_country} />
+            )}
+            {profile.location_state && (
+              <DetailRow label="State" value={profile.location_state} />
+            )}
+            {profile.location_city && (
+              <DetailRow label="City" value={profile.location_city} />
+            )}
           </View>
         )}
 
         {/* Contact Info */}
         <View style={styles.detailSection}>
-          <Text style={styles.sectionTitle}>Contact Information</Text>
+          <Text style={styles.sectionTitle}>Contact information</Text>
           <DetailRow label="Phone" value={profile.phone} />
           {profile.email && <DetailRow label="Email" value={profile.email} />}
-          {profile.whatsapp && <DetailRow label="WhatsApp" value={profile.whatsapp} />}
+          {profile.whatsapp && (
+            <DetailRow label="WhatsApp" value={profile.whatsapp} />
+          )}
         </View>
 
         {/* Background & Nationality */}
-        {(profile.languages?.length || profile.nationality?.length || profile.is_cohen !== null) && (
+        {(profile.languages?.length ||
+          profile.nationality?.length ||
+          profile.is_cohen !== null) && (
           <View style={styles.detailSection}>
             <Text style={styles.sectionTitle}>Background & Nationality</Text>
             {profile.languages && profile.languages.length > 0 && (
-              <DetailRow label="Languages" value={profile.languages.join(', ')} />
+              <DetailRow
+                label="Languages"
+                value={profile.languages.join(", ")}
+              />
             )}
             {profile.nationality && profile.nationality.length > 0 && (
-              <DetailRow label="Nationality" value={profile.nationality.join(', ')} />
+              <DetailRow
+                label="Nationality"
+                value={profile.nationality.join(", ")}
+              />
             )}
             {profile.is_cohen !== undefined && profile.is_cohen !== null && (
-              <DetailRow label="Cohen" value={profile.is_cohen ? 'Yes' : 'No'} />
+              <DetailRow
+                label="Cohen"
+                value={profile.is_cohen ? "Yes" : "No"}
+              />
             )}
           </View>
         )}
 
         {/* Religious Outlook */}
-        {(profile.hashkafa_type || profile.torah_learning || profile.praying) && (
+        {(profile.hashkafa_type ||
+          profile.torah_learning ||
+          profile.praying) && (
           <View style={styles.detailSection}>
             <Text style={styles.sectionTitle}>Religious Outlook</Text>
-            {profile.hashkafa_type && <DetailRow label="Hashkafa Type" value={profile.hashkafa_type} />}
-            {profile.torah_learning && <DetailRow label="Torah Learning" value={profile.torah_learning} />}
-            {profile.praying && <DetailRow label="Praying" value={profile.praying} />}
+            {profile.hashkafa_type && (
+              <DetailRow label="Hashkafa Type" value={profile.hashkafa_type} />
+            )}
+            {profile.torah_learning && (
+              <DetailRow
+                label="Torah Learning"
+                value={profile.torah_learning}
+              />
+            )}
+            {profile.praying && (
+              <DetailRow label="Praying" value={profile.praying} />
+            )}
           </View>
         )}
 
@@ -424,8 +580,18 @@ export default function ProfileReviewPage() {
         {(profile.education_level || profile.post_high_school_path) && (
           <View style={styles.detailSection}>
             <Text style={styles.sectionTitle}>Education</Text>
-            {profile.education_level && <DetailRow label="Education Level" value={profile.education_level} />}
-            {profile.post_high_school_path && <DetailRow label="Post High School Path" value={profile.post_high_school_path} />}
+            {profile.education_level && (
+              <DetailRow
+                label="Education Level"
+                value={profile.education_level}
+              />
+            )}
+            {profile.post_high_school_path && (
+              <DetailRow
+                label="Post High School Path"
+                value={profile.post_high_school_path}
+              />
+            )}
           </View>
         )}
 
@@ -433,20 +599,40 @@ export default function ProfileReviewPage() {
         {(profile.current_occupation_study || profile.plan_after_marriage) && (
           <View style={styles.detailSection}>
             <Text style={styles.sectionTitle}>Occupation & Career</Text>
-            {profile.current_occupation_study && <DetailRow label="Current Occupation/Study" value={profile.current_occupation_study} />}
-            {profile.plan_after_marriage && <DetailRow label="Plan After Marriage" value={profile.plan_after_marriage} />}
+            {profile.current_occupation_study && (
+              <DetailRow
+                label="Current Occupation/Study"
+                value={profile.current_occupation_study}
+              />
+            )}
+            {profile.plan_after_marriage && (
+              <DetailRow
+                label="Plan After Marriage"
+                value={profile.plan_after_marriage}
+              />
+            )}
           </View>
         )}
 
         {/* Dress & Appearance */}
-        {(profile.dress_style || profile.wears_black_hat !== null || profile.head_covering) && (
+        {(profile.dress_style ||
+          profile.wears_black_hat !== null ||
+          profile.head_covering) && (
           <View style={styles.detailSection}>
             <Text style={styles.sectionTitle}>Dress & Appearance</Text>
-            {profile.dress_style && <DetailRow label="Dress Style" value={profile.dress_style} />}
-            {profile.wears_black_hat !== undefined && profile.wears_black_hat !== null && (
-              <DetailRow label="Wears Black Hat" value={profile.wears_black_hat ? 'Yes' : 'No'} />
+            {profile.dress_style && (
+              <DetailRow label="Dress Style" value={profile.dress_style} />
             )}
-            {profile.head_covering && <DetailRow label="Head Covering" value={profile.head_covering} />}
+            {profile.wears_black_hat !== undefined &&
+              profile.wears_black_hat !== null && (
+                <DetailRow
+                  label="Wears Black Hat"
+                  value={profile.wears_black_hat ? "Yes" : "No"}
+                />
+              )}
+            {profile.head_covering && (
+              <DetailRow label="Head Covering" value={profile.head_covering} />
+            )}
           </View>
         )}
 
@@ -454,27 +640,39 @@ export default function ProfileReviewPage() {
         {(profile.smoking || profile.alcohol_consumption) && (
           <View style={styles.detailSection}>
             <Text style={styles.sectionTitle}>Lifestyle</Text>
-            {profile.smoking && <DetailRow label="Smoking" value={profile.smoking} />}
-            {profile.alcohol_consumption && <DetailRow label="Alcohol Consumption" value={profile.alcohol_consumption} />}
+            {profile.smoking && (
+              <DetailRow label="Smoking" value={profile.smoking} />
+            )}
+            {profile.alcohol_consumption && (
+              <DetailRow
+                label="Alcohol Consumption"
+                value={profile.alcohol_consumption}
+              />
+            )}
           </View>
         )}
 
         {/* Privacy Settings */}
-        {profile.field_privacy && Object.keys(profile.field_privacy).length > 0 && (
-          <View style={styles.detailSection}>
-            <Text style={styles.sectionTitle}>Privacy Settings</Text>
-            <Text style={styles.privacyNote}>
-              The following fields are marked as private (Ask me):
-            </Text>
-            {Object.entries(profile.field_privacy).map(([field, isPrivate]) => 
-              isPrivate && (
-                <Text key={field} style={styles.privateField}>
-                  • {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </Text>
-              )
-            )}
-          </View>
-        )}
+        {profile.field_privacy &&
+          Object.keys(profile.field_privacy).length > 0 && (
+            <View style={styles.detailSection}>
+              <Text style={styles.sectionTitle}>Privacy Settings</Text>
+              <Text style={styles.privacyNote}>
+                The following fields are marked as private (Ask me):
+              </Text>
+              {Object.entries(profile.field_privacy).map(
+                ([field, isPrivate]) =>
+                  isPrivate && (
+                    <Text key={field} style={styles.privateField}>
+                      •{" "}
+                      {field
+                        .replace(/_/g, " ")
+                        .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    </Text>
+                  ),
+              )}
+            </View>
+          )}
       </ScrollView>
 
       {/* Action Buttons */}
@@ -583,48 +781,48 @@ const RoleDataRow = ({ label, value }: { label: string; value: string }) => (
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: "#666",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   titleContainer: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 4,
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   content: {
     flex: 1,
     padding: 20,
   },
   infoBanner: {
-    flexDirection: 'row',
-    backgroundColor: '#e3f2fd',
+    flexDirection: "row",
+    backgroundColor: "#e3f2fd",
     padding: 16,
     borderRadius: 8,
     marginBottom: 20,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   infoBannerContent: {
     flex: 1,
@@ -632,31 +830,31 @@ const styles = StyleSheet.create({
   },
   infoBannerTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1976d2',
+    fontWeight: "bold",
+    color: "#1976d2",
     marginBottom: 4,
   },
   infoBannerText: {
     fontSize: 14,
-    color: '#1976d2',
+    color: "#1976d2",
     lineHeight: 20,
   },
   changesSection: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#e3f2fd',
+    borderColor: "#e3f2fd",
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 12,
   },
   changesSummaryBox: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     padding: 12,
     borderRadius: 8,
     marginTop: 8,
@@ -664,7 +862,7 @@ const styles = StyleSheet.create({
   },
   changesSummaryText: {
     fontSize: 14,
-    color: '#333',
+    color: "#333",
     lineHeight: 20,
   },
   changesList: {
@@ -673,12 +871,12 @@ const styles = StyleSheet.create({
   changeItem: {
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   changeFieldName: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 6,
   },
   changeValues: {
@@ -686,30 +884,30 @@ const styles = StyleSheet.create({
   },
   changeOldValue: {
     fontSize: 13,
-    color: '#999',
+    color: "#999",
     marginBottom: 4,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   changeNewValue: {
     fontSize: 13,
-    color: '#4caf50',
-    fontWeight: '500',
+    color: "#4caf50",
+    fontWeight: "500",
   },
   changeLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: "600",
+    color: "#666",
   },
   badgeRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 6,
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    flexWrap: "wrap",
+    justifyContent: "center",
   },
   updateBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff3e0',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff3e0",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -717,13 +915,13 @@ const styles = StyleSheet.create({
   },
   updateBadgeText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#ff9800',
+    fontWeight: "600",
+    color: "#ff9800",
   },
   newBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e8f5e9',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#e8f5e9",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -731,13 +929,13 @@ const styles = StyleSheet.create({
   },
   newBadgeText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#4caf50',
+    fontWeight: "600",
+    color: "#4caf50",
   },
   roleSwitchBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f3e5f5',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f3e5f5",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -745,40 +943,40 @@ const styles = StyleSheet.create({
   },
   roleSwitchBadgeText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#9c27b0',
+    fontWeight: "600",
+    color: "#9c27b0",
   },
   roleSwitchSection: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#e1bee7',
+    borderColor: "#e1bee7",
   },
   roleSwitchSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginBottom: 6,
   },
   roleSwitchSectionTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#7b1fa2',
+    fontWeight: "bold",
+    color: "#7b1fa2",
   },
   roleSwitchSectionSubtitle: {
     fontSize: 13,
-    color: '#555',
+    color: "#555",
     marginBottom: 14,
     lineHeight: 18,
   },
   roleSwitchHighlight: {
-    fontWeight: '700',
-    color: '#7b1fa2',
+    fontWeight: "700",
+    color: "#7b1fa2",
   },
   beforeAfterRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
   },
   beforeAfterCard: {
@@ -787,34 +985,34 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   beforeCard: {
-    backgroundColor: '#ffebee',
+    backgroundColor: "#ffebee",
     borderWidth: 1,
-    borderColor: '#ef9a9a',
+    borderColor: "#ef9a9a",
   },
   afterCard: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: "#e8f5e9",
     borderWidth: 1,
-    borderColor: '#a5d6a7',
+    borderColor: "#a5d6a7",
   },
   beforeAfterCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     marginBottom: 10,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
+    borderBottomColor: "rgba(0,0,0,0.08)",
   },
   beforeCardTitle: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#c62828',
+    fontWeight: "700",
+    color: "#c62828",
     flexShrink: 1,
   },
   afterCardTitle: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#2e7d32',
+    fontWeight: "700",
+    color: "#2e7d32",
     flexShrink: 1,
   },
   roleDataRow: {
@@ -822,24 +1020,24 @@ const styles = StyleSheet.create({
   },
   roleDataLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#555',
-    textTransform: 'capitalize',
+    fontWeight: "600",
+    color: "#555",
+    textTransform: "capitalize",
   },
   roleDataValueBefore: {
     fontSize: 12,
-    color: '#b71c1c',
+    color: "#b71c1c",
     marginTop: 1,
   },
   roleDataValueAfter: {
     fontSize: 12,
-    color: '#1b5e20',
+    color: "#1b5e20",
     marginTop: 1,
   },
   noDataText: {
     fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
+    color: "#999",
+    fontStyle: "italic",
   },
   picturesSection: {
     marginBottom: 20,
@@ -851,101 +1049,101 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   detailSection: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
   },
   detailRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   detailLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: "600",
+    color: "#666",
     width: 120,
   },
   detailValue: {
     flex: 1,
     fontSize: 14,
-    color: '#333',
+    color: "#333",
   },
   bioText: {
     fontSize: 14,
-    color: '#333',
+    color: "#333",
     lineHeight: 20,
   },
   privacyNote: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 12,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   privateField: {
     fontSize: 14,
-    color: '#1293DA',
+    color: "#1293DA",
     marginLeft: 8,
     marginBottom: 4,
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: "#e0e0e0",
     gap: 12,
   },
   actionButton: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 16,
     borderRadius: 8,
     gap: 8,
   },
   approveButton: {
-    backgroundColor: '#4caf50',
+    backgroundColor: "#4caf50",
   },
   rejectButton: {
-    backgroundColor: '#f44336',
+    backgroundColor: "#f44336",
   },
   actionButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   rejectModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   rejectModal: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 24,
-    width: '100%',
+    width: "100%",
     maxWidth: 400,
   },
   rejectModalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 8,
   },
   rejectModalSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 16,
   },
   rejectInput: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
@@ -953,40 +1151,40 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   rejectModalButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   rejectModalButton: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   rejectModalCancel: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
   },
   rejectModalConfirm: {
-    backgroundColor: '#f44336',
+    backgroundColor: "#f44336",
   },
   rejectModalCancelText: {
-    color: '#666',
+    color: "#666",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   rejectModalConfirmText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   backButton: {
     marginTop: 16,
     padding: 12,
-    backgroundColor: '#1293DA',
+    backgroundColor: "#1293DA",
     borderRadius: 8,
   },
   backButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

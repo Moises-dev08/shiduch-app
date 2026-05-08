@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import EngagementCelebration from './EngagementCelebration';
 import { Engagement, engagementService } from '../lib/engagementService';
 import { notificationService } from '../lib/notificationService';
 import { supabase } from '../lib/supabase';
@@ -10,9 +12,11 @@ interface EngagementButtonProps {
   otherUserId: string; // This is the profile ID
   otherUserName: string;
   currentUserName: string;
+  containerStyle?: ViewStyle;
 }
 
-export default function EngagementButton({ otherUserId, otherUserName, currentUserName }: EngagementButtonProps) {
+export default function EngagementButton({ otherUserId, otherUserName, currentUserName, containerStyle }: EngagementButtonProps) {
+  const queryClient = useQueryClient();
   const [engagement, setEngagement] = useState<Engagement | null>(null);
   const [loading, setLoading] = useState(true);
   const [proposing, setProposing] = useState(false);
@@ -20,6 +24,7 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
   const [showUndoConfirmModal, setShowUndoConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
+  const [showCelebration, setShowCelebration] = useState(false);
   const [otherUserAuthId, setOtherUserAuthId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -162,6 +167,9 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
       const bothConfirmed = result.engagement.user1_confirmed && result.engagement.user2_confirmed;
       
       if (bothConfirmed) {
+        // Remove the Action Needed card immediately
+        queryClient.invalidateQueries({ queryKey: ['pending_engagement'] });
+
         // Both confirmed — notify both partners and all admins
         await notificationService.sendNotification(
           otherUserAuthId,
@@ -188,10 +196,7 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
             ),
           }
         );
-        setSuccessMessage({
-          title: 'Mazel Tov! 🎉',
-          message: `Congratulations! Your engagement with ${otherUserName} has been confirmed and will be shared with the community.`
-        });
+        setShowCelebration(true);
       } else {
         // One side proposed — notify the other person
         await notificationService.sendNotification(
@@ -204,9 +209,8 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
           title: 'Engagement Proposal Sent! 💍',
           message: `${otherUserName} will be notified and need to confirm as well. Once both of you confirm, your engagement will be shared with the community!`
         });
+        setShowSuccessModal(true);
       }
-      
-      setShowSuccessModal(true);
     } else {
       setSuccessMessage({
         title: 'Error',
@@ -220,8 +224,10 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
 
   if (loading) {
     return (
-      <View style={styles.buttonContainer}>
-        <ActivityIndicator size="small" color="#1293DA" />
+      <View style={[styles.container, containerStyle]}>
+        <View style={styles.buttonContainer}>
+          <ActivityIndicator size="small" color="#1293DA" />
+        </View>
       </View>
     );
   }
@@ -241,7 +247,13 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
   // If both confirmed - show engaged status with option to undo
   if (engagement && currentUserConfirmed && otherUserConfirmed) {
     return (
-      <>
+      <View style={[styles.container, containerStyle]}>
+        <EngagementCelebration
+          visible={showCelebration}
+          coupleName1={currentUserName}
+          coupleName2={otherUserName}
+          onClose={() => setShowCelebration(false)}
+        />
         <TouchableOpacity
           style={[styles.button, styles.engagedButton]}
           onPress={handleUndoEngagement}
@@ -341,14 +353,20 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
             </View>
           </View>
         </Modal>
-      </>
+      </View>
     );
   }
 
   // If other person confirmed but current user hasn't - show confirm button
   if (engagement && !currentUserConfirmed && otherUserConfirmed) {
     return (
-      <>
+      <View style={[styles.container, containerStyle]}>
+        <EngagementCelebration
+          visible={showCelebration}
+          coupleName1={currentUserName}
+          coupleName2={otherUserName}
+          onClose={() => setShowCelebration(false)}
+        />
         <TouchableOpacity
           style={[styles.button, styles.pendingButton]}
           onPress={handleProposeEngagement}
@@ -455,26 +473,28 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
             </View>
           </View>
         </Modal>
-      </>
+      </View>
     );
   }
 
   // If current user confirmed but other hasn't - show waiting message
   if (engagement && currentUserConfirmed && !otherUserConfirmed) {
     return (
-      <TouchableOpacity
-        style={[styles.button, styles.waitingButton]}
-        disabled
-      >
-        <Ionicons name="time" size={20} color="#fff" />
-        <Text style={styles.buttonText}>Waiting for {otherUserName}...</Text>
-      </TouchableOpacity>
+      <View style={[styles.container, containerStyle]}>
+        <TouchableOpacity
+          style={[styles.button, styles.waitingButton]}
+          disabled
+        >
+          <Ionicons name="time" size={20} color="#fff" />
+          <Text style={styles.buttonText}>Waiting for {otherUserName}...</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
   // Default - show propose engagement button
   return (
-    <>
+    <View style={[styles.container, containerStyle]}>
       <TouchableOpacity
         style={[styles.button, styles.proposeButton]}
         onPress={handleProposeEngagement}
@@ -568,11 +588,17 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
           </View>
         </View>
       </Modal>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
   buttonContainer: {
     flex: 1,
     alignItems: 'center',

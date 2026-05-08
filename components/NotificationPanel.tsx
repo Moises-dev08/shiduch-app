@@ -138,15 +138,7 @@ export default function NotificationPanel({ visible, onClose }: NotificationPane
   useEffect(() => {
     if (visible) {
       setLoading(true);
-      // Load notifications then immediately mark all as read so the badge clears
-      loadNotifications().then(() => {
-        notificationService.markAllAsRead().then(() => {
-          setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-          // Invalidate the shared React Query cache so every badge consumer
-          // (index.tsx bell, connect tab, etc.) updates immediately.
-          queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_QUERY_KEY });
-        });
-      });
+      loadNotifications();
       Animated.parallel([
         Animated.spring(slideAnim, {
           toValue: 0,

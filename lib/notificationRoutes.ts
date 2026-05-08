@@ -88,6 +88,9 @@ export function getNavigationTarget(
     case 'suggestion_both_accepted':
       return '/(tabs)/connect?section=matches';
 
+    case 'suggestion_accepted_one_side':
+      return '/(tabs)/connect?category=for_others&forOthersSection=awaiting';
+
     case 'admin_new_profile':
     case 'admin_profile_resubmitted':
       if (data?.profileId) {

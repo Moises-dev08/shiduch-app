@@ -1,4 +1,5 @@
 import { Session, User } from '@supabase/supabase-js';
+import * as Notifications from 'expo-notifications';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { notificationService } from './notificationService';
 import { supabase } from './supabase';
@@ -65,6 +66,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     await notificationService.removePushToken().catch(() => {});
+    await Notifications.setBadgeCountAsync(0).catch(() => {});
+    await Notifications.dismissAllNotificationsAsync().catch(() => {});
     await supabase.auth.signOut();
   };
 

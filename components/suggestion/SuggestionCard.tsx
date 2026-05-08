@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
-import * as Clipboard from 'expo-clipboard';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
+import * as Clipboard from "expo-clipboard";
+import { router } from "expo-router";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,11 +15,11 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { profileService } from '../../lib/profileService';
-import { Suggestion, suggestionService } from '../../lib/suggestionService';
-import ContinuationChoiceModal from '../intro/ContinuationChoiceModal';
-
+} from "react-native";
+import { profileService } from "../../lib/profileService";
+import { Suggestion, suggestionService } from "../../lib/suggestionService";
+import EngagementButton from "../EngagementButton";
+import ContinuationChoiceModal from "../intro/ContinuationChoiceModal";
 
 interface SuggestionCardProps {
   suggestion: Suggestion;
@@ -29,11 +29,17 @@ interface SuggestionCardProps {
   isActionNeeded?: boolean;
 }
 
-export default function SuggestionCard({ suggestion, currentProfileId, onUpdate, onAccepted, isActionNeeded = false }: SuggestionCardProps) {
+export default function SuggestionCard({
+  suggestion,
+  currentProfileId,
+  onUpdate,
+  onAccepted,
+  isActionNeeded = false,
+}: SuggestionCardProps) {
   const queryClient = useQueryClient();
   const [showLearnMore, setShowLearnMore] = useState(false);
   const [showRejectNote, setShowRejectNote] = useState(false);
-  const [rejectNote, setRejectNote] = useState('');
+  const [rejectNote, setRejectNote] = useState("");
   const [isResponding, setIsResponding] = useState(false);
   const [showContinuationModal, setShowContinuationModal] = useState(false);
 
@@ -41,20 +47,29 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
 
   const isProfileOne = suggestion.profile_one_id === currentProfileId;
   const isProfileTwo = suggestion.profile_two_id === currentProfileId;
-  const otherProfile = (isProfileOne ? suggestion.profile_two : suggestion.profile_one) as any;
+  const otherProfile = (
+    isProfileOne ? suggestion.profile_two : suggestion.profile_one
+  ) as any;
   const suggester = suggestion.suggester_profile as any;
 
-  const myStatus = isProfileOne ? suggestion.profile_one_status : suggestion.profile_two_status;
-  const otherStatus = isProfileOne ? suggestion.profile_two_status : suggestion.profile_one_status;
+  const myStatus = isProfileOne
+    ? suggestion.profile_one_status
+    : suggestion.profile_two_status;
+  const otherStatus = isProfileOne
+    ? suggestion.profile_two_status
+    : suggestion.profile_one_status;
 
-  const contactInfo = suggestionService.getContactInfo(suggestion, currentProfileId);
+  const contactInfo = suggestionService.getContactInfo(
+    suggestion,
+    currentProfileId,
+  );
 
   // Optimistically patch this suggestion in the cache
   const patchSuggestionCache = (patch: Record<string, any>) => {
-    queryClient.setQueryData(['suggestions'], (old: any) => {
+    queryClient.setQueryData(["suggestions"], (old: any) => {
       if (!old) return old;
       const patchList = (list: any[]) =>
-        list.map((s: any) => s.id === suggestion.id ? { ...s, ...patch } : s);
+        list.map((s: any) => (s.id === suggestion.id ? { ...s, ...patch } : s));
       return {
         ...old,
         receivedSuggestions: patchList(old.receivedSuggestions ?? []),
@@ -71,76 +86,76 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
     setShowContinuationModal(true);
   };
 
-  const handleContinuationChoice = async (choice: 'by_themselves' | 'with_middle_person') => {
-    if (choice === 'with_middle_person') {
-      // Always use the suggester (X) as the matchmaker — no manual selection allowed
-      setShowContinuationModal(false);
-      setIsResponding(true);
-      const statusKey = isProfileOne ? 'profile_one_status' : 'profile_two_status';
-      const choiceKey = isProfileOne ? 'profile_one_continuation_choice' : 'profile_two_continuation_choice';
-      patchSuggestionCache({ [statusKey]: 'accepted', [choiceKey]: 'with_middle_person' });
-      try {
-        await suggestionService.acceptWithContinuation(suggestion.id, 'with_middle_person', suggestion.suggester_id);
-        const suggesterName = suggester
-          ? `${suggester.first_name} ${suggester.last_name}`
-          : 'The suggester';
-        const pronoun = suggester?.gender === 'male' ? 'he' : suggester?.gender === 'female' ? 'she' : 'they';
-        Alert.alert(
-          'Matchmaker Assigned',
-          `${suggesterName} will be your matchmaker since ${pronoun} made this suggestion.`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                onUpdate();
-                router.setParams({ section: 'liked' });
-              },
-            },
-          ]
-        );
-      } catch (error) {
-        console.error('Error accepting suggestion:', error);
-        onUpdate();
-        Alert.alert('Error', 'Failed to accept suggestion');
-      } finally {
-        setIsResponding(false);
-      }
-      return;
-    }
-
+  const handleContinuationChoice = async (
+    choice: "by_themselves" | "with_middle_person",
+  ) => {
     setShowContinuationModal(false);
     setIsResponding(true);
-    const statusKey = isProfileOne ? 'profile_one_status' : 'profile_two_status';
-    const choiceKey = isProfileOne ? 'profile_one_continuation_choice' : 'profile_two_continuation_choice';
-    patchSuggestionCache({ [statusKey]: 'accepted', [choiceKey]: choice });
+
+    const statusKey = isProfileOne ? "profile_one_status" : "profile_two_status";
+    const choiceKey = isProfileOne
+      ? "profile_one_continuation_choice"
+      : "profile_two_continuation_choice";
+
     try {
-      await suggestionService.acceptWithContinuation(suggestion.id, choice);
-      Alert.alert('Success', 'You have accepted the suggestion!');
+      await suggestionService.acceptWithContinuation(
+        suggestion.id,
+        choice,
+        choice === "with_middle_person" ? suggestion.suggester_id : undefined,
+      );
+
+      // Patch the cache NOW — server has committed, so the optimistic data is
+      // accurate. This removes the card from Action Needed in the same render
+      // as the navigation, so the user never sees a stale card.
+      patchSuggestionCache({ [statusKey]: "accepted", [choiceKey]: choice });
+
+      // Navigate to Matches and kick off a background refetch for fresh server data
       onAccepted?.();
       onUpdate();
+
+      // For the matchmaker path, show who was assigned — alert appears on top
+      // of the Matches tab since navigation already fired above
+      if (choice === "with_middle_person" && suggester) {
+        const suggesterName = `${suggester.first_name} ${suggester.last_name}`;
+        const pronoun =
+          suggester.gender === "male"
+            ? "he"
+            : suggester.gender === "female"
+              ? "she"
+              : "they";
+        Alert.alert(
+          "Matchmaker Assigned",
+          `${suggesterName} will be your matchmaker since ${pronoun} made this suggestion.`,
+        );
+      }
     } catch (error) {
-      console.error('Error accepting suggestion:', error);
+      console.error("Error accepting suggestion:", error);
       onUpdate(); // rollback via refetch
-      Alert.alert('Error', 'Failed to accept suggestion');
+      Alert.alert("Error", "Failed to accept suggestion. Please try again.");
     } finally {
       setIsResponding(false);
     }
   };
 
-
   const handleReject = async () => {
     setIsResponding(true);
-    const statusKey = isProfileOne ? 'profile_one_status' : 'profile_two_status';
-    patchSuggestionCache({ [statusKey]: 'rejected' });
+    const statusKey = isProfileOne
+      ? "profile_one_status"
+      : "profile_two_status";
+    patchSuggestionCache({ [statusKey]: "rejected" });
     try {
-      await suggestionService.respondToSuggestion(suggestion.id, 'rejected', rejectNote);
+      await suggestionService.respondToSuggestion(
+        suggestion.id,
+        "rejected",
+        rejectNote,
+      );
       setShowRejectNote(false);
-      Alert.alert('Suggestion Declined', 'The suggestion has been declined.');
+      Alert.alert("Suggestion Declined", "The suggestion has been declined.");
       onUpdate();
     } catch (error) {
-      console.error('Error rejecting suggestion:', error);
+      console.error("Error rejecting suggestion:", error);
       onUpdate(); // rollback via refetch
-      Alert.alert('Error', 'Failed to reject suggestion');
+      Alert.alert("Error", "Failed to reject suggestion");
     } finally {
       setIsResponding(false);
     }
@@ -148,34 +163,42 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
 
   const handleRevertRejection = async () => {
     Alert.alert(
-      'Change Your Mind?',
-      'Are you sure you want to reconsider this match suggestion?',
+      "Change Your Mind?",
+      "Are you sure you want to reconsider this match suggestion?",
       [
         {
-          text: 'Cancel',
-          style: 'cancel',
+          text: "Cancel",
+          style: "cancel",
         },
         {
-          text: 'Yes, Reconsider',
+          text: "Yes, Reconsider",
           onPress: async () => {
             setIsResponding(true);
             try {
-              const result = await suggestionService.revertRejection(suggestion.id);
+              const result = await suggestionService.revertRejection(
+                suggestion.id,
+              );
               if (result.success) {
-                Alert.alert('Success', 'You are now reconsidering this match suggestion.');
+                Alert.alert(
+                  "Success",
+                  "You are now reconsidering this match suggestion.",
+                );
                 onUpdate();
               } else {
-                Alert.alert('Error', result.error || 'Failed to revert rejection');
+                Alert.alert(
+                  "Error",
+                  result.error || "Failed to revert rejection",
+                );
               }
             } catch (error) {
-              console.error('Error reverting rejection:', error);
-              Alert.alert('Error', 'Failed to revert rejection');
+              console.error("Error reverting rejection:", error);
+              Alert.alert("Error", "Failed to revert rejection");
             } finally {
               setIsResponding(false);
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -184,7 +207,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
   };
 
   const handleSendWhatsApp = (whatsapp: string) => {
-    Linking.openURL(`https://wa.me/${whatsapp.replace(/\D/g, '')}`);
+    Linking.openURL(`https://wa.me/${whatsapp.replace(/\D/g, "")}`);
   };
 
   const handleSendEmail = async (email: string) => {
@@ -193,13 +216,13 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
     if (supported) {
       Linking.openURL(url);
     } else {
-      Alert.alert('No mail app found', `You can reach them at: ${email}`);
+      Alert.alert("No mail app found", `You can reach them at: ${email}`);
     }
   };
 
   const handleCopyPhone = async (phone: string) => {
     await Clipboard.setStringAsync(phone);
-    Alert.alert('Copied!', 'Phone number copied to clipboard');
+    Alert.alert("Copied!", "Phone number copied to clipboard");
   };
 
   const getProfileImage = (profile: any) => {
@@ -210,28 +233,30 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
   };
 
   const renderStatus = () => {
-    if (myStatus === 'pending') {
+    if (myStatus === "pending") {
       return (
         <View style={[styles.statusBadge, styles.pendingBadge]}>
           <Text style={styles.statusText}>⏳ Action Needed</Text>
         </View>
       );
     }
-    if (myStatus === 'accepted' && otherStatus === 'pending') {
+    if (myStatus === "accepted" && otherStatus === "pending") {
       return (
         <View style={[styles.statusBadge, styles.waitingBadge]}>
-          <Text style={styles.statusText}>⏳ Waiting for {otherProfile?.first_name}</Text>
+          <Text style={styles.statusText}>
+            ⏳ Waiting for {otherProfile?.first_name}
+          </Text>
         </View>
       );
     }
-    if (myStatus === 'accepted' && otherStatus === 'accepted') {
+    if (myStatus === "accepted" && otherStatus === "accepted") {
       return (
         <View style={[styles.statusBadge, styles.matchedBadge]}>
-          <Text style={styles.statusText}>✓ Both Accepted</Text>
+          <Text style={styles.statusText}>✓ Both accepted</Text>
         </View>
       );
     }
-    if (myStatus === 'rejected' || otherStatus === 'rejected') {
+    if (myStatus === "rejected" || otherStatus === "rejected") {
       return (
         <View style={[styles.statusBadge, styles.rejectedBadge]}>
           <Text style={styles.statusText}>✗ Declined</Text>
@@ -240,31 +265,52 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
     }
   };
 
-  const needsContinuationChoice = myStatus === 'accepted' && otherStatus === 'accepted' && 
-    (isProfileOne ? !suggestion.profile_one_continuation_choice : !suggestion.profile_two_continuation_choice);
+  const needsContinuationChoice =
+    myStatus === "accepted" &&
+    otherStatus === "accepted" &&
+    (isProfileOne
+      ? !suggestion.profile_one_continuation_choice
+      : !suggestion.profile_two_continuation_choice);
 
   return (
     <View style={[styles.card, isActionNeeded && styles.actionNeededCard]}>
       {/* Action Needed Banner */}
-      {isActionNeeded && myStatus === 'pending' && (
+      {isActionNeeded && myStatus === "pending" && (
         <View style={styles.actionBanner}>
           <Ionicons name="notifications" size={18} color="#fff" />
-          <Text style={styles.actionBannerText}>Response Required</Text>
+          <Text style={styles.actionBannerText}>Response required</Text>
         </View>
       )}
       {isActionNeeded && needsContinuationChoice && (
         <View style={[styles.actionBanner, styles.continuationBanner]}>
           <Ionicons name="arrow-forward-circle" size={18} color="#fff" />
-          <Text style={styles.actionBannerText}>Choose How to Continue</Text>
+          <Text style={styles.actionBannerText}>Choose how to continue</Text>
+        </View>
+      )}
+
+      {/* You Liked banner — shown when current user said yes but other hasn't responded */}
+      {myStatus === "accepted" && otherStatus !== "accepted" && otherProfile && (
+        <View style={styles.youLikedBanner}>
+          <Ionicons name="heart" size={15} color="#e91e63" />
+          <Text style={styles.youLikedText}>
+            You liked{" "}
+            <Text style={styles.youLikedName}>
+              {otherProfile.first_name} {otherProfile.last_name}
+            </Text>
+          </Text>
         </View>
       )}
 
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.suggestionText}>
-          <Text style={styles.boldText}>{suggester?.first_name} {suggester?.last_name}</Text>
-          {' '}suggests you with{' '}
-          <Text style={styles.boldText}>{otherProfile?.first_name} {otherProfile?.last_name}</Text>
+          <Text style={styles.boldText}>
+            {suggester?.first_name} {suggester?.last_name}
+          </Text>{" "}
+          suggests you with{" "}
+          <Text style={styles.boldText}>
+            {otherProfile?.first_name} {otherProfile?.last_name}
+          </Text>
         </Text>
         {renderStatus()}
       </View>
@@ -279,7 +325,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
       </TouchableOpacity>
 
       {/* Action Buttons - Pending */}
-      {myStatus === 'pending' && !showRejectNote && (
+      {myStatus === "pending" && !showRejectNote && (
         <View style={styles.actionsSection}>
           <View style={styles.buttonRow}>
             <TouchableOpacity
@@ -328,7 +374,7 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
               {isResponding ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
-                <Text style={styles.buttonText}>Confirm Decline</Text>
+                <Text style={styles.buttonText}>Confirm decline</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -343,12 +389,14 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
           disabled={isResponding}
         >
           <Ionicons name="arrow-forward-circle" size={24} color="#fff" />
-          <Text style={styles.bigContinueButtonText}>Choose How to Continue</Text>
+          <Text style={styles.bigContinueButtonText}>
+            Choose how to continue
+          </Text>
         </TouchableOpacity>
       )}
 
       {/* Revert Rejection Button - Show when user has rejected */}
-      {myStatus === 'rejected' && (
+      {myStatus === "rejected" && (
         <View style={styles.actionsSection}>
           <TouchableOpacity
             style={[styles.button, styles.revertButton]}
@@ -368,99 +416,150 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
       )}
 
       {/* Contact Info */}
-      {suggestion.status === 'completed' && contactInfo.shouldShowContact && contactInfo.contactPerson && (
-        <View style={styles.contactSection}>
-          <TouchableOpacity 
-            style={styles.contactToggle}
-            onPress={() => setShowContactInfo(!showContactInfo)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="call" size={18} color="#4CAF50" />
-            <Text style={styles.contactToggleText}>Contact Information</Text>
-            <Ionicons 
-              name={showContactInfo ? "chevron-up" : "chevron-down"} 
-              size={20} 
-              color="#666" 
-            />
-          </TouchableOpacity>
-          
-          {showContactInfo && (
-            <>
-              <Text style={styles.contactTitle}>{contactInfo.message}</Text>
-              <View style={styles.contactCard}>
-                <Text style={styles.contactName}>{contactInfo.contactPerson.name}</Text>
-                {contactInfo.contactPerson.phone && (
-                  <Text style={styles.contactDetail}>📞 {contactInfo.contactPerson.phone}</Text>
-                )}
-                {contactInfo.contactPerson.email && (
-                  <Text style={styles.contactDetail}>📧 {contactInfo.contactPerson.email}</Text>
-                )}
+      {suggestion.status === "completed" &&
+        contactInfo.shouldShowContact &&
+        contactInfo.contactPerson && (
+          <View style={styles.contactSection}>
+            <TouchableOpacity
+              style={styles.contactToggle}
+              onPress={() => setShowContactInfo(!showContactInfo)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="call" size={18} color="#4CAF50" />
+              <Text style={styles.contactToggleText}>Contact information</Text>
+              <Ionicons
+                name={showContactInfo ? "chevron-up" : "chevron-down"}
+                size={20}
+                color="#666"
+              />
+            </TouchableOpacity>
 
-                <View style={styles.contactActions}>
+            {showContactInfo && (
+              <>
+                <Text style={styles.contactTitle}>{contactInfo.message}</Text>
+                <View style={styles.contactCard}>
+                  <Text style={styles.contactName}>
+                    {contactInfo.contactPerson.name}
+                  </Text>
                   {contactInfo.contactPerson.phone && (
-                    <>
-                      <TouchableOpacity
-                        style={styles.contactAction}
-                        onPress={() => handleSendSMS(contactInfo.contactPerson!.phone!)}
-                      >
-                        <Ionicons name="chatbubble" size={18} color="#007AFF" />
-                        <Text style={styles.contactActionText}>SMS</Text>
-                      </TouchableOpacity>
-
-                      {contactInfo.contactPerson.phone && (
-                        <TouchableOpacity
-                          style={styles.contactAction}
-                          onPress={() => handleSendWhatsApp(contactInfo.contactPerson!.phone!)}
-                        >
-                          <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
-                          <Text style={styles.contactActionText}>WhatsApp</Text>
-                        </TouchableOpacity>
-                      )}
-
-                      <TouchableOpacity
-                        style={styles.contactAction}
-                        onPress={() => handleCopyPhone(contactInfo.contactPerson!.phone!)}
-                      >
-                        <Ionicons name="copy" size={18} color="#666" />
-                        <Text style={styles.contactActionText}>Copy</Text>
-                      </TouchableOpacity>
-                    </>
+                    <Text style={styles.contactDetail}>
+                      📞 {contactInfo.contactPerson.phone}
+                    </Text>
+                  )}
+                  {contactInfo.contactPerson.email && (
+                    <Text style={styles.contactDetail}>
+                      📧 {contactInfo.contactPerson.email}
+                    </Text>
                   )}
 
-                  {contactInfo.contactPerson.email && (
+                  <View style={styles.contactActions}>
+                    {contactInfo.contactPerson.phone && (
+                      <>
+                        <TouchableOpacity
+                          style={styles.contactAction}
+                          onPress={() =>
+                            handleSendSMS(contactInfo.contactPerson!.phone!)
+                          }
+                        >
+                          <Ionicons
+                            name="chatbubble"
+                            size={18}
+                            color="#007AFF"
+                          />
+                          <Text style={styles.contactActionText}>SMS</Text>
+                        </TouchableOpacity>
+
+                        {contactInfo.contactPerson.phone && (
+                          <TouchableOpacity
+                            style={styles.contactAction}
+                            onPress={() =>
+                              handleSendWhatsApp(
+                                contactInfo.contactPerson!.phone!,
+                              )
+                            }
+                          >
+                            <Ionicons
+                              name="logo-whatsapp"
+                              size={18}
+                              color="#25D366"
+                            />
+                            <Text style={styles.contactActionText}>
+                              WhatsApp
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity
+                          style={styles.contactAction}
+                          onPress={() =>
+                            handleCopyPhone(contactInfo.contactPerson!.phone!)
+                          }
+                        >
+                          <Ionicons name="copy" size={18} color="#666" />
+                          <Text style={styles.contactActionText}>Copy</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+
+                    {contactInfo.contactPerson.email && (
+                      <TouchableOpacity
+                        style={styles.contactAction}
+                        onPress={() =>
+                          handleSendEmail(contactInfo.contactPerson!.email!)
+                        }
+                      >
+                        <Ionicons name="mail" size={18} color="#EA4335" />
+                        <Text style={styles.contactActionText}>Email</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Resume Download */}
+                  {contactInfo.contactPerson.resumeUrl && (
                     <TouchableOpacity
-                      style={styles.contactAction}
-                      onPress={() => handleSendEmail(contactInfo.contactPerson!.email!)}
+                      style={styles.resumeButton}
+                      onPress={async () => {
+                        const { resumeService } =
+                          await import("../../lib/resumeService");
+                        const result = await resumeService.downloadResume(
+                          contactInfo.contactPerson!.resumeUrl!,
+                          `${contactInfo.contactPerson!.name}_resume`,
+                        );
+                        if (!result.success) {
+                          Alert.alert(
+                            "Error",
+                            result.error || "Failed to open resume",
+                          );
+                        }
+                      }}
                     >
-                      <Ionicons name="mail" size={18} color="#EA4335" />
-                      <Text style={styles.contactActionText}>Email</Text>
+                      <Ionicons
+                        name="document-text"
+                        size={20}
+                        color="#1293DA"
+                      />
+                      <Text style={styles.resumeButtonText}>
+                        View Resume 📄
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
+              </>
+            )}
+          </View>
+        )}
 
-                {/* Resume Download */}
-                {contactInfo.contactPerson.resumeUrl && (
-                  <TouchableOpacity
-                    style={styles.resumeButton}
-                    onPress={async () => {
-                      const { resumeService } = await import('../../lib/resumeService');
-                      const result = await resumeService.downloadResume(
-                        contactInfo.contactPerson!.resumeUrl!,
-                        `${contactInfo.contactPerson!.name}_resume`
-                      );
-                      if (!result.success) {
-                        Alert.alert('Error', result.error || 'Failed to open resume');
-                      }
-                    }}
-                  >
-                    <Ionicons name="document-text" size={20} color="#1293DA" />
-                    <Text style={styles.resumeButtonText}>View Resume 📄</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </>
-          )}
-        </View>
+      {/* Engagement button — shown when both sides have accepted the suggestion */}
+      {myStatus === "accepted" && otherStatus === "accepted" && otherProfile && (
+        <EngagementButton
+          otherUserId={otherProfile.id}
+          otherUserName={`${otherProfile.first_name ?? ""} ${otherProfile.last_name ?? ""}`}
+          currentUserName={
+            isProfileOne
+              ? `${suggestion.profile_one?.first_name ?? ""} ${suggestion.profile_one?.last_name ?? ""}`
+              : `${suggestion.profile_two?.first_name ?? ""} ${suggestion.profile_two?.last_name ?? ""}`
+          }
+        />
       )}
 
       {/* Learn More Modal */}
@@ -492,15 +591,22 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
                   }}
                 >
                   {getProfileImage(suggester) ? (
-                    <Image source={{ uri: getProfileImage(suggester)! }} style={styles.profileImage} />
+                    <Image
+                      source={{ uri: getProfileImage(suggester)! }}
+                      style={styles.profileImage}
+                    />
                   ) : (
                     <View style={styles.profileImagePlaceholder}>
                       <Ionicons name="person" size={30} color="#ccc" />
                     </View>
                   )}
                   <View style={styles.profileInfo}>
-                    <Text style={styles.profileName}>{suggester?.first_name} {suggester.last_name}</Text>
-                    <Text style={styles.profileDetails}>{suggester.age} • {suggester.gender}</Text>
+                    <Text style={styles.profileName}>
+                      {suggester?.first_name} {suggester.last_name}
+                    </Text>
+                    <Text style={styles.profileDetails}>
+                      {suggester.age} • {suggester.gender}
+                    </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="#ccc" />
                 </TouchableOpacity>
@@ -522,7 +628,9 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
 
               return noteToShow && suggester ? (
                 <View style={styles.noteSection}>
-                  <Text style={styles.sectionTitle}>Note from {suggester.first_name}</Text>
+                  <Text style={styles.sectionTitle}>
+                    Note from {suggester.first_name}
+                  </Text>
                   <View style={styles.noteCard}>
                     <Text style={styles.noteText}>{noteToShow}</Text>
                   </View>
@@ -543,15 +651,22 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
                 }}
               >
                 {getProfileImage(otherProfile) ? (
-                  <Image source={{ uri: getProfileImage(otherProfile)! }} style={styles.profileImage} />
+                  <Image
+                    source={{ uri: getProfileImage(otherProfile)! }}
+                    style={styles.profileImage}
+                  />
                 ) : (
                   <View style={styles.profileImagePlaceholder}>
                     <Ionicons name="person" size={30} color="#ccc" />
                   </View>
                 )}
                 <View style={styles.profileInfo}>
-                  <Text style={styles.profileName}>{otherProfile?.first_name} {otherProfile?.last_name}</Text>
-                  <Text style={styles.profileDetails}>{otherProfile?.age} • {otherProfile?.gender}</Text>
+                  <Text style={styles.profileName}>
+                    {otherProfile?.first_name} {otherProfile?.last_name}
+                  </Text>
+                  <Text style={styles.profileDetails}>
+                    {otherProfile?.age} • {otherProfile?.gender}
+                  </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#ccc" />
               </TouchableOpacity>
@@ -564,11 +679,19 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
         <ContinuationChoiceModal
           visible={showContinuationModal}
           profileName={`${otherProfile?.first_name} ${otherProfile?.last_name}`}
-          suggesterName={suggester ? `${suggester.first_name} ${suggester.last_name}` : undefined}
+          suggesterName={
+            suggester
+              ? `${suggester.first_name} ${suggester.last_name}`
+              : undefined
+          }
           onSelectChoice={handleContinuationChoice}
           onCancel={() => setShowContinuationModal(false)}
           loading={isResponding}
-          otherSideChoice={isProfileOne ? suggestion.profile_two_continuation_choice : suggestion.profile_one_continuation_choice}
+          otherSideChoice={
+            isProfileOne
+              ? suggestion.profile_two_continuation_choice
+              : suggestion.profile_one_continuation_choice
+          }
         />
       )}
     </View>
@@ -577,11 +700,11 @@ export default function SuggestionCard({ suggestion, currentProfileId, onUpdate,
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -589,14 +712,14 @@ const styles = StyleSheet.create({
   },
   actionNeededCard: {
     borderLeftWidth: 4,
-    borderLeftColor: '#1293DA',
+    borderLeftColor: "#1293DA",
     paddingTop: 0,
   },
   actionBanner: {
-    backgroundColor: '#1293DA',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#1293DA",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 8,
     paddingHorizontal: 12,
     marginHorizontal: -16,
@@ -607,12 +730,31 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 12,
   },
   continuationBanner: {
-    backgroundColor: '#2196F3',
+    backgroundColor: "#2196F3",
   },
   actionBannerText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
+  },
+  youLikedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#fce4ec",
+    borderRadius: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    alignSelf: "flex-start",
+    marginBottom: 10,
+  },
+  youLikedText: {
+    fontSize: 13,
+    color: "#c2185b",
+  },
+  youLikedName: {
+    fontWeight: "700",
+    color: "#c2185b",
   },
   header: {
     marginBottom: 12,
@@ -620,211 +762,211 @@ const styles = StyleSheet.create({
   },
   suggestionText: {
     fontSize: 15,
-    color: '#333',
+    color: "#333",
     marginBottom: 8,
     lineHeight: 22,
   },
   boldText: {
-    fontWeight: '600',
-    color: '#1293DA',
+    fontWeight: "600",
+    color: "#1293DA",
   },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   pendingBadge: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: "#FFF3E0",
   },
   waitingBadge: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: "#E3F2FD",
   },
   matchedBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: "#E8F5E9",
   },
   rejectedBadge: {
-    backgroundColor: '#FFF8E1',
+    backgroundColor: "#FFF8E1",
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   learnMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#FFF0F5',
+    backgroundColor: "#EBF6FD",
     borderRadius: 8,
     gap: 8,
     marginBottom: 12,
   },
   learnMoreText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1293DA',
+    fontWeight: "600",
+    color: "#1293DA",
   },
   actionsSection: {
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: "#f0f0f0",
     paddingTop: 12,
   },
   buttonRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   button: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 10,
     borderRadius: 8,
     gap: 6,
   },
   acceptButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
   },
   rejectButton: {
-    backgroundColor: '#FF6B6B',
+    backgroundColor: "#FF6B6B",
   },
   revertButton: {
-    backgroundColor: '#FF9800',
+    backgroundColor: "#FF9800",
   },
   cancelButton: {
-    backgroundColor: '#999',
+    backgroundColor: "#999",
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   noteInput: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
     fontSize: 14,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
     minHeight: 80,
   },
   bigContinueButton: {
-    backgroundColor: '#2196F3',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#2196F3",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 16,
     borderRadius: 12,
     gap: 12,
     marginTop: 12,
-    shadowColor: '#2196F3',
+    shadowColor: "#2196F3",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
   bigContinueButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   contactSection: {
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: "#f0f0f0",
     paddingTop: 12,
     marginTop: 12,
   },
   contactToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     borderRadius: 8,
     marginBottom: 12,
   },
   contactToggleText: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   contactTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 12,
     paddingHorizontal: 4,
   },
   contactCard: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: "#E3F2FD",
     padding: 12,
     borderRadius: 8,
   },
   contactName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 8,
   },
   contactDetail: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 4,
   },
   contactActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
+    borderTopColor: "rgba(0,0,0,0.1)",
   },
   contactAction: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 4,
   },
   contactActionText: {
     fontSize: 11,
-    color: '#666',
+    color: "#666",
   },
   resumeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E3F2FD',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E3F2FD",
     padding: 12,
     borderRadius: 8,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#1293DA',
+    borderColor: "#1293DA",
   },
   resumeButtonText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#1293DA',
+    fontWeight: "600",
+    color: "#1293DA",
     marginLeft: 8,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   modalContent: {
     flex: 1,
@@ -835,18 +977,18 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 12,
   },
   profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
   },
   profileImage: {
     width: 50,
@@ -858,9 +1000,9 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#e0e0e0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#e0e0e0",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
   profileInfo: {
@@ -868,28 +1010,27 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 4,
   },
   profileDetails: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   noteSection: {
     marginBottom: 24,
   },
   noteCard: {
-    backgroundColor: '#FFF9C4',
+    backgroundColor: "#FFF9C4",
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FFF176',
+    borderColor: "#FFF176",
   },
   noteText: {
     fontSize: 15,
-    color: '#333',
+    color: "#333",
     lineHeight: 22,
   },
 });
-

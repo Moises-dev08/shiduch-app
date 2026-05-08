@@ -1,0 +1,10 @@
+---
+alwaysApply: true
+---
+
+---
+
+description: Enforce TypeScript, styling separation, and naming conventions
+globs: \*_/_.{ts,tsx}
+
+---

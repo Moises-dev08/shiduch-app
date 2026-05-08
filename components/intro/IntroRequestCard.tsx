@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
-import * as Clipboard from 'expo-clipboard';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
+import * as Clipboard from "expo-clipboard";
+import { router } from "expo-router";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,12 +16,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
-} from 'react-native';
-import EngagementButton from '../../components/EngagementButton';
-import { IntroRequest, introService } from '../../lib/introService';
-import { profileService } from '../../lib/profileService';
-import ContinuationChoiceModal from './ContinuationChoiceModal';
+  View,
+} from "react-native";
+import EngagementButton from "../../components/EngagementButton";
+import { IntroRequest, introService } from "../../lib/introService";
+import { profileService } from "../../lib/profileService";
+import ContinuationChoiceModal from "./ContinuationChoiceModal";
 
 interface IntroRequestCardProps {
   request: IntroRequest;
@@ -37,16 +37,16 @@ interface IntroRequestCardProps {
  * 2. Matchmaker (Ben) accepts/rejects → Requester (Ori) + Requested (Shimon if accepted)
  * 3. Requested (Shimon) accepts/rejects → both choose continuation
  */
-export default function IntroRequestCardNew({ 
-  request, 
-  isRequester, 
+export default function IntroRequestCardNew({
+  request,
+  isRequester,
   onUpdate,
   onAccepted,
-  isActionNeeded = false 
+  isActionNeeded = false,
 }: IntroRequestCardProps) {
   const queryClient = useQueryClient();
   const [showRejectNote, setShowRejectNote] = useState(false);
-  const [rejectNote, setRejectNote] = useState('');
+  const [rejectNote, setRejectNote] = useState("");
   const [isResponding, setIsResponding] = useState(false);
   const [showContinuationModal, setShowContinuationModal] = useState(false);
   const [showConfirmAcceptModal, setShowConfirmAcceptModal] = useState(false);
@@ -55,32 +55,36 @@ export default function IntroRequestCardNew({
 
   const handleSendSMS = (phone: string) => Linking.openURL(`sms:${phone}`);
   const handleSendWhatsApp = (phone: string) =>
-    Linking.openURL(`https://wa.me/${phone.replace(/\D/g, '')}`);
+    Linking.openURL(`https://wa.me/${phone.replace(/\D/g, "")}`);
   const handleSendEmail = async (email: string) => {
     const url = `mailto:${email}`;
     const supported = await Linking.canOpenURL(url);
     if (supported) {
       Linking.openURL(url);
     } else {
-      Alert.alert('No mail app found', `You can reach them at: ${email}`);
+      Alert.alert("No mail app found", `You can reach them at: ${email}`);
     }
   };
   const handleCopyPhone = async (phone: string) => {
     await Clipboard.setStringAsync(phone);
-    Alert.alert('Copied!', 'Phone number copied to clipboard');
+    Alert.alert("Copied!", "Phone number copied to clipboard");
   };
   const handleDownloadResume = async (resumeUrl: string, name: string) => {
-    const { resumeService } = await import('../../lib/resumeService');
-    const result = await resumeService.downloadResume(resumeUrl, `${name}_resume`);
-    if (!result.success) Alert.alert('Error', result.error || 'Failed to open resume');
+    const { resumeService } = await import("../../lib/resumeService");
+    const result = await resumeService.downloadResume(
+      resumeUrl,
+      `${name}_resume`,
+    );
+    if (!result.success)
+      Alert.alert("Error", result.error || "Failed to open resume");
   };
 
   // Optimistically patch a single intro request in the cache
   const patchIntroCache = (patch: Record<string, any>) => {
-    queryClient.setQueryData(['intro_requests'], (old: any) => {
+    queryClient.setQueryData(["intro_requests"], (old: any) => {
       if (!old) return old;
       const patchList = (list: any[]) =>
-        list.map((r: any) => r.id === request.id ? { ...r, ...patch } : r);
+        list.map((r: any) => (r.id === request.id ? { ...r, ...patch } : r));
       return {
         ...old,
         sentRequests: patchList(old.sentRequests ?? []),
@@ -89,7 +93,9 @@ export default function IntroRequestCardNew({
     });
   };
 
-  const otherProfile = isRequester ? request.requested_profile : request.requester_profile;
+  const otherProfile = isRequester
+    ? request.requested_profile
+    : request.requester_profile;
   const matchmakerProfile = request.requester_middle_person;
 
   const getProfileImage = (profile: any) => {
@@ -107,7 +113,9 @@ export default function IntroRequestCardNew({
 
   const handleViewMatchmakerProfile = () => {
     if (matchmakerProfile && matchmakerProfile.id) {
-      router.push(`/profile-details?id=${matchmakerProfile.id}&hideActions=true`);
+      router.push(
+        `/profile-details?id=${matchmakerProfile.id}&hideActions=true`,
+      );
     }
   };
 
@@ -121,26 +129,30 @@ export default function IntroRequestCardNew({
   const handleConfirmAccept = async () => {
     setShowConfirmAcceptModal(false);
 
-    if (request.requester_continuation_choice === 'with_middle_person') {
+    if (request.requester_continuation_choice === "with_middle_person") {
       // Requester already chose matchmaker — accept + set choice atomically
       setIsResponding(true);
       patchIntroCache({
-        requested_status: 'accepted',
-        status: 'accepted',
-        requested_continuation_choice: 'with_middle_person',
+        requested_status: "accepted",
+        status: "accepted",
+        requested_continuation_choice: "with_middle_person",
       });
       try {
-        await introService.acceptWithContinuation(request.id, 'with_middle_person', matchmakerProfile?.id);
+        await introService.acceptWithContinuation(
+          request.id,
+          "with_middle_person",
+          matchmakerProfile?.id,
+        );
         Alert.alert(
-          'Success! ✅',
-          `You have accepted the intro request! This match will be coordinated by ${matchmakerProfile?.first_name} (Matchmaker/Shadchan).`
+          "Success! ✅",
+          `You have accepted the intro request! This match will be coordinated by ${matchmakerProfile?.first_name} (matchmaker/shadchan).`,
         );
         onAccepted?.();
         onUpdate();
       } catch (error) {
-        console.error('Error accepting request:', error);
+        console.error("Error accepting request:", error);
         onUpdate();
-        Alert.alert('Error', 'Failed to accept request');
+        Alert.alert("Error", "Failed to accept request");
       } finally {
         setIsResponding(false);
       }
@@ -150,27 +162,29 @@ export default function IntroRequestCardNew({
   };
 
   // FOR REQUESTED PERSON: Handle continuation choice — single atomic DB write
-  const handleContinuationChoice = async (choice: 'by_themselves' | 'with_middle_person') => {
+  const handleContinuationChoice = async (
+    choice: "by_themselves" | "with_middle_person",
+  ) => {
     setIsResponding(true);
     setShowContinuationModal(false);
     patchIntroCache({
-      requested_status: 'accepted',
-      status: 'accepted',
+      requested_status: "accepted",
+      status: "accepted",
       requested_continuation_choice: choice,
     });
     try {
       await introService.acceptWithContinuation(
         request.id,
         choice,
-        choice === 'with_middle_person' ? matchmakerProfile?.id : undefined
+        choice === "with_middle_person" ? matchmakerProfile?.id : undefined,
       );
-      Alert.alert('Success! ✅', 'You have accepted the intro request!');
+      Alert.alert("Success! ✅", "You have accepted the intro request!");
       onAccepted?.();
       onUpdate();
     } catch (error) {
-      console.error('Error accepting request:', error);
+      console.error("Error accepting request:", error);
       onUpdate();
-      Alert.alert('Error', 'Failed to accept request');
+      Alert.alert("Error", "Failed to accept request");
     } finally {
       setIsResponding(false);
     }
@@ -180,40 +194,53 @@ export default function IntroRequestCardNew({
   const handleReject = async () => {
     setIsResponding(true);
     // Optimistic: mark rejected so card leaves action_needed immediately
-    patchIntroCache({ requested_status: 'rejected', status: 'rejected' });
+    patchIntroCache({ requested_status: "rejected", status: "rejected" });
     try {
-      await introService.requestedPersonRespond(request.id, 'rejected', rejectNote);
+      await introService.requestedPersonRespond(
+        request.id,
+        "rejected",
+        rejectNote,
+      );
       setShowRejectNote(false);
-      Alert.alert('Request Declined', 'The intro request has been declined.');
+      Alert.alert("Request Declined", "The intro request has been declined.");
       onUpdate();
     } catch (error) {
-      console.error('Error rejecting request:', error);
+      console.error("Error rejecting request:", error);
       onUpdate(); // rollback via refetch
-      Alert.alert('Error', 'Failed to reject request');
+      Alert.alert("Error", "Failed to reject request");
     } finally {
       setIsResponding(false);
     }
   };
 
   // FOR REQUESTER: Set continuation choice after both accepted
-  const handleRequesterContinuationChoice = async (choice: 'by_themselves' | 'with_middle_person') => {
+  const handleRequesterContinuationChoice = async (
+    choice: "by_themselves" | "with_middle_person",
+  ) => {
     setIsResponding(true);
     setShowContinuationModal(false);
     // Optimistic: set requester choice so card leaves action_needed
     patchIntroCache({ requester_continuation_choice: choice });
     try {
-      if (choice === 'with_middle_person' && matchmakerProfile?.id) {
-        await introService.setContinuationChoice(request.id, choice, matchmakerProfile.id);
+      if (choice === "with_middle_person" && matchmakerProfile?.id) {
+        await introService.setContinuationChoice(
+          request.id,
+          choice,
+          matchmakerProfile.id,
+        );
       } else {
         await introService.setContinuationChoice(request.id, choice);
       }
-      Alert.alert('Choice Saved! ✅', 'Your continuation preference has been saved!');
+      Alert.alert(
+        "Choice Saved! ✅",
+        "Your continuation preference has been saved!",
+      );
       onAccepted?.();
       onUpdate();
     } catch (error) {
-      console.error('Error setting continuation choice:', error);
+      console.error("Error setting continuation choice:", error);
       onUpdate(); // rollback via refetch
-      Alert.alert('Error', 'Failed to save choice');
+      Alert.alert("Error", "Failed to save choice");
     } finally {
       setIsResponding(false);
     }
@@ -223,79 +250,105 @@ export default function IntroRequestCardNew({
   const renderStatusBadge = () => {
     if (isRequester) {
       // REQUESTER VIEW
-      if (request.matchmaker_status === 'pending') {
+      if (request.matchmaker_status === "pending") {
         return (
           <View style={[styles.statusBadge, styles.waitingBadge]}>
             <Ionicons name="time" size={16} color="#1976d2" />
-            <Text style={[styles.statusText, { color: '#1976d2' }]}>Awaiting Matchmaker Response</Text>
+            <Text style={[styles.statusText, { color: "#1976d2" }]}>
+              Awaiting Matchmaker Response
+            </Text>
           </View>
         );
-      } else if (request.matchmaker_status === 'rejected') {
+      } else if (request.matchmaker_status === "rejected") {
         return (
           <View style={[styles.statusBadge, styles.rejectedBadge]}>
             <Ionicons name="close-circle" size={16} color="#d32f2f" />
-            <Text style={[styles.statusText, { color: '#d32f2f' }]}>Matchmaker Declined</Text>
+            <Text style={[styles.statusText, { color: "#d32f2f" }]}>
+              Matchmaker Declined
+            </Text>
           </View>
         );
-      } else if (request.matchmaker_status === 'accepted' && request.requested_status === 'pending') {
+      } else if (
+        request.matchmaker_status === "accepted" &&
+        request.requested_status === "pending"
+      ) {
         return (
           <View style={[styles.statusBadge, styles.waitingBadge]}>
             <Ionicons name="time" size={16} color="#1976d2" />
-            <Text style={[styles.statusText, { color: '#1976d2' }]}>Waiting for {otherProfile?.first_name}&apos;s Response</Text>
+            <Text style={[styles.statusText, { color: "#1976d2" }]}>
+              Waiting for {otherProfile?.first_name}&apos;s Response
+            </Text>
           </View>
         );
-      } else if (request.requested_status === 'rejected') {
+      } else if (request.requested_status === "rejected") {
         return (
           <View style={[styles.statusBadge, styles.rejectedBadge]}>
             <Ionicons name="close-circle" size={16} color="#d32f2f" />
-            <Text style={[styles.statusText, { color: '#d32f2f' }]}>{otherProfile?.first_name} Declined</Text>
+            <Text style={[styles.statusText, { color: "#d32f2f" }]}>
+              {otherProfile?.first_name} Declined
+            </Text>
           </View>
         );
-      } else if (request.matchmaker_status === 'accepted' && request.requested_status === 'accepted') {
+      } else if (
+        request.matchmaker_status === "accepted" &&
+        request.requested_status === "accepted"
+      ) {
         if (!request.requester_continuation_choice) {
           return (
             <View style={[styles.statusBadge, styles.matchedBadge]}>
               <Ionicons name="checkmark-circle" size={16} color="#388e3c" />
-              <Text style={[styles.statusText, { color: '#388e3c' }]}>Match Confirmed!</Text>
+              <Text style={[styles.statusText, { color: "#388e3c" }]}>
+                Match Confirmed!
+              </Text>
             </View>
           );
         }
         return (
           <View style={[styles.statusBadge, styles.completedBadge]}>
             <Ionicons name="checkmark-done" size={16} color="#2e7d32" />
-            <Text style={[styles.statusText, { color: '#2e7d32' }]}>Ready to Connect</Text>
+            <Text style={[styles.statusText, { color: "#2e7d32" }]}>
+              Ready to Connect
+            </Text>
           </View>
         );
       }
     } else {
       // REQUESTED PERSON VIEW
-      if (request.requested_status === 'pending') {
+      if (request.requested_status === "pending") {
         return (
           <View style={[styles.statusBadge, styles.pendingBadge]}>
             <Ionicons name="mail" size={16} color="#f57c00" />
-            <Text style={[styles.statusText, { color: '#f57c00' }]}>New Introduction Request</Text>
+            <Text style={[styles.statusText, { color: "#f57c00" }]}>
+              New Introduction Request
+            </Text>
           </View>
         );
-      } else if (request.requested_status === 'rejected') {
+      } else if (request.requested_status === "rejected") {
         return (
           <View style={[styles.statusBadge, styles.rejectedBadge]}>
             <Ionicons name="close-circle" size={16} color="#d32f2f" />
-            <Text style={[styles.statusText, { color: '#d32f2f' }]}>Declined</Text>
+            <Text style={[styles.statusText, { color: "#d32f2f" }]}>
+              Declined
+            </Text>
           </View>
         );
-      } else if (request.requested_status === 'accepted') {
+      } else if (request.requested_status === "accepted") {
         if (!request.requested_continuation_choice) {
           return (
             <View style={[styles.statusBadge, styles.matchedBadge]}>
               <Ionicons name="checkmark-circle" size={16} color="#388e3c" />
-              <Text style={[styles.statusText, { color: '#388e3c' }]}>Match Confirmed!</Text>
+              <Text style={[styles.statusText, { color: "#388e3c" }]}>
+                Match Confirmed!
+              </Text>
             </View>
           );
         }
         return (
           <View style={[styles.statusBadge, styles.completedBadge]}>
             <Ionicons name="checkmark-done" size={16} color="#2e7d32" />
-            <Text style={[styles.statusText, { color: '#2e7d32' }]}>Ready to Connect</Text>
+            <Text style={[styles.statusText, { color: "#2e7d32" }]}>
+              Ready to Connect
+            </Text>
           </View>
         );
       }
@@ -311,12 +364,15 @@ export default function IntroRequestCardNew({
     } else {
       // Requested person needs to respond or choose continuation
       // But if requester chose 'with_middle_person', requested doesn't need to choose (auto-assigned)
-      if (request.requested_status === 'pending') {
+      if (request.requested_status === "pending") {
         return true;
       }
-      if (request.requested_status === 'accepted' && !request.requested_continuation_choice) {
+      if (
+        request.requested_status === "accepted" &&
+        !request.requested_continuation_choice
+      ) {
         // If requester chose matchmaker, requested doesn't need to choose (already auto-assigned)
-        return request.requester_continuation_choice !== 'with_middle_person';
+        return request.requester_continuation_choice !== "with_middle_person";
       }
       return false;
     }
@@ -329,10 +385,12 @@ export default function IntroRequestCardNew({
       style={styles.rejectModalScroll}
       contentContainerStyle={styles.rejectModalScrollContent}
       keyboardShouldPersistTaps="handled"
-      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       showsVerticalScrollIndicator={false}
       bounces={false}
-      {...(Platform.OS === 'ios' ? { automaticallyAdjustKeyboardInsets: true as const } : {})}
+      {...(Platform.OS === "ios"
+        ? { automaticallyAdjustKeyboardInsets: true as const }
+        : {})}
     >
       <View style={styles.modalContent}>
         <Text style={styles.modalTitle}>Decline Intro Request</Text>
@@ -378,14 +436,14 @@ export default function IntroRequestCardNew({
         <View style={styles.matchmakerContext}>
           <Ionicons name="people" size={18} color="#666" />
           <Text style={styles.matchmakerContextText}>
-            Facilitated by{' '}
-            <Text 
+            Facilitated by{" "}
+            <Text
               style={styles.matchmakerNameClickable}
               onPress={handleViewMatchmakerProfile}
             >
               {matchmakerProfile?.first_name} {matchmakerProfile?.last_name}
-            </Text>
-            {' '}(Matchmaker/Shadchan)
+            </Text>{" "}
+            (matchmaker/shadchan)
           </Text>
         </View>
       )}
@@ -395,9 +453,13 @@ export default function IntroRequestCardNew({
         <View style={styles.noteContainer}>
           <View style={styles.noteHeader}>
             <Ionicons name="chatbox" size={16} color="#1293DA" />
-            <Text style={styles.noteTitle}>Note from {matchmakerProfile?.first_name}:</Text>
+            <Text style={styles.noteTitle}>
+              Note from {matchmakerProfile?.first_name}:
+            </Text>
           </View>
-          <Text style={styles.noteText}>{request.matchmaker_note_to_requested}</Text>
+          <Text style={styles.noteText}>
+            {request.matchmaker_note_to_requested}
+          </Text>
         </View>
       )}
 
@@ -437,281 +499,378 @@ export default function IntroRequestCardNew({
       {renderStatusBadge()}
 
       {/* Contact Information - Show when both chose "by_themselves" */}
-      {request.matchmaker_status === 'accepted' &&
-       request.requested_status === 'accepted' &&
-       request.requester_continuation_choice === 'by_themselves' &&
-       request.requested_continuation_choice === 'by_themselves' && (
-        <View style={styles.unifiedContactSection}>
-          <TouchableOpacity
-            style={styles.unifiedContactToggle}
-            onPress={() => setShowContactInfo(!showContactInfo)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="call" size={18} color="#4CAF50" />
-            <Text style={styles.unifiedContactToggleText}>Contact Information</Text>
-            <Ionicons name={showContactInfo ? 'chevron-up' : 'chevron-down'} size={20} color="#666" />
-          </TouchableOpacity>
-
-          {showContactInfo && otherProfile && (
-            <>
-              <Text style={styles.unifiedContactMessage}>
-                Both chose to connect directly. Contact info below:
+      {request.matchmaker_status === "accepted" &&
+        request.requested_status === "accepted" &&
+        request.requester_continuation_choice === "by_themselves" &&
+        request.requested_continuation_choice === "by_themselves" && (
+          <View style={styles.unifiedContactSection}>
+            <TouchableOpacity
+              style={styles.unifiedContactToggle}
+              onPress={() => setShowContactInfo(!showContactInfo)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="call" size={18} color="#4CAF50" />
+              <Text style={styles.unifiedContactToggleText}>
+                Contact information
               </Text>
-              <View style={styles.unifiedContactCard}>
-                <Text style={styles.unifiedContactName}>
-                  {otherProfile.first_name} {otherProfile.last_name}
-                </Text>
-                {otherProfile.phone && (
-                  <Text style={styles.unifiedContactDetail}>📞 {otherProfile.phone}</Text>
-                )}
-                {otherProfile.email && (
-                  <Text style={styles.unifiedContactDetail}>📧 {otherProfile.email}</Text>
-                )}
+              <Ionicons
+                name={showContactInfo ? "chevron-up" : "chevron-down"}
+                size={20}
+                color="#666"
+              />
+            </TouchableOpacity>
 
-                <View style={styles.unifiedContactActions}>
+            {showContactInfo && otherProfile && (
+              <>
+                <Text style={styles.unifiedContactMessage}>
+                  Both chose to connect directly. Contact info below:
+                </Text>
+                <View style={styles.unifiedContactCard}>
+                  <Text style={styles.unifiedContactName}>
+                    {otherProfile.first_name} {otherProfile.last_name}
+                  </Text>
                   {otherProfile.phone && (
-                    <>
-                      <TouchableOpacity
-                        style={styles.unifiedContactAction}
-                        onPress={() => handleSendSMS(otherProfile.phone)}
-                      >
-                        <Ionicons name="chatbubble" size={18} color="#007AFF" />
-                        <Text style={styles.unifiedContactActionText}>SMS</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.unifiedContactAction}
-                        onPress={() => handleSendWhatsApp(otherProfile.whatsapp || otherProfile.phone)}
-                      >
-                        <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
-                        <Text style={styles.unifiedContactActionText}>WhatsApp</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.unifiedContactAction}
-                        onPress={() => handleCopyPhone(otherProfile.phone)}
-                      >
-                        <Ionicons name="copy" size={18} color="#666" />
-                        <Text style={styles.unifiedContactActionText}>Copy</Text>
-                      </TouchableOpacity>
-                    </>
+                    <Text style={styles.unifiedContactDetail}>
+                      📞 {otherProfile.phone}
+                    </Text>
                   )}
                   {otherProfile.email && (
+                    <Text style={styles.unifiedContactDetail}>
+                      📧 {otherProfile.email}
+                    </Text>
+                  )}
+
+                  <View style={styles.unifiedContactActions}>
+                    {otherProfile.phone && (
+                      <>
+                        <TouchableOpacity
+                          style={styles.unifiedContactAction}
+                          onPress={() => handleSendSMS(otherProfile.phone)}
+                        >
+                          <Ionicons
+                            name="chatbubble"
+                            size={18}
+                            color="#007AFF"
+                          />
+                          <Text style={styles.unifiedContactActionText}>
+                            SMS
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.unifiedContactAction}
+                          onPress={() =>
+                            handleSendWhatsApp(
+                              otherProfile.whatsapp || otherProfile.phone,
+                            )
+                          }
+                        >
+                          <Ionicons
+                            name="logo-whatsapp"
+                            size={18}
+                            color="#25D366"
+                          />
+                          <Text style={styles.unifiedContactActionText}>
+                            WhatsApp
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.unifiedContactAction}
+                          onPress={() => handleCopyPhone(otherProfile.phone)}
+                        >
+                          <Ionicons name="copy" size={18} color="#666" />
+                          <Text style={styles.unifiedContactActionText}>
+                            Copy
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                    {otherProfile.email && (
+                      <TouchableOpacity
+                        style={styles.unifiedContactAction}
+                        onPress={() => handleSendEmail(otherProfile.email)}
+                      >
+                        <Ionicons name="mail" size={18} color="#EA4335" />
+                        <Text style={styles.unifiedContactActionText}>
+                          Email
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {otherProfile.resumeUrl && (
                     <TouchableOpacity
-                      style={styles.unifiedContactAction}
-                      onPress={() => handleSendEmail(otherProfile.email)}
+                      style={styles.unifiedResumeButton}
+                      onPress={() =>
+                        handleDownloadResume(
+                          otherProfile.resumeUrl,
+                          `${otherProfile.first_name} ${otherProfile.last_name}`,
+                        )
+                      }
                     >
-                      <Ionicons name="mail" size={18} color="#EA4335" />
-                      <Text style={styles.unifiedContactActionText}>Email</Text>
+                      <Ionicons
+                        name="document-text"
+                        size={20}
+                        color="#1293DA"
+                      />
+                      <Text style={styles.unifiedResumeButtonText}>
+                        View Resume 📄
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
 
-                {otherProfile.resumeUrl && (
-                  <TouchableOpacity
-                    style={styles.unifiedResumeButton}
-                    onPress={() =>
-                      handleDownloadResume(
-                        otherProfile.resumeUrl,
-                        `${otherProfile.first_name} ${otherProfile.last_name}`
-                      )
-                    }
-                  >
-                    <Ionicons name="document-text" size={20} color="#1293DA" />
-                    <Text style={styles.unifiedResumeButtonText}>View Resume 📄</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <View style={styles.engagementContainer}>
-                <EngagementButton
-                  otherUserId={otherProfile?.id || ''}
-                  otherUserName={`${otherProfile?.first_name} ${otherProfile?.last_name}`}
-                  currentUserName={
-                    isRequester
-                      ? `${request.requester_profile?.first_name} ${request.requester_profile?.last_name}`
-                      : `${request.requested_profile?.first_name} ${request.requested_profile?.last_name}`
-                  }
-                />
-              </View>
-            </>
-          )}
-        </View>
-      )}
+              </>
+            )}
+          </View>
+        )}
 
       {/* Matchmaker Contact Information - Show when continuing with matchmaker */}
-      {request.matchmaker_status === 'accepted' &&
-       request.requested_status === 'accepted' &&
-       (request.requester_continuation_choice === 'with_middle_person' ||
-        request.requested_continuation_choice === 'with_middle_person') && (
-        <View style={styles.unifiedContactSection}>
-          <TouchableOpacity
-            style={styles.unifiedContactToggle}
-            onPress={() => setShowMatchmakerInfo(!showMatchmakerInfo)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="people" size={18} color="#1293DA" />
-            <Text style={styles.unifiedContactToggleText}>Matchmaker Contact Information</Text>
-            <Ionicons name={showMatchmakerInfo ? 'chevron-up' : 'chevron-down'} size={20} color="#666" />
-          </TouchableOpacity>
-
-          {showMatchmakerInfo && matchmakerProfile && (
-            <>
-              <Text style={styles.unifiedContactMessage}>
-                This introduction is being facilitated by your matchmaker. Please contact them for next steps.
+      {request.matchmaker_status === "accepted" &&
+        request.requested_status === "accepted" &&
+        (request.requester_continuation_choice === "with_middle_person" ||
+          request.requested_continuation_choice === "with_middle_person") && (
+          <View style={styles.unifiedContactSection}>
+            <TouchableOpacity
+              style={styles.unifiedContactToggle}
+              onPress={() => setShowMatchmakerInfo(!showMatchmakerInfo)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="people" size={18} color="#1293DA" />
+              <Text style={styles.unifiedContactToggleText}>
+                Matchmaker contact information
               </Text>
-              <View style={styles.unifiedContactCard}>
-                <Text style={styles.unifiedContactName}>
-                  {matchmakerProfile.first_name} {matchmakerProfile.last_name}
-                </Text>
-                {matchmakerProfile.phone && (
-                  <Text style={styles.unifiedContactDetail}>📞 {matchmakerProfile.phone}</Text>
-                )}
-                {matchmakerProfile.email && (
-                  <Text style={styles.unifiedContactDetail}>📧 {matchmakerProfile.email}</Text>
-                )}
+              <Ionicons
+                name={showMatchmakerInfo ? "chevron-up" : "chevron-down"}
+                size={20}
+                color="#666"
+              />
+            </TouchableOpacity>
 
-                <View style={styles.unifiedContactActions}>
+            {showMatchmakerInfo && matchmakerProfile && (
+              <>
+                <Text style={styles.unifiedContactMessage}>
+                  This introduction is being facilitated by your matchmaker.
+                  Please contact them for next steps.
+                </Text>
+                <View style={styles.unifiedContactCard}>
+                  <Text style={styles.unifiedContactName}>
+                    {matchmakerProfile.first_name} {matchmakerProfile.last_name}
+                  </Text>
                   {matchmakerProfile.phone && (
-                    <>
-                      <TouchableOpacity
-                        style={styles.unifiedContactAction}
-                        onPress={() => handleSendSMS(matchmakerProfile.phone)}
-                      >
-                        <Ionicons name="chatbubble" size={18} color="#007AFF" />
-                        <Text style={styles.unifiedContactActionText}>SMS</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.unifiedContactAction}
-                        onPress={() => handleSendWhatsApp(matchmakerProfile.whatsapp || matchmakerProfile.phone)}
-                      >
-                        <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
-                        <Text style={styles.unifiedContactActionText}>WhatsApp</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.unifiedContactAction}
-                        onPress={() => handleCopyPhone(matchmakerProfile.phone)}
-                      >
-                        <Ionicons name="copy" size={18} color="#666" />
-                        <Text style={styles.unifiedContactActionText}>Copy</Text>
-                      </TouchableOpacity>
-                    </>
+                    <Text style={styles.unifiedContactDetail}>
+                      📞 {matchmakerProfile.phone}
+                    </Text>
                   )}
                   {matchmakerProfile.email && (
+                    <Text style={styles.unifiedContactDetail}>
+                      📧 {matchmakerProfile.email}
+                    </Text>
+                  )}
+
+                  <View style={styles.unifiedContactActions}>
+                    {matchmakerProfile.phone && (
+                      <>
+                        <TouchableOpacity
+                          style={styles.unifiedContactAction}
+                          onPress={() => handleSendSMS(matchmakerProfile.phone)}
+                        >
+                          <Ionicons
+                            name="chatbubble"
+                            size={18}
+                            color="#007AFF"
+                          />
+                          <Text style={styles.unifiedContactActionText}>
+                            SMS
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.unifiedContactAction}
+                          onPress={() =>
+                            handleSendWhatsApp(
+                              matchmakerProfile.whatsapp ||
+                                matchmakerProfile.phone,
+                            )
+                          }
+                        >
+                          <Ionicons
+                            name="logo-whatsapp"
+                            size={18}
+                            color="#25D366"
+                          />
+                          <Text style={styles.unifiedContactActionText}>
+                            WhatsApp
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.unifiedContactAction}
+                          onPress={() =>
+                            handleCopyPhone(matchmakerProfile.phone)
+                          }
+                        >
+                          <Ionicons name="copy" size={18} color="#666" />
+                          <Text style={styles.unifiedContactActionText}>
+                            Copy
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                    {matchmakerProfile.email && (
+                      <TouchableOpacity
+                        style={styles.unifiedContactAction}
+                        onPress={() => handleSendEmail(matchmakerProfile.email)}
+                      >
+                        <Ionicons name="mail" size={18} color="#EA4335" />
+                        <Text style={styles.unifiedContactActionText}>
+                          Email
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {(matchmakerProfile as any).resumeUrl && (
                     <TouchableOpacity
-                      style={styles.unifiedContactAction}
-                      onPress={() => handleSendEmail(matchmakerProfile.email)}
+                      style={styles.unifiedResumeButton}
+                      onPress={() =>
+                        handleDownloadResume(
+                          (matchmakerProfile as any).resumeUrl,
+                          `${matchmakerProfile.first_name} ${matchmakerProfile.last_name}`,
+                        )
+                      }
                     >
-                      <Ionicons name="mail" size={18} color="#EA4335" />
-                      <Text style={styles.unifiedContactActionText}>Email</Text>
+                      <Ionicons
+                        name="document-text"
+                        size={20}
+                        color="#1293DA"
+                      />
+                      <Text style={styles.unifiedResumeButtonText}>
+                        View Resume 📄
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
+              </>
+            )}
+          </View>
+        )}
 
-                {(matchmakerProfile as any).resumeUrl && (
-                  <TouchableOpacity
-                    style={styles.unifiedResumeButton}
-                    onPress={() =>
-                      handleDownloadResume(
-                        (matchmakerProfile as any).resumeUrl,
-                        `${matchmakerProfile.first_name} ${matchmakerProfile.last_name}`
-                      )
-                    }
-                  >
-                    <Ionicons name="document-text" size={20} color="#1293DA" />
-                    <Text style={styles.unifiedResumeButtonText}>View Resume 📄</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </>
-          )}
-        </View>
-      )}
+      {/* Engagement button — shown when both sides have accepted the intro request */}
+      {request.matchmaker_status === "accepted" &&
+        request.requested_status === "accepted" &&
+        otherProfile && (
+          <EngagementButton
+            otherUserId={otherProfile.id || ""}
+            otherUserName={`${otherProfile.first_name} ${otherProfile.last_name}`}
+            currentUserName={
+              isRequester
+                ? `${request.requester_profile?.first_name} ${request.requester_profile?.last_name}`
+                : `${request.requested_profile?.first_name} ${request.requested_profile?.last_name}`
+            }
+          />
+        )}
 
       {/* Matchmaker's Note (for requester) */}
       {isRequester && request.matchmaker_note_to_requester && (
         <View style={styles.noteContainer}>
           <View style={styles.noteHeader}>
             <Ionicons name="chatbox" size={16} color="#1293DA" />
-            <Text style={styles.noteTitle}>Note from {matchmakerProfile?.first_name}:</Text>
+            <Text style={styles.noteTitle}>
+              Note from {matchmakerProfile?.first_name}:
+            </Text>
           </View>
-          <Text style={styles.noteText}>{request.matchmaker_note_to_requester}</Text>
+          <Text style={styles.noteText}>
+            {request.matchmaker_note_to_requester}
+          </Text>
         </View>
       )}
 
       {/* Action Buttons - Placed after Matchmaker Context for requested person */}
-      {!isRequester && needsAction() && request.requested_status === 'pending' && (
-        <View style={styles.actionsContainer}>
-          <View style={styles.responseButtons}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.rejectButton]}
-              onPress={() => setShowRejectNote(true)}
-              disabled={isResponding}
-            >
-              <Ionicons name="close-circle" size={22} color="#666" />
-              <Text style={[styles.actionButtonText, { color: '#666' }]}>Decline</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.acceptButton]}
-              onPress={handleAccept}
-              disabled={isResponding}
-            >
-              {isResponding ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={22} color="#fff" />
-                  <Text style={[styles.actionButtonText, { color: '#fff' }]}>Accept</Text>
-                </>
-              )}
-            </TouchableOpacity>
+      {!isRequester &&
+        needsAction() &&
+        request.requested_status === "pending" && (
+          <View style={styles.actionsContainer}>
+            <View style={styles.responseButtons}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.rejectButton]}
+                onPress={() => setShowRejectNote(true)}
+                disabled={isResponding}
+              >
+                <Ionicons name="close-circle" size={22} color="#666" />
+                <Text style={[styles.actionButtonText, { color: "#666" }]}>
+                  Decline
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.acceptButton]}
+                onPress={handleAccept}
+                disabled={isResponding}
+              >
+                {isResponding ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={22} color="#fff" />
+                    <Text style={[styles.actionButtonText, { color: "#fff" }]}>
+                      Accept
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
       {/* Other Action Buttons */}
       {needsAction() && !isRequester && (
         <View style={styles.actionsContainer}>
           {/* Requested person choosing continuation (after accepting) */}
-          {request.requested_status === 'accepted' && 
-           !request.requested_continuation_choice && 
-           request.requester_continuation_choice !== 'with_middle_person' && (
-            <TouchableOpacity
-              style={styles.continueButton}
-              onPress={() => setShowContinuationModal(true)}
-            >
-              <Ionicons name="arrow-forward-circle" size={22} color="#fff" />
-              <Text style={styles.continueButtonText}>Choose How to Continue</Text>
-            </TouchableOpacity>
-          )}
+          {request.requested_status === "accepted" &&
+            !request.requested_continuation_choice &&
+            request.requester_continuation_choice !== "with_middle_person" && (
+              <TouchableOpacity
+                style={styles.continueButton}
+                onPress={() => setShowContinuationModal(true)}
+              >
+                <Ionicons name="arrow-forward-circle" size={22} color="#fff" />
+                <Text style={styles.continueButtonText}>
+                  Choose how to continue
+                </Text>
+              </TouchableOpacity>
+            )}
         </View>
       )}
 
       {/* Change Mind - for requested person who previously declined */}
-      {!isRequester && request.requested_status === 'rejected' && (
+      {!isRequester && request.requested_status === "rejected" && (
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={[styles.actionButton, styles.changeMindButton]}
             onPress={() => {
               Alert.alert(
-                'Change Your Mind?',
-                'Do you want to reconsider and accept this intro request?',
+                "Change Your Mind?",
+                "Do you want to reconsider and accept this intro request?",
                 [
-                  { text: 'Cancel', style: 'cancel' },
+                  { text: "Cancel", style: "cancel" },
                   {
-                    text: 'Yes, Reconsider',
+                    text: "Yes, Reconsider",
                     onPress: () => {
                       // Re-show the accept flow
                       setShowConfirmAcceptModal(true);
                       // Reset the request status optimistically
-                      patchIntroCache({ requested_status: 'pending', status: 'pending_requested' });
+                      patchIntroCache({
+                        requested_status: "pending",
+                        status: "pending_requested",
+                      });
                     },
                   },
-                ]
+                ],
               );
             }}
             disabled={isResponding}
           >
             <Ionicons name="refresh-circle" size={20} color="#1293DA" />
-            <Text style={[styles.actionButtonText, { color: '#1293DA' }]}>Change Mind</Text>
+            <Text style={[styles.actionButtonText, { color: "#1293DA" }]}>
+              Change Mind
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -723,7 +882,7 @@ export default function IntroRequestCardNew({
         transparent
         onRequestClose={() => setShowRejectNote(false)}
       >
-        {Platform.OS === 'android' ? (
+        {Platform.OS === "android" ? (
           <KeyboardAvoidingView style={styles.modalOverlay} behavior="height">
             {rejectNoteModalScroll}
           </KeyboardAvoidingView>
@@ -744,17 +903,24 @@ export default function IntroRequestCardNew({
             <View style={styles.confirmModalContent}>
               <View style={styles.confirmModalHeader}>
                 <Ionicons name="heart-circle" size={48} color="#4CAF50" />
-                <Text style={styles.confirmModalTitle}>Accept Intro Request?</Text>
+                <Text style={styles.confirmModalTitle}>
+                  Accept Intro Request?
+                </Text>
               </View>
-              
+
               <View style={styles.confirmModalBody}>
                 <Text style={styles.confirmModalText}>
-                  You&apos;re about to accept the intro request from <Text style={styles.boldText}>{otherProfile?.first_name}</Text>.
+                  You&apos;re about to accept the intro request from{" "}
+                  <Text style={styles.boldText}>
+                    {otherProfile?.first_name}
+                  </Text>
+                  .
                 </Text>
                 <View style={styles.confirmModalInfo}>
                   <Ionicons name="information-circle" size={20} color="#666" />
                   <Text style={styles.confirmModalInfoText}>
-                    After accepting, you&apos;ll choose how you&apos;d like to continue with the introduction.
+                    After accepting, you&apos;ll choose how you&apos;d like to
+                    continue with the introduction.
                   </Text>
                 </View>
               </View>
@@ -783,10 +949,18 @@ export default function IntroRequestCardNew({
       <ContinuationChoiceModal
         visible={showContinuationModal}
         profileName={`${otherProfile?.first_name} ${otherProfile?.last_name}`}
-        onSelectChoice={isRequester ? handleRequesterContinuationChoice : handleContinuationChoice}
+        onSelectChoice={
+          isRequester
+            ? handleRequesterContinuationChoice
+            : handleContinuationChoice
+        }
         onCancel={() => setShowContinuationModal(false)}
         loading={isResponding}
-        otherSideChoice={isRequester ? request.requested_continuation_choice : request.requester_continuation_choice}
+        otherSideChoice={
+          isRequester
+            ? request.requested_continuation_choice
+            : request.requester_continuation_choice
+        }
       />
     </View>
   );
@@ -794,21 +968,21 @@ export default function IntroRequestCardNew({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: "#f0f0f0",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
     paddingBottom: 12,
   },
@@ -820,31 +994,31 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     borderWidth: 2,
-    borderColor: '#f0f0f0',
+    borderColor: "#f0f0f0",
   },
   placeholderImage: {
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerInfo: {
     flex: 1,
   },
   profileName: {
     fontSize: 19,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    fontWeight: "700",
+    color: "#1a1a1a",
     marginBottom: 2,
   },
   matchmakerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     marginTop: 4,
   },
   matchmakerText: {
     fontSize: 13,
-    color: '#666',
+    color: "#666",
   },
   statusBadge: {
     paddingVertical: 10,
@@ -852,177 +1026,177 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 12,
     borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
   },
   statusText: {
     fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
   },
   pendingBadge: {
-    backgroundColor: '#fff8e1',
+    backgroundColor: "#fff8e1",
     borderWidth: 1,
-    borderColor: '#ffe082',
+    borderColor: "#ffe082",
   },
   waitingBadge: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: "#e3f2fd",
     borderWidth: 1,
-    borderColor: '#90caf9',
+    borderColor: "#90caf9",
   },
   matchedBadge: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: "#e8f5e9",
     borderWidth: 1,
-    borderColor: '#81c784',
+    borderColor: "#81c784",
   },
   rejectedBadge: {
-    backgroundColor: '#FFF8E1',
+    backgroundColor: "#FFF8E1",
     borderWidth: 1,
-    borderColor: '#ef9a9a',
+    borderColor: "#ef9a9a",
   },
   completedBadge: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: "#e8f5e9",
     borderWidth: 1,
-    borderColor: '#66bb6a',
+    borderColor: "#66bb6a",
   },
   noteContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     marginHorizontal: 16,
     padding: 14,
     borderRadius: 12,
     marginBottom: 12,
     borderLeftWidth: 3,
-    borderLeftColor: '#1293DA',
+    borderLeftColor: "#1293DA",
   },
   noteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     marginBottom: 8,
   },
   noteTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#1293DA',
-    textTransform: 'uppercase',
+    fontWeight: "700",
+    color: "#1293DA",
+    textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   noteText: {
     fontSize: 14,
-    color: '#333',
+    color: "#333",
     lineHeight: 20,
   },
   actionsContainer: {
     padding: 16,
     paddingTop: 8,
-    backgroundColor: '#fafafa',
+    backgroundColor: "#fafafa",
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: "#f0f0f0",
   },
   responseButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
   },
   actionButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 12,
     gap: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
   },
   acceptButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
   },
   rejectButton: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 2,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
   },
   changeMindButton: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 2,
-    borderColor: '#1293DA',
+    borderColor: "#1293DA",
     flex: 1,
   },
   actionButtonText: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.3,
   },
   continueButton: {
-    backgroundColor: '#1293DA',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#1293DA",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 16,
     borderRadius: 12,
     gap: 8,
-    shadowColor: '#1293DA',
+    shadowColor: "#1293DA",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
   },
   continueButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.3,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
     paddingHorizontal: 20,
   },
   rejectModalScroll: {
-    width: '100%',
+    width: "100%",
   },
   rejectModalScrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingVertical: 24,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 24,
-    width: '100%',
+    width: "100%",
     maxWidth: 400,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
+    fontWeight: "700",
+    color: "#333",
     marginBottom: 8,
   },
   modalSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 16,
   },
   textInput: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     minHeight: 100,
     marginBottom: 16,
   },
   modalActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -1032,134 +1206,128 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   cancelButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
   },
   cancelButtonText: {
-    color: '#666',
+    color: "#666",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   submitButton: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: "#F59E0B",
   },
   submitButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   // Contact Section Styles
   contactSection: {
-    backgroundColor: '#EBF8FF',
+    backgroundColor: "#EBF8FF",
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#A8D8F5',
+    borderColor: "#A8D8F5",
   },
   contactHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginBottom: 12,
   },
   contactTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#0D4F8A',
+    fontWeight: "700",
+    color: "#0D4F8A",
   },
   contactInfo: {
     gap: 10,
   },
   contactName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 8,
   },
   contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
     paddingVertical: 4,
   },
   contactText: {
     fontSize: 15,
-    color: '#1293DA',
-    textDecorationLine: 'underline',
-  },
-  engagementContainer: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#A8D8F5',
+    color: "#1293DA",
+    textDecorationLine: "underline",
   },
   // Matchmaker Contact Section Styles
   matchmakerContactSection: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: "#E3F2FD",
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#A8D8F5',
+    borderColor: "#A8D8F5",
   },
   matchmakerContactHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginBottom: 12,
   },
   matchmakerContactTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#0D4F8A',
+    fontWeight: "700",
+    color: "#0D4F8A",
   },
   matchmakerInfoBox: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 12,
     borderRadius: 8,
     marginBottom: 12,
     borderLeftWidth: 3,
-    borderLeftColor: '#1293DA',
+    borderLeftColor: "#1293DA",
   },
   matchmakerInfoText: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     lineHeight: 20,
   },
   matchmakerContactText: {
     fontSize: 15,
-    color: '#1293DA',
-    textDecorationLine: 'underline',
+    color: "#1293DA",
+    textDecorationLine: "underline",
   },
   // Confirm Accept Modal Styles
   confirmModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 20,
-    width: '100%',
+    width: "100%",
     maxWidth: 400,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 10,
   },
   confirmModalHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingTop: 32,
     paddingHorizontal: 24,
     paddingBottom: 16,
   },
   confirmModalTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#333',
+    fontWeight: "700",
+    color: "#333",
     marginTop: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   confirmModalBody: {
     paddingHorizontal: 24,
@@ -1167,18 +1335,18 @@ const styles = StyleSheet.create({
   },
   confirmModalText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     lineHeight: 24,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 20,
   },
   boldText: {
-    fontWeight: '700',
-    color: '#4CAF50',
+    fontWeight: "700",
+    color: "#4CAF50",
   },
   confirmModalInfo: {
-    flexDirection: 'row',
-    backgroundColor: '#f8f9fa',
+    flexDirection: "row",
+    backgroundColor: "#f8f9fa",
     padding: 12,
     borderRadius: 8,
     gap: 8,
@@ -1186,100 +1354,100 @@ const styles = StyleSheet.create({
   confirmModalInfoText: {
     flex: 1,
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     lineHeight: 20,
   },
   acceptConfirmButton: {
-    backgroundColor: '#4CAF50',
-    flexDirection: 'row',
+    backgroundColor: "#4CAF50",
+    flexDirection: "row",
     gap: 6,
   },
   // ── Unified contact section (matches SuggestionCard design) ──
   unifiedContactSection: {
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: "#f0f0f0",
     paddingTop: 12,
     marginTop: 12,
     marginHorizontal: 16,
     marginBottom: 4,
   },
   unifiedContactToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     borderRadius: 8,
     marginBottom: 12,
   },
   unifiedContactToggleText: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   unifiedContactMessage: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 12,
     paddingHorizontal: 4,
   },
   unifiedContactCard: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: "#E3F2FD",
     padding: 12,
     borderRadius: 8,
     marginBottom: 12,
   },
   unifiedContactName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 8,
   },
   unifiedContactDetail: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 4,
   },
   unifiedContactActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
+    borderTopColor: "rgba(0,0,0,0.1)",
   },
   unifiedContactAction: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 4,
   },
   unifiedContactActionText: {
     fontSize: 11,
-    color: '#666',
+    color: "#666",
   },
   unifiedResumeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E3F2FD',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E3F2FD",
     padding: 12,
     borderRadius: 8,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#1293DA',
+    borderColor: "#1293DA",
   },
   unifiedResumeButtonText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#1293DA',
+    fontWeight: "600",
+    color: "#1293DA",
     marginLeft: 8,
   },
   matchmakerContext: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
     padding: 10,
     borderRadius: 8,
     marginBottom: 12,
@@ -1288,23 +1456,22 @@ const styles = StyleSheet.create({
   matchmakerContextText: {
     flex: 1,
     fontSize: 13,
-    color: '#666',
+    color: "#666",
     lineHeight: 18,
   },
   matchmakerName: {
-    fontWeight: '600',
-    color: '#1293DA',
+    fontWeight: "600",
+    color: "#1293DA",
   },
   matchmakerNameClickable: {
-    fontWeight: '600',
-    color: '#1293DA',
-    textDecorationLine: 'underline',
+    fontWeight: "600",
+    color: "#1293DA",
+    textDecorationLine: "underline",
   },
   requestDescription: {
     fontSize: 13,
-    color: '#666',
+    color: "#666",
     marginTop: 2,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
 });
-

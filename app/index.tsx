@@ -44,8 +44,21 @@ export default function Index() {
           return;
         }
 
-        const profileResult = await profileService.getProfile();
+        // Supabase session can take a moment to propagate right after login,
+        // which causes getProfile() to return { success: false } briefly.
+        // Retry up to 4 times (2 s total) so we are certain about the profile
+        // state before navigating — the splash screen stays visible the whole time.
+        let profileResult = await profileService.getProfile();
         if (cancelled) return;
+
+        let attempts = 0;
+        while (!profileResult.success && attempts < 4) {
+          await new Promise((r) => setTimeout(r, 500));
+          if (cancelled) return;
+          profileResult = await profileService.getProfile();
+          if (cancelled) return;
+          attempts++;
+        }
 
         if (profileResult.success && profileResult.profile) {
           if (profileResult.profile.status === "approved") {
@@ -54,6 +67,8 @@ export default function Index() {
             router.replace("/(tabs)/profile");
           }
         } else {
+          // success with no profile row (PGRST116) OR all retries exhausted —
+          // go to the profile tab so the user can create / retry there
           router.replace("/(tabs)/profile");
         }
       } catch (e) {

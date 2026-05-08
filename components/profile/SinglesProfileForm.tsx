@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { Picker } from '@react-native-picker/picker';
-import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { Picker } from "@react-native-picker/picker";
+import * as ImagePicker from "expo-image-picker";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,101 +14,411 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
-} from 'react-native';
-import { resumeService } from '../../lib/resumeService';
+  View,
+} from "react-native";
+import { resumeService } from "../../lib/resumeService";
 
 interface SinglesProfileFormProps {
   initialData?: any;
   onSubmit: (data: any, fieldPrivacy: any) => void;
-  gender: 'male' | 'female';
+  gender: "male" | "female";
   loading?: boolean;
   roleSwitched?: boolean;
 }
 
 // Options data
-const NATIONALITY_OPTIONS = ['Sefardi', 'Ashkenaz', 'Chassidic', 'Yemenite', 'Mixed Background','Other'];
-const HASHKAFA_OPTIONS = ['Yeshivish', 'Open-minded Yeshivish', 'Modern Yeshivish', 'Chareidi', 'Orthodox', 'Modern Orthodox', 'Other'];
-const TORAH_LEARNING_OPTIONS = ['Full day', 'Half day', 'Kovea Ittim', 'Attending Torah classes', 'Other'];
-const PRAYING_OPTIONS = ['Three times a day with minyan', 'Three times a day', 'Trying as much as possible', 'Other'];
-const EDUCATION_MALE = ['Yeshiva', "Rabbinical Semicha", "Bachelor's degree", "Master's degree", 'Master\'s+', 'Other'];
-const EDUCATION_FEMALE = ['High school', 'Seminary', "Bachelor's degree", "Master's degree", 'Master\'s+', 'Other'];
-const POST_HS_MALE = ['Yeshiva', 'College', 'Both', 'Non-traditional (straight to business)', 'Other'];
-const POST_HS_FEMALE = ['Seminary', 'College', 'Seminary & college', 'Seminary & business', 'Non-traditional (straight to business)', 'Other'];
-const OCCUPATION_MALE = ['Full-time Yeshiva', 'Half learning / half working', 'Working', 'Other'];
-const OCCUPATION_FEMALE = ['Working', 'Part-working', 'Studying and working', 'Other'];
-const PLAN_MALE = ['Learn Torah', 'Learn and Work', 'Work and set times for learning', 'Work and attend shiurim/classes', 'Other'];
-const PLAN_FEMALE = ['Work full-time', 'Work part-time', 'Homemaker', 'Other'];
-const MARITAL_STATUS = ['Single', 'Divorced', 'Divorced with kids', 'Widow/Widower', 'Widow/Widower with kids'];
-const DRESS_STYLE_FEMALE = ['Yeshivesh', 'Modest modern', 'Modest fashionable', 'Other'];
-const DRESS_STYLE_MALE = [ 'Casual', 'Black & white', 'Other'];
-const HEAD_COVERING = ['Wig/Sheitel', 'Mitpachat', 'Both', 'Other'];
-const SMOKING = ['Non-smoker', 'Smoking', 'Occasionally', 'Other'];
-const ALCOHOL = ['Does not drink at all', 'Drinks very rarely', 'Drinks occasionally', 'Drinks moderately', 'Drinks very often', 'Other'];
-const LANGUAGES = ['English', 'Hebrew', 'Yiddish', 'Spanish', 'French', 'Russian', 'Arabic', 'Other'];
+const NATIONALITY_OPTIONS = [
+  "Sefardi",
+  "Ashkenaz",
+  "Chassidic",
+  "Yemenite",
+  "Mixed Background",
+  "Other",
+];
+const HASHKAFA_OPTIONS = [
+  "Yeshivish",
+  "Open-minded Yeshivish",
+  "Modern Yeshivish",
+  "Chareidi",
+  "Orthodox",
+  "Modern Orthodox",
+  "Other",
+];
+const TORAH_LEARNING_OPTIONS = [
+  "Full day",
+  "Half day",
+  "Kovea Ittim",
+  "Attending Torah classes",
+  "Other",
+];
+const PRAYING_OPTIONS = [
+  "Three times a day with minyan",
+  "Three times a day",
+  "Trying as much as possible",
+  "Other",
+];
+const EDUCATION_MALE = [
+  "Yeshiva",
+  "Rabbinical Semicha",
+  "Bachelor's degree",
+  "Master's degree",
+  "Master's+",
+  "Other",
+];
+const EDUCATION_FEMALE = [
+  "High school",
+  "Seminary",
+  "Bachelor's degree",
+  "Master's degree",
+  "Master's+",
+  "Other",
+];
+const POST_HS_MALE = [
+  "Yeshiva",
+  "College",
+  "Both",
+  "Non-traditional (straight to business)",
+  "Other",
+];
+const POST_HS_FEMALE = [
+  "Seminary",
+  "College",
+  "Seminary & college",
+  "Seminary & business",
+  "Non-traditional (straight to business)",
+  "Other",
+];
+const OCCUPATION_MALE = [
+  "Full-time Yeshiva",
+  "Half learning / half working",
+  "Working",
+  "Other",
+];
+const OCCUPATION_FEMALE = [
+  "Working",
+  "Part-working",
+  "Studying and working",
+  "Other",
+];
+const PLAN_MALE = [
+  "Learn Torah",
+  "Learn and Work",
+  "Work and set times for learning",
+  "Work and attend shiurim/classes",
+  "Other",
+];
+const PLAN_FEMALE = ["Work full-time", "Work part-time", "Homemaker", "Other"];
+const MARITAL_STATUS = [
+  "Single",
+  "Divorced",
+  "Divorced with kids",
+  "Widow/Widower",
+  "Widow/Widower with kids",
+];
+const DRESS_STYLE_FEMALE = [
+  "Yeshivesh",
+  "Modest modern",
+  "Modest fashionable",
+  "Other",
+];
+const DRESS_STYLE_MALE = ["Casual", "Black & white", "Other"];
+const HEAD_COVERING = ["Wig/Sheitel", "Mitpachat", "Both", "Other"];
+const SMOKING = ["Non-smoker", "Smoking", "Occasionally", "Other"];
+const ALCOHOL = [
+  "Does not drink at all",
+  "Drinks very rarely",
+  "Drinks occasionally",
+  "Drinks moderately",
+  "Drinks very often",
+  "Other",
+];
+const LANGUAGES = [
+  "English",
+  "Hebrew",
+  "Yiddish",
+  "Spanish",
+  "French",
+  "Russian",
+  "Arabic",
+  "Other",
+];
 
 const HEIGHT_FEET = Array.from({ length: 5 }, (_, i) => (4 + i).toString()); // 4-8 feet
 const HEIGHT_INCHES = Array.from({ length: 12 }, (_, i) => i.toString()); // 0-11 inches
 
 const COUNTRIES = [
-  'United States', 'Israel', 'Canada', 'United Kingdom', 'Australia',
-  'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Argentina', 'Armenia', 'Austria', 'Azerbaijan',
-  'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan', 'Bolivia',
-  'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi',
-  'Cambodia', 'Cameroon', 'Cape Verde', 'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia',
-  'Comoros', 'Congo', 'Costa Rica', 'Croatia', 'Cuba', 'Cyprus', 'Czech Republic',
-  'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic',
-  'Ecuador', 'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia',
-  'Fiji', 'Finland', 'France',
-  'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau', 'Guyana',
-  'Haiti', 'Honduras', 'Hungary',
-  'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy',
-  'Jamaica', 'Japan', 'Jordan',
-  'Kazakhstan', 'Kenya', 'Kiribati', 'Kosovo', 'Kuwait', 'Kyrgyzstan',
-  'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg',
-  'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius',
-  'Mexico', 'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar',
-  'Namibia', 'Nauru', 'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea',
-  'North Macedonia', 'Norway',
-  'Oman',
-  'Pakistan', 'Palau', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal',
-  'Qatar',
-  'Romania', 'Russia', 'Rwanda',
-  'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent and the Grenadines', 'Samoa', 'San Marino',
-  'Sao Tome and Principe', 'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore',
-  'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia', 'South Africa', 'South Korea', 'South Sudan', 'Spain',
-  'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria',
-  'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Timor-Leste', 'Togo', 'Tonga', 'Trinidad and Tobago',
-  'Tunisia', 'Turkey', 'Turkmenistan', 'Tuvalu',
-  'Uganda', 'Ukraine', 'United Arab Emirates', 'Uruguay', 'Uzbekistan',
-  'Vanuatu', 'Venezuela', 'Vietnam',
-  'Yemen',
-  'Zambia', 'Zimbabwe'
+  "United States",
+  "Israel",
+  "Canada",
+  "United Kingdom",
+  "Australia",
+  "Afghanistan",
+  "Albania",
+  "Algeria",
+  "Andorra",
+  "Angola",
+  "Argentina",
+  "Armenia",
+  "Austria",
+  "Azerbaijan",
+  "Bahamas",
+  "Bahrain",
+  "Bangladesh",
+  "Barbados",
+  "Belarus",
+  "Belgium",
+  "Belize",
+  "Benin",
+  "Bhutan",
+  "Bolivia",
+  "Bosnia and Herzegovina",
+  "Botswana",
+  "Brazil",
+  "Brunei",
+  "Bulgaria",
+  "Burkina Faso",
+  "Burundi",
+  "Cambodia",
+  "Cameroon",
+  "Cape Verde",
+  "Central African Republic",
+  "Chad",
+  "Chile",
+  "China",
+  "Colombia",
+  "Comoros",
+  "Congo",
+  "Costa Rica",
+  "Croatia",
+  "Cuba",
+  "Cyprus",
+  "Czech Republic",
+  "Denmark",
+  "Djibouti",
+  "Dominica",
+  "Dominican Republic",
+  "Ecuador",
+  "Egypt",
+  "El Salvador",
+  "Equatorial Guinea",
+  "Eritrea",
+  "Estonia",
+  "Eswatini",
+  "Ethiopia",
+  "Fiji",
+  "Finland",
+  "France",
+  "Gabon",
+  "Gambia",
+  "Georgia",
+  "Germany",
+  "Ghana",
+  "Greece",
+  "Grenada",
+  "Guatemala",
+  "Guinea",
+  "Guinea-Bissau",
+  "Guyana",
+  "Haiti",
+  "Honduras",
+  "Hungary",
+  "Iceland",
+  "India",
+  "Indonesia",
+  "Iran",
+  "Iraq",
+  "Ireland",
+  "Italy",
+  "Jamaica",
+  "Japan",
+  "Jordan",
+  "Kazakhstan",
+  "Kenya",
+  "Kiribati",
+  "Kosovo",
+  "Kuwait",
+  "Kyrgyzstan",
+  "Laos",
+  "Latvia",
+  "Lebanon",
+  "Lesotho",
+  "Liberia",
+  "Libya",
+  "Liechtenstein",
+  "Lithuania",
+  "Luxembourg",
+  "Madagascar",
+  "Malawi",
+  "Malaysia",
+  "Maldives",
+  "Mali",
+  "Malta",
+  "Marshall Islands",
+  "Mauritania",
+  "Mauritius",
+  "Mexico",
+  "Micronesia",
+  "Moldova",
+  "Monaco",
+  "Mongolia",
+  "Montenegro",
+  "Morocco",
+  "Mozambique",
+  "Myanmar",
+  "Namibia",
+  "Nauru",
+  "Nepal",
+  "Netherlands",
+  "New Zealand",
+  "Nicaragua",
+  "Niger",
+  "Nigeria",
+  "North Korea",
+  "North Macedonia",
+  "Norway",
+  "Oman",
+  "Pakistan",
+  "Palau",
+  "Panama",
+  "Papua New Guinea",
+  "Paraguay",
+  "Peru",
+  "Philippines",
+  "Poland",
+  "Portugal",
+  "Qatar",
+  "Romania",
+  "Russia",
+  "Rwanda",
+  "Saint Kitts and Nevis",
+  "Saint Lucia",
+  "Saint Vincent and the Grenadines",
+  "Samoa",
+  "San Marino",
+  "Sao Tome and Principe",
+  "Saudi Arabia",
+  "Senegal",
+  "Serbia",
+  "Seychelles",
+  "Sierra Leone",
+  "Singapore",
+  "Slovakia",
+  "Slovenia",
+  "Solomon Islands",
+  "Somalia",
+  "South Africa",
+  "South Korea",
+  "South Sudan",
+  "Spain",
+  "Sri Lanka",
+  "Sudan",
+  "Suriname",
+  "Sweden",
+  "Switzerland",
+  "Syria",
+  "Taiwan",
+  "Tajikistan",
+  "Tanzania",
+  "Thailand",
+  "Timor-Leste",
+  "Togo",
+  "Tonga",
+  "Trinidad and Tobago",
+  "Tunisia",
+  "Turkey",
+  "Turkmenistan",
+  "Tuvalu",
+  "Uganda",
+  "Ukraine",
+  "United Arab Emirates",
+  "Uruguay",
+  "Uzbekistan",
+  "Vanuatu",
+  "Venezuela",
+  "Vietnam",
+  "Yemen",
+  "Zambia",
+  "Zimbabwe",
 ];
 
 const US_STATES = [
-  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware',
-  'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky',
-  'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri',
-  'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York',
-  'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island',
-  'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington',
-  'West Virginia', 'Wisconsin', 'Wyoming'
+  "Alabama",
+  "Alaska",
+  "Arizona",
+  "Arkansas",
+  "California",
+  "Colorado",
+  "Connecticut",
+  "Delaware",
+  "Florida",
+  "Georgia",
+  "Hawaii",
+  "Idaho",
+  "Illinois",
+  "Indiana",
+  "Iowa",
+  "Kansas",
+  "Kentucky",
+  "Louisiana",
+  "Maine",
+  "Maryland",
+  "Massachusetts",
+  "Michigan",
+  "Minnesota",
+  "Mississippi",
+  "Missouri",
+  "Montana",
+  "Nebraska",
+  "Nevada",
+  "New Hampshire",
+  "New Jersey",
+  "New Mexico",
+  "New York",
+  "North Carolina",
+  "North Dakota",
+  "Ohio",
+  "Oklahoma",
+  "Oregon",
+  "Pennsylvania",
+  "Rhode Island",
+  "South Carolina",
+  "South Dakota",
+  "Tennessee",
+  "Texas",
+  "Utah",
+  "Vermont",
+  "Virginia",
+  "Washington",
+  "West Virginia",
+  "Wisconsin",
+  "Wyoming",
 ];
 
-export default function SinglesProfileForm({ initialData, onSubmit, gender, loading, roleSwitched }: SinglesProfileFormProps) {
+export default function SinglesProfileForm({
+  initialData,
+  onSubmit,
+  gender,
+  loading,
+  roleSwitched,
+}: SinglesProfileFormProps) {
   // Images
-  const [pictures, setPictures] = useState<string[]>(initialData?.pictures || []);
-  const [picturePrivacy, setPicturePrivacy] = useState<'none' | 'always' | 'private' | 'one_time'>(initialData?.picturePrivacy || 'none');
-  
+  const [pictures, setPictures] = useState<string[]>(
+    initialData?.pictures || [],
+  );
+  const [picturePrivacy, setPicturePrivacy] = useState<
+    "none" | "always" | "private" | "one_time"
+  >(initialData?.picturePrivacy || "none");
+
   // Resume
-  const [resumeUrl, setResumeUrl] = useState<string | undefined>(initialData?.resumeUrl);
-  const [resumeFileName, setResumeFileName] = useState<string>('');
+  const [resumeUrl, setResumeUrl] = useState<string | undefined>(
+    initialData?.resumeUrl,
+  );
+  const [resumeFileName, setResumeFileName] = useState<string>("");
   const [uploadingResume, setUploadingResume] = useState(false);
 
   // Basic Required
-  const [firstName, setFirstName] = useState(initialData?.firstName || '');
-  const [lastName, setLastName] = useState(initialData?.lastName || '');
+  const [firstName, setFirstName] = useState(initialData?.firstName || "");
+  const [lastName, setLastName] = useState(initialData?.lastName || "");
   // Calculate maximum date (18 years ago from today)
   const getMaxDate = () => {
     const today = new Date();
@@ -124,28 +434,33 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
     return minDate;
   };
 
-  const [dob, setDob] = useState(initialData?.dob ? new Date(initialData.dob) : getMaxDate());
+  const [dob, setDob] = useState(
+    initialData?.dob ? new Date(initialData.dob) : getMaxDate(),
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [dobError, setDobError] = useState<string>('');
+  const [dobError, setDobError] = useState<string>("");
 
   // Validate age when DOB changes
   const validateDOB = (selectedDate: Date) => {
     const today = new Date();
     let age = today.getFullYear() - selectedDate.getFullYear();
     const monthDiff = today.getMonth() - selectedDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < selectedDate.getDate())) {
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < selectedDate.getDate())
+    ) {
       age--;
     }
-    
+
     if (age < 18) {
-      setDobError('You must be at least 18 years old');
+      setDobError("You must be at least 18 years old");
       return false;
     } else if (age > 80) {
-      setDobError('You cannot be more than 80 years old');
+      setDobError("You cannot be more than 80 years old");
       return false;
     } else {
-      setDobError('');
+      setDobError("");
       return true;
     }
   };
@@ -157,23 +472,25 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
     }
   }, [dob]); // Only run on mount
   const [showHeightPicker, setShowHeightPicker] = useState(false);
-  const [bio, setBio] = useState(initialData?.bio || '');
-  const [whatLookingFor, setWhatLookingFor] = useState(initialData?.whatLookingFor || '');
-  const [phone, setPhone] = useState(initialData?.phone || '');
-  const [email, setEmail] = useState(initialData?.email || '');
-  const [whatsapp, setWhatsapp] = useState(initialData?.whatsapp || '');
+  const [bio, setBio] = useState(initialData?.bio || "");
+  const [whatLookingFor, setWhatLookingFor] = useState(
+    initialData?.whatLookingFor || "",
+  );
+  const [phone, setPhone] = useState(initialData?.phone || "");
+  const [email, setEmail] = useState(initialData?.email || "");
+  const [whatsapp, setWhatsapp] = useState(initialData?.whatsapp || "");
 
   // Handler to allow only numbers in phone field
   const handlePhoneChange = (text: string) => {
     // Remove all non-numeric characters
-    const numericOnly = text.replace(/[^0-9]/g, '');
+    const numericOnly = text.replace(/[^0-9]/g, "");
     setPhone(numericOnly);
   };
 
   // Handler to allow only numbers in WhatsApp field
   const handleWhatsAppChange = (text: string) => {
     // Remove all non-numeric characters
-    const numericOnly = text.replace(/[^0-9]/g, '');
+    const numericOnly = text.replace(/[^0-9]/g, "");
     setWhatsapp(numericOnly);
   };
 
@@ -183,89 +500,118 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       const match = initialData.height.match(/(\d+)'(\d+)"/);
       if (match) return match[1];
     }
-    return '5';
+    return "5";
   });
   const [heightInches, setHeightInches] = useState<string>(() => {
     if (initialData?.height) {
       const match = initialData.height.match(/(\d+)'(\d+)"/);
       if (match) return match[2];
     }
-    return '0';
+    return "0";
   });
-  const [locationCity, setLocationCity] = useState(initialData?.locationCity || '');
-  const [locationState, setLocationState] = useState(initialData?.locationState || '');
-  const [locationCountry, setLocationCountry] = useState(initialData?.locationCountry || '');
-  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(initialData?.languages || []);
-  const [languageOther, setLanguageOther] = useState('');
-  
+  const [locationCity, setLocationCity] = useState(
+    initialData?.locationCity || "",
+  );
+  const [locationState, setLocationState] = useState(
+    initialData?.locationState || "",
+  );
+  const [locationCountry, setLocationCountry] = useState(
+    initialData?.locationCountry || "",
+  );
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(
+    initialData?.languages || [],
+  );
+  const [languageOther, setLanguageOther] = useState("");
+
   // Nationality
-  const [selectedNationality, setSelectedNationality] = useState<string[]>(initialData?.nationality || []);
-  const [nationalityOther, setNationalityOther] = useState('');
-  const [isCohen, setIsCohen] = useState<boolean | undefined>(initialData?.isCohen);
-  
+  const [selectedNationality, setSelectedNationality] = useState<string[]>(
+    initialData?.nationality || [],
+  );
+  const [nationalityOther, setNationalityOther] = useState("");
+  const [isCohen, setIsCohen] = useState<boolean | undefined>(
+    initialData?.isCohen,
+  );
+
   // Modals for location dropdowns
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showStateModal, setShowStateModal] = useState(false);
-  
+
   // Hashkafa
-  const [hashkafaType, setHashkafaType] = useState(initialData?.hashkafaType || '');
-  const [hashkafaOther, setHashkafaOther] = useState('');
-  const [torahLearning, setTorahLearning] = useState(initialData?.torahLearning || '');
-  const [torahLearningOther, setTorahLearningOther] = useState('');
-  const [praying, setPraying] = useState(initialData?.praying || '');
-  const [prayingOther, setPrayingOther] = useState('');
-  
+  const [hashkafaType, setHashkafaType] = useState(
+    initialData?.hashkafaType || "",
+  );
+  const [hashkafaOther, setHashkafaOther] = useState("");
+  const [torahLearning, setTorahLearning] = useState(
+    initialData?.torahLearning || "",
+  );
+  const [torahLearningOther, setTorahLearningOther] = useState("");
+  const [praying, setPraying] = useState(initialData?.praying || "");
+  const [prayingOther, setPrayingOther] = useState("");
+
   // Education - now supports multiple selections
   const [selectedEducation, setSelectedEducation] = useState<string[]>(
-    initialData?.educationLevel ? [initialData.educationLevel] : []
+    initialData?.educationLevel ? [initialData.educationLevel] : [],
   );
-  const [educationOther, setEducationOther] = useState('');
-  const [postHighSchoolPath, setPostHighSchoolPath] = useState(initialData?.postHighSchoolPath || '');
-  const [postHSOther, setPostHSOther] = useState('');
-  
+  const [educationOther, setEducationOther] = useState("");
+  const [postHighSchoolPath, setPostHighSchoolPath] = useState(
+    initialData?.postHighSchoolPath || "",
+  );
+  const [postHSOther, setPostHSOther] = useState("");
+
   // Occupation
-  const [currentOccupationStudy, setCurrentOccupationStudy] = useState(initialData?.currentOccupationStudy || '');
-  const [occupationOther, setOccupationOther] = useState('');
-  
+  const [currentOccupationStudy, setCurrentOccupationStudy] = useState(
+    initialData?.currentOccupationStudy || "",
+  );
+  const [occupationOther, setOccupationOther] = useState("");
+
   // Plan After Marriage
-  const [planAfterMarriage, setPlanAfterMarriage] = useState(initialData?.planAfterMarriage || '');
-  const [planOther, setPlanOther] = useState('');
-  
+  const [planAfterMarriage, setPlanAfterMarriage] = useState(
+    initialData?.planAfterMarriage || "",
+  );
+  const [planOther, setPlanOther] = useState("");
+
   // Marital Status
-  const [maritalStatus, setMaritalStatus] = useState(initialData?.maritalStatus || '');
-  
+  const [maritalStatus, setMaritalStatus] = useState(
+    initialData?.maritalStatus || "",
+  );
+
   // Dress & Appearance
-  const [dressStyle, setDressStyle] = useState(initialData?.dressStyle || '');
-  const [dressStyleOther, setDressStyleOther] = useState('');
-  const [wearsBlackHat, setWearsBlackHat] = useState<boolean | undefined>(initialData?.wearsBlackHat);
-  const [headCovering, setHeadCovering] = useState(initialData?.headCovering || '');
-  const [headCoveringOther, setHeadCoveringOther] = useState('');
-  
+  const [dressStyle, setDressStyle] = useState(initialData?.dressStyle || "");
+  const [dressStyleOther, setDressStyleOther] = useState("");
+  const [wearsBlackHat, setWearsBlackHat] = useState<boolean | undefined>(
+    initialData?.wearsBlackHat,
+  );
+  const [headCovering, setHeadCovering] = useState(
+    initialData?.headCovering || "",
+  );
+  const [headCoveringOther, setHeadCoveringOther] = useState("");
+
   // Lifestyle
-  const [smoking, setSmoking] = useState(initialData?.smoking || '');
-  const [smokingOther, setSmokingOther] = useState('');
+  const [smoking, setSmoking] = useState(initialData?.smoking || "");
+  const [smokingOther, setSmokingOther] = useState("");
   const [alcoholConsumption, setAlcoholConsumption] = useState(() => {
-    const initial = initialData?.alcoholConsumption || '';
+    const initial = initialData?.alcoholConsumption || "";
     if (initial && !ALCOHOL.includes(initial)) {
-      return 'Other';
+      return "Other";
     }
     return initial;
   });
   const [alcoholOther, setAlcoholOther] = useState(() => {
-    const initial = initialData?.alcoholConsumption || '';
+    const initial = initialData?.alcoholConsumption || "";
     if (initial && !ALCOHOL.includes(initial)) {
       return initial;
     }
-    return '';
+    return "";
   });
-  
-  
+
   // Field Privacy (Ask Me flags)
-  const [fieldPrivacy, setFieldPrivacy] = useState<{ [key: string]: boolean }>(initialData?.fieldPrivacy || {});
+  const [fieldPrivacy, setFieldPrivacy] = useState<{ [key: string]: boolean }>(
+    initialData?.fieldPrivacy || {},
+  );
 
   const pickImage = async () => {
     if (pictures.length >= 3) {
-      Alert.alert('Limit Reached', 'You can only upload up to 3 pictures');
+      Alert.alert("Limit Reached", "You can only upload up to 3 pictures");
       return;
     }
 
@@ -282,79 +628,86 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
   };
 
   const removePicture = (index: number) => {
-    Alert.alert(
-      'Delete Photo',
-      'Are you sure you want to delete this photo?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => setPictures(pictures.filter((_, i) => i !== index))
-        }
-      ]
-    );
+    Alert.alert("Delete Photo", "Are you sure you want to delete this photo?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => setPictures(pictures.filter((_, i) => i !== index)),
+      },
+    ]);
   };
 
   const toggleLanguage = (lang: string) => {
-    setSelectedLanguages(prev =>
-      prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
+    setSelectedLanguages((prev) =>
+      prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang],
     );
   };
 
   const toggleNationality = (nat: string) => {
-    setSelectedNationality(prev =>
-      prev.includes(nat) ? prev.filter(n => n !== nat) : [...prev, nat]
+    setSelectedNationality((prev) =>
+      prev.includes(nat) ? prev.filter((n) => n !== nat) : [...prev, nat],
     );
   };
 
   const toggleEducation = (edu: string) => {
-    setSelectedEducation(prev =>
-      prev.includes(edu) ? prev.filter(e => e !== edu) : [...prev, edu]
+    setSelectedEducation((prev) =>
+      prev.includes(edu) ? prev.filter((e) => e !== edu) : [...prev, edu],
     );
   };
 
-
   const toggleFieldPrivacy = (fieldName: string, hasValue: boolean) => {
     if (!hasValue) {
-      Alert.alert('Cannot Mark as Private', 'You must provide an answer before marking it as "Ask me"');
+      Alert.alert(
+        "Cannot Mark as Private",
+        'You must provide an answer before marking it as "Ask me"',
+      );
       return;
     }
-    setFieldPrivacy(prev => ({ ...prev, [fieldName]: !prev[fieldName] }));
+    setFieldPrivacy((prev) => ({ ...prev, [fieldName]: !prev[fieldName] }));
   };
 
   const handlePickResume = async () => {
     if (!resumeService) {
-      Alert.alert('Error', 'Resume service is not available. Please try again.');
+      Alert.alert(
+        "Error",
+        "Resume service is not available. Please try again.",
+      );
       return;
     }
-    
+
     setUploadingResume(true);
-    
+
     try {
       const pickResult = await resumeService.pickDocument();
-      
+
       if (!pickResult.success) {
-        if (pickResult.error && pickResult.error !== 'Selection cancelled') {
-          Alert.alert('Error', pickResult.error);
+        if (pickResult.error && pickResult.error !== "Selection cancelled") {
+          Alert.alert("Error", pickResult.error);
         }
         return;
       }
 
       if (pickResult.uri && pickResult.name) {
-        const uploadResult = await resumeService.uploadResume(pickResult.uri, pickResult.name);
-        
+        const uploadResult = await resumeService.uploadResume(
+          pickResult.uri,
+          pickResult.name,
+        );
+
         if (uploadResult.success && uploadResult.url) {
           setResumeUrl(uploadResult.url);
           setResumeFileName(pickResult.name);
-          Alert.alert('Success! ✅', 'Resume uploaded successfully');
+          Alert.alert("Success! ✅", "Resume uploaded successfully");
         } else {
-          Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload resume');
+          Alert.alert(
+            "Upload Failed",
+            uploadResult.error || "Failed to upload resume",
+          );
         }
       }
     } catch (error: any) {
-      console.error('Error picking/uploading resume:', error);
-      Alert.alert('Error', error.message || 'Failed to upload resume');
+      console.error("Error picking/uploading resume:", error);
+      Alert.alert("Error", error.message || "Failed to upload resume");
     } finally {
       setUploadingResume(false);
     }
@@ -362,40 +715,43 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
   const handleDeleteResume = async () => {
     Alert.alert(
-      'Delete Resume',
-      'Are you sure you want to delete your resume?',
+      "Delete Resume",
+      "Are you sure you want to delete your resume?",
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: async () => {
             if (!resumeService) {
-              Alert.alert('Error', 'Resume service is not available. Please try again.');
+              Alert.alert(
+                "Error",
+                "Resume service is not available. Please try again.",
+              );
               return;
             }
-            
+
             setUploadingResume(true);
-            
+
             try {
               const result = await resumeService.deleteResume();
-              
+
               if (result.success) {
                 setResumeUrl(undefined);
-                setResumeFileName('');
-                Alert.alert('Deleted', 'Resume deleted successfully');
+                setResumeFileName("");
+                Alert.alert("Deleted", "Resume deleted successfully");
               } else {
-                Alert.alert('Error', result.error || 'Failed to delete resume');
+                Alert.alert("Error", result.error || "Failed to delete resume");
               }
             } catch (error: any) {
-              console.error('Error deleting resume:', error);
-              Alert.alert('Error', error.message || 'Failed to delete resume');
+              console.error("Error deleting resume:", error);
+              Alert.alert("Error", error.message || "Failed to delete resume");
             } finally {
               setUploadingResume(false);
             }
-          }
-        }
-      ]
+          },
+        },
+      ],
     );
   };
 
@@ -403,7 +759,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
   const buildSnapshot = () => ({
     firstName: firstName.trim(),
     lastName: lastName.trim(),
-    dob: dob.toISOString().split('T')[0],
+    dob: dob.toISOString().split("T")[0],
     bio: bio.trim(),
     whatLookingFor: whatLookingFor.trim(),
     phone: phone.trim(),
@@ -433,7 +789,9 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
     smoking,
     alcoholConsumption,
     fieldPrivacy: JSON.stringify(
-      Object.fromEntries(Object.entries(fieldPrivacy).sort(([a], [b]) => a.localeCompare(b)))
+      Object.fromEntries(
+        Object.entries(fieldPrivacy).sort(([a], [b]) => a.localeCompare(b)),
+      ),
     ),
   });
 
@@ -445,71 +803,134 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
   const hasChanges = useMemo(
     () => JSON.stringify(buildSnapshot()) !== initialSnapshot.current,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [firstName, lastName, dob, bio, whatLookingFor, phone, email, whatsapp, pictures,
-     picturePrivacy, heightFeet, heightInches, locationCity, locationState, locationCountry,
-     selectedLanguages, selectedNationality, isCohen, hashkafaType, torahLearning, praying,
-     selectedEducation, postHighSchoolPath, currentOccupationStudy, planAfterMarriage,
-     maritalStatus, dressStyle, wearsBlackHat, headCovering, smoking, alcoholConsumption, fieldPrivacy]
+    [
+      firstName,
+      lastName,
+      dob,
+      bio,
+      whatLookingFor,
+      phone,
+      email,
+      whatsapp,
+      pictures,
+      picturePrivacy,
+      heightFeet,
+      heightInches,
+      locationCity,
+      locationState,
+      locationCountry,
+      selectedLanguages,
+      selectedNationality,
+      isCohen,
+      hashkafaType,
+      torahLearning,
+      praying,
+      selectedEducation,
+      postHighSchoolPath,
+      currentOccupationStudy,
+      planAfterMarriage,
+      maritalStatus,
+      dressStyle,
+      wearsBlackHat,
+      headCovering,
+      smoking,
+      alcoholConsumption,
+      fieldPrivacy,
+    ],
   );
 
   const validateAndSubmit = () => {
     // Require at least one photo regardless of privacy setting
     if (pictures.length === 0) {
       Alert.alert(
-        'Photo Required',
-        picturePrivacy === 'none'
+        "Photo Required",
+        picturePrivacy === "none"
           ? 'A photo is required for identity verification, even with "No Photo" selected. Your photo will only be seen by admins and never shown to other users.'
-          : 'Please upload at least one photo to continue.',
-        [{ text: 'Upload Photo', onPress: pickImage }, { text: 'Cancel', style: 'cancel' }]
+          : "Please upload at least one photo to continue.",
+        [
+          { text: "Upload Photo", onPress: pickImage },
+          { text: "Cancel", style: "cancel" },
+        ],
       );
       return;
     }
 
     // Validate required fields
     const missingFields = [];
-    if (!firstName.trim()) missingFields.push('First Name');
-    if (!lastName.trim()) missingFields.push('Last Name');
-    if (!bio.trim()) missingFields.push('Bio');
-    if (!whatLookingFor.trim()) missingFields.push('What are you looking for');
-    if (!phone.trim()) missingFields.push('Phone');
-    if (!heightFeet || heightFeet === '' || !heightInches || heightInches === '') missingFields.push('Height');
-    if (!locationCountry) missingFields.push('Country');
-    if (locationCountry === 'United States' && !locationState) missingFields.push('State');
-    if (locationCountry === 'United States' && !locationCity.trim()) missingFields.push('City');
-    if (selectedLanguages.length === 0) missingFields.push('Languages');
-    if (selectedLanguages.includes('Other') && !languageOther.trim()) missingFields.push('Languages (Other)');
-    if (selectedNationality.length === 0) missingFields.push('Nationality/Background');
-    if (selectedNationality.includes('Other') && !nationalityOther.trim()) missingFields.push('Nationality/Background (Other)');
-    if (!hashkafaType) missingFields.push('Hashkafa Type');
-    if (hashkafaType === 'Other' && !hashkafaOther.trim()) missingFields.push('Hashkafa Type (Other)');
-    if (gender === 'male') {
-      if (!torahLearning) missingFields.push('Torah Learning');
-      if (torahLearning === 'Other' && !torahLearningOther.trim()) missingFields.push('Torah Learning (Other)');
-      if (!praying) missingFields.push('Praying');
-      if (praying === 'Other' && !prayingOther.trim()) missingFields.push('Praying (Other)');
+    if (!firstName.trim()) missingFields.push("First Name");
+    if (!lastName.trim()) missingFields.push("Last Name");
+    if (!bio.trim()) missingFields.push("Bio");
+    if (!whatLookingFor.trim()) missingFields.push("What are you looking for");
+    if (!phone.trim()) missingFields.push("Phone");
+    if (
+      !heightFeet ||
+      heightFeet === "" ||
+      !heightInches ||
+      heightInches === ""
+    )
+      missingFields.push("Height");
+    if (!locationCountry) missingFields.push("Country");
+    if (locationCountry === "United States" && !locationState)
+      missingFields.push("State");
+    if (locationCountry === "United States" && !locationCity.trim())
+      missingFields.push("City");
+    if (selectedLanguages.length === 0) missingFields.push("Languages");
+    if (selectedLanguages.includes("Other") && !languageOther.trim())
+      missingFields.push("Languages (Other)");
+    if (selectedNationality.length === 0)
+      missingFields.push("Nationality/Background");
+    if (selectedNationality.includes("Other") && !nationalityOther.trim())
+      missingFields.push("Nationality/Background (Other)");
+    if (!hashkafaType) missingFields.push("Hashkafa Type");
+    if (hashkafaType === "Other" && !hashkafaOther.trim())
+      missingFields.push("Hashkafa Type (Other)");
+    if (gender === "male") {
+      if (!torahLearning) missingFields.push("Torah Learning");
+      if (torahLearning === "Other" && !torahLearningOther.trim())
+        missingFields.push("Torah Learning (Other)");
+      if (!praying) missingFields.push("Praying");
+      if (praying === "Other" && !prayingOther.trim())
+        missingFields.push("Praying (Other)");
     }
-    if (selectedEducation.length === 0) missingFields.push('Education Level');
-    if (selectedEducation.includes('Other') && !educationOther.trim()) missingFields.push('Education Level (Other)');
-    if (!postHighSchoolPath) missingFields.push('Post-High School Path');
-    if (postHighSchoolPath === 'Other' && !postHSOther.trim()) missingFields.push('Post-High School Path (Other)');
-    if (!currentOccupationStudy) missingFields.push('Current Occupation/Study');
-    if (currentOccupationStudy === 'Other' && !occupationOther.trim()) missingFields.push('Current Occupation/Study (Other)');
-    if (!planAfterMarriage) missingFields.push('Plan After Marriage');
-    if (planAfterMarriage === 'Other' && !planOther.trim()) missingFields.push('Plan After Marriage (Other)');
-    if (!maritalStatus) missingFields.push('Marital Status');
-    if (!dressStyle) missingFields.push('Dress Style');
-    if (dressStyle === 'Other' && !dressStyleOther.trim()) missingFields.push('Dress Style (Other)');
-    if (gender === 'male' && wearsBlackHat === undefined) missingFields.push('Black Hat');
-    if (gender === 'female' && !headCovering) missingFields.push('Head Covering');
-    if (gender === 'female' && headCovering === 'Other' && !headCoveringOther.trim()) missingFields.push('Head Covering (Other)');
-    if (!smoking) missingFields.push('Smoking');
-    if (smoking === 'Other' && !smokingOther.trim()) missingFields.push('Smoking (Other)');
-    if (!alcoholConsumption) missingFields.push('Alcohol Consumption');
-    if (alcoholConsumption === 'Other' && !alcoholOther.trim()) missingFields.push('Alcohol Consumption (Other)');
-    if (gender === 'male' && isCohen === undefined) missingFields.push('Cohen');
+    if (selectedEducation.length === 0) missingFields.push("Education Level");
+    if (selectedEducation.includes("Other") && !educationOther.trim())
+      missingFields.push("Education Level (Other)");
+    if (!postHighSchoolPath) missingFields.push("Post-High School Path");
+    if (postHighSchoolPath === "Other" && !postHSOther.trim())
+      missingFields.push("Post-High School Path (Other)");
+    if (!currentOccupationStudy) missingFields.push("Current Occupation/Study");
+    if (currentOccupationStudy === "Other" && !occupationOther.trim())
+      missingFields.push("Current Occupation/Study (Other)");
+    if (!planAfterMarriage) missingFields.push("Plan After Marriage");
+    if (planAfterMarriage === "Other" && !planOther.trim())
+      missingFields.push("Plan After Marriage (Other)");
+    if (!maritalStatus) missingFields.push("Marital Status");
+    if (!dressStyle) missingFields.push("Dress Style");
+    if (dressStyle === "Other" && !dressStyleOther.trim())
+      missingFields.push("Dress Style (Other)");
+    if (gender === "male" && wearsBlackHat === undefined)
+      missingFields.push("Black Hat");
+    if (gender === "female" && !headCovering)
+      missingFields.push("Head Covering");
+    if (
+      gender === "female" &&
+      headCovering === "Other" &&
+      !headCoveringOther.trim()
+    )
+      missingFields.push("Head Covering (Other)");
+    if (!smoking) missingFields.push("Smoking");
+    if (smoking === "Other" && !smokingOther.trim())
+      missingFields.push("Smoking (Other)");
+    if (!alcoholConsumption) missingFields.push("Alcohol Consumption");
+    if (alcoholConsumption === "Other" && !alcoholOther.trim())
+      missingFields.push("Alcohol Consumption (Other)");
+    if (gender === "male" && isCohen === undefined) missingFields.push("Cohen");
 
     if (missingFields.length > 0) {
-      Alert.alert('Missing Required Fields', `Please fill in: ${missingFields.join(', ')}`);
+      Alert.alert(
+        "Missing Required Fields",
+        `Please fill in: ${missingFields.join(", ")}`,
+      );
       return;
     }
 
@@ -518,26 +939,29 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
     const birthDate = new Date(dob);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
+
     // Adjust if birthday hasn't occurred yet this year
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
       age--;
     }
-    
+
     if (age < 18) {
       Alert.alert(
-        'Age Requirement',
-        'You must be at least 18 years old to create an account. Please enter a valid date of birth.',
-        [{ text: 'OK' }]
+        "Age Requirement",
+        "You must be at least 18 years old to create an account. Please enter a valid date of birth.",
+        [{ text: "OK" }],
       );
       return;
     }
-    
+
     if (age > 80) {
       Alert.alert(
-        'Age Requirement',
-        'You cannot be more than 80 years old. Please enter a valid date of birth.',
-        [{ text: 'OK' }]
+        "Age Requirement",
+        "You cannot be more than 80 years old. Please enter a valid date of birth.",
+        [{ text: "OK" }],
       );
       return;
     }
@@ -546,7 +970,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
     const formData = {
       firstName,
       lastName,
-      dob: dob.toISOString().split('T')[0],
+      dob: dob.toISOString().split("T")[0],
       bio,
       whatLookingFor,
       phone,
@@ -554,38 +978,87 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       whatsapp: whatsapp.trim() || undefined,
       pictures,
       picturePrivacy,
-      height: heightFeet && heightInches ? `${heightFeet}'${heightInches}"` : undefined,
+      height:
+        heightFeet && heightInches
+          ? `${heightFeet}'${heightInches}"`
+          : undefined,
       locationCity: locationCity || undefined,
-      locationState: locationCountry === 'United States' ? locationState || undefined : undefined,
+      locationState:
+        locationCountry === "United States"
+          ? locationState || undefined
+          : undefined,
       locationCountry: locationCountry || undefined,
-      languages: selectedLanguages.length > 0 
-        ? selectedLanguages.includes('Other') 
-          ? [...selectedLanguages.filter(l => l !== 'Other'), languageOther].filter(l => l)
-          : selectedLanguages
-        : undefined,
-      nationality: selectedNationality.length > 0 
-        ? selectedNationality.includes('Other') 
-          ? [...selectedNationality.filter(n => n !== 'Other'), nationalityOther].filter(n => n)
-          : selectedNationality
-        : undefined,
-      isCohen: gender === 'male' ? isCohen : undefined,
-      hashkafaType: hashkafaType === 'Other' ? hashkafaOther : hashkafaType || undefined,
-      torahLearning: gender === 'male' ? (torahLearning === 'Other' ? torahLearningOther : torahLearning) : undefined,
-      praying: gender === 'male' ? (praying === 'Other' ? prayingOther : praying) : undefined,
-      educationLevel: selectedEducation.length > 0 
-        ? selectedEducation.includes('Other') 
-          ? [...selectedEducation.filter(e => e !== 'Other'), educationOther].filter(e => e).join(', ')
-          : selectedEducation.join(', ')
-        : undefined,
-      postHighSchoolPath: postHighSchoolPath === 'Other' ? postHSOther : postHighSchoolPath || undefined,
-      currentOccupationStudy: currentOccupationStudy === 'Other' ? occupationOther : currentOccupationStudy || undefined,
-      planAfterMarriage: planAfterMarriage === 'Other' ? planOther : planAfterMarriage || undefined,
+      languages:
+        selectedLanguages.length > 0
+          ? selectedLanguages.includes("Other")
+            ? [
+                ...selectedLanguages.filter((l) => l !== "Other"),
+                languageOther,
+              ].filter((l) => l)
+            : selectedLanguages
+          : undefined,
+      nationality:
+        selectedNationality.length > 0
+          ? selectedNationality.includes("Other")
+            ? [
+                ...selectedNationality.filter((n) => n !== "Other"),
+                nationalityOther,
+              ].filter((n) => n)
+            : selectedNationality
+          : undefined,
+      isCohen: gender === "male" ? isCohen : undefined,
+      hashkafaType:
+        hashkafaType === "Other" ? hashkafaOther : hashkafaType || undefined,
+      torahLearning:
+        gender === "male"
+          ? torahLearning === "Other"
+            ? torahLearningOther
+            : torahLearning
+          : undefined,
+      praying:
+        gender === "male"
+          ? praying === "Other"
+            ? prayingOther
+            : praying
+          : undefined,
+      educationLevel:
+        selectedEducation.length > 0
+          ? selectedEducation.includes("Other")
+            ? [
+                ...selectedEducation.filter((e) => e !== "Other"),
+                educationOther,
+              ]
+                .filter((e) => e)
+                .join(", ")
+            : selectedEducation.join(", ")
+          : undefined,
+      postHighSchoolPath:
+        postHighSchoolPath === "Other"
+          ? postHSOther
+          : postHighSchoolPath || undefined,
+      currentOccupationStudy:
+        currentOccupationStudy === "Other"
+          ? occupationOther
+          : currentOccupationStudy || undefined,
+      planAfterMarriage:
+        planAfterMarriage === "Other"
+          ? planOther
+          : planAfterMarriage || undefined,
       maritalStatus: maritalStatus || undefined,
-      dressStyle: dressStyle === 'Other' ? dressStyleOther : dressStyle || undefined,
-      wearsBlackHat: gender === 'male' ? wearsBlackHat : undefined,
-      headCovering: gender === 'female' ? (headCovering === 'Other' ? headCoveringOther : headCovering) : undefined,
-      smoking: smoking === 'Other' ? smokingOther : smoking || undefined,
-      alcoholConsumption: alcoholConsumption === 'Other' ? alcoholOther : alcoholConsumption || undefined,
+      dressStyle:
+        dressStyle === "Other" ? dressStyleOther : dressStyle || undefined,
+      wearsBlackHat: gender === "male" ? wearsBlackHat : undefined,
+      headCovering:
+        gender === "female"
+          ? headCovering === "Other"
+            ? headCoveringOther
+            : headCovering
+          : undefined,
+      smoking: smoking === "Other" ? smokingOther : smoking || undefined,
+      alcoholConsumption:
+        alcoholConsumption === "Other"
+          ? alcoholOther
+          : alcoholConsumption || undefined,
       resumeUrl,
     };
 
@@ -594,17 +1067,26 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
   const renderAskMeToggle = (fieldName: string, hasValue: boolean) => (
     <TouchableOpacity
-      style={[styles.askMeToggle, fieldPrivacy[fieldName] && styles.askMeToggleActive]}
+      style={[
+        styles.askMeToggle,
+        fieldPrivacy[fieldName] && styles.askMeToggleActive,
+      ]}
       onPress={() => toggleFieldPrivacy(fieldName, hasValue)}
       disabled={!hasValue}
     >
-      <Ionicons 
-        name={fieldPrivacy[fieldName] ? 'lock-closed' : 'lock-open'} 
-        size={16} 
-        color={fieldPrivacy[fieldName] ? '#fff' : '#666'} 
+      <Ionicons
+        name={fieldPrivacy[fieldName] ? "lock-closed" : "lock-open"}
+        size={16}
+        color={fieldPrivacy[fieldName] ? "#fff" : "#666"}
       />
-      <Text style={[styles.askMeText, fieldPrivacy[fieldName] && styles.askMeTextActive]}>
-        {fieldPrivacy[fieldName] ? 'Private' : 'Ask me'}
+      <Text
+        style={[
+          styles.askMeText,
+          fieldPrivacy[fieldName] && styles.askMeTextActive,
+        ]}
+        allowFontScaling={false}
+      >
+        {fieldPrivacy[fieldName] ? "Private" : "Ask me"}
       </Text>
     </TouchableOpacity>
   );
@@ -615,64 +1097,121 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         <View style={styles.roleSwitchBanner}>
           <Ionicons name="information-circle" size={20} color="#1293DA" />
           <Text style={styles.roleSwitchBannerText}>
-            You switched to Single. Please complete all required fields (*) below before submitting. Your previous single profile data has been restored where available.
+            You switched to Single. Please complete all required fields (*)
+            below before submitting. Your previous single profile data has been
+            restored where available.
           </Text>
         </View>
       )}
       {/* 1. Images */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Images *</Text>
-        
+
         <View style={styles.picturePrivacy}>
           <Text style={styles.label}>Picture Privacy *</Text>
           <View style={styles.radioGroup}>
             <TouchableOpacity
-              style={[styles.radioOption, picturePrivacy === 'always' && styles.radioSelected]}
-              onPress={() => setPicturePrivacy('always')}
+              style={[
+                styles.radioOption,
+                picturePrivacy === "always" && styles.radioSelected,
+              ]}
+              onPress={() => setPicturePrivacy("always")}
             >
-              <Text style={[styles.radioText, picturePrivacy === 'always' && styles.radioTextSelected]}>Public</Text>
+              <Text
+                style={[
+                  styles.radioText,
+                  picturePrivacy === "always" && styles.radioTextSelected,
+                ]}
+              >
+                Public
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.radioOption, picturePrivacy === 'private' && styles.radioSelected]}
-              onPress={() => setPicturePrivacy('private')}
+              style={[
+                styles.radioOption,
+                picturePrivacy === "private" && styles.radioSelected,
+              ]}
+              onPress={() => setPicturePrivacy("private")}
             >
-              <Text style={[styles.radioText, picturePrivacy === 'private' && styles.radioTextSelected]}>Private</Text>
+              <Text
+                style={[
+                  styles.radioText,
+                  picturePrivacy === "private" && styles.radioTextSelected,
+                ]}
+              >
+                Private
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.radioOption, picturePrivacy === 'one_time' && styles.radioSelected]}
-              onPress={() => setPicturePrivacy('one_time')}
+              style={[
+                styles.radioOption,
+                picturePrivacy === "one_time" && styles.radioSelected,
+              ]}
+              onPress={() => setPicturePrivacy("one_time")}
             >
-              <Text style={[styles.radioText, picturePrivacy === 'one_time' && styles.radioTextSelected]}>One Time</Text>
+              <Text
+                style={[
+                  styles.radioText,
+                  picturePrivacy === "one_time" && styles.radioTextSelected,
+                ]}
+              >
+                One Time
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.radioOption, picturePrivacy === 'none' && styles.radioSelected]}
-              onPress={() => setPicturePrivacy('none')}
+              style={[
+                styles.radioOption,
+                picturePrivacy === "none" && styles.radioSelected,
+              ]}
+              onPress={() => setPicturePrivacy("none")}
             >
-              <Text style={[styles.radioText, picturePrivacy === 'none' && styles.radioTextSelected]}>No Photo</Text>
+              <Text
+                style={[
+                  styles.radioText,
+                  picturePrivacy === "none" && styles.radioTextSelected,
+                ]}
+              >
+                No Photo
+              </Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.helpText}>
-            {picturePrivacy === 'none' && 'Your photo will NOT be visible to other users — only to admins for verification.'}
-            {picturePrivacy === 'always' && 'Everyone can see your photos'}
-            {picturePrivacy === 'private' && 'Photos blurred - users must request access'}
-            {picturePrivacy === 'one_time' && 'Photos can be viewed only once per user 👁️'}
+            {picturePrivacy === "none" &&
+              "Your photo will NOT be visible to other users — only to admins for verification."}
+            {picturePrivacy === "always" && "Everyone can see your photos"}
+            {picturePrivacy === "private" &&
+              "Photos blurred - users must request access"}
+            {picturePrivacy === "one_time" &&
+              "Photos can be viewed only once per user 👁️"}
           </Text>
         </View>
 
-        {picturePrivacy === 'none' && (
+        {picturePrivacy === "none" && (
           <View style={styles.securityNotice}>
-            <Ionicons name="shield-checkmark" size={22} color="#1565C0" style={{ marginRight: 10, marginTop: 1 }} />
+            <Ionicons
+              name="shield-checkmark"
+              size={22}
+              color="#1565C0"
+              style={{ marginRight: 10, marginTop: 1 }}
+            />
             <Text style={styles.securityNoticeText}>
-              <Text style={styles.securityNoticeBold}>Photo required for security. </Text>
-              Even with &quot;No Photo&quot; selected, you must upload at least one photo. It will be used by admins to verify your identity and will never be shown to other users.
+              <Text style={styles.securityNoticeBold}>
+                Photo required for security.{" "}
+              </Text>
+              Even with &quot;No Photo&quot; selected, you must upload at least
+              one photo. It will be used by admins to verify your identity and
+              will never be shown to other users.
             </Text>
           </View>
         )}
 
         <Text style={styles.pictureGuide}>
-          {pictures.length === 0 && 'Add up to 3 photos. The first will be your main photo.'}
-          {pictures.length > 0 && pictures.length < 3 && `You can add ${3 - pictures.length} more photo${3 - pictures.length > 1 ? 's' : ''}.`}
-          {pictures.length === 3 && 'Maximum photos added.'}
+          {pictures.length === 0 &&
+            "Add up to 3 photos. The first will be your main photo."}
+          {pictures.length > 0 &&
+            pictures.length < 3 &&
+            `You can add ${3 - pictures.length} more photo${3 - pictures.length > 1 ? "s" : ""}.`}
+          {pictures.length === 3 && "Maximum photos added."}
         </Text>
         <View style={styles.picturesContainer}>
           {pictures.map((picture, index) => (
@@ -681,11 +1220,14 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
               {index === 0 && (
                 <View style={styles.mainBadge}>
                   <Text style={styles.mainBadgeText}>
-                    {picturePrivacy === 'none' ? 'ADMIN ONLY' : 'MAIN'}
+                    {picturePrivacy === "none" ? "ADMIN ONLY" : "MAIN"}
                   </Text>
                 </View>
               )}
-              <TouchableOpacity style={styles.removePicture} onPress={() => removePicture(index)}>
+              <TouchableOpacity
+                style={styles.removePicture}
+                onPress={() => removePicture(index)}
+              >
                 <Ionicons name="close" size={16} color="#fff" />
               </TouchableOpacity>
             </View>
@@ -702,7 +1244,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       {/* 2. Basic Information */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Basic Information *</Text>
-        
+
         <View style={styles.row}>
           <View style={styles.halfInput}>
             <Text style={styles.label}>First Name *</Text>
@@ -729,13 +1271,14 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Date of Birth *</Text>
           <Text style={styles.helpText}>You must be at least 18 years old</Text>
-          <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
+          <TouchableOpacity
+            style={styles.dateButton}
+            onPress={() => setShowDatePicker(true)}
+          >
             <Text style={styles.dateText}>{dob.toLocaleDateString()}</Text>
             <Ionicons name="calendar" size={20} color="#666" />
           </TouchableOpacity>
-          {dobError ? (
-            <Text style={styles.errorText}>{dobError}</Text>
-          ) : null}
+          {dobError ? <Text style={styles.errorText}>{dobError}</Text> : null}
         </View>
 
         <View style={styles.inputGroup}>
@@ -765,13 +1308,15 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
       {/* 3. Contact Information */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Contact Information</Text>
+        <Text style={styles.sectionTitle}>Contact information</Text>
         <View style={styles.infoTile}>
           <View style={styles.infoTileIcon}>
             <Ionicons name="lock-closed" size={20} color="#4CAF50" />
           </View>
           <Text style={styles.infoTileText}>
-            This information will be shared only if a successful match is made, either with the matchmaker or directly with the individual, if you choose to continue on your own
+            This information will be shared only if a successful match is made,
+            either with the matchmaker or directly with the individual, if you
+            choose to continue on your own
           </Text>
         </View>
 
@@ -815,74 +1360,114 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Additional Information *</Text>
         <Text style={styles.sectionSubtitle}>
-          All fields are required. You can mark any field as &quot;Ask me&quot; to keep it private
+          All fields are required. You can mark any field as &quot;Ask me&quot;
+          to keep it private
         </Text>
 
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Height (ft/in) *</Text>
-            {renderAskMeToggle('height', !!(heightFeet && heightInches && heightFeet !== '' && heightInches !== ''))}
+            {renderAskMeToggle(
+              "height",
+              !!(
+                heightFeet &&
+                heightInches &&
+                heightFeet !== "" &&
+                heightInches !== ""
+              ),
+            )}
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.heightButton}
             onPress={() => setShowHeightPicker(true)}
           >
-            <Text style={heightFeet && heightInches && heightFeet !== '' && heightInches !== '' ? styles.heightButtonText : styles.heightButtonPlaceholder}>
-              {heightFeet && heightInches && heightFeet !== '' && heightInches !== '' 
-                ? `${heightFeet}'${heightInches}"` 
-                : 'Select Height'}
+            <Text
+              style={
+                heightFeet &&
+                heightInches &&
+                heightFeet !== "" &&
+                heightInches !== ""
+                  ? styles.heightButtonText
+                  : styles.heightButtonPlaceholder
+              }
+            >
+              {heightFeet &&
+              heightInches &&
+              heightFeet !== "" &&
+              heightInches !== ""
+                ? `${heightFeet}'${heightInches}"`
+                : "Select Height"}
             </Text>
             <Ionicons name="chevron-down" size={20} color="#666" />
           </TouchableOpacity>
         </View>
         {/*  Marital Status */}
-                <View style={styles.inputGroup}>
-                  <View style={styles.labelRow}>
-                    <Text style={styles.label}>Marital Status *</Text>
-                    {renderAskMeToggle('maritalStatus', !!maritalStatus)}
-                  </View>
-                  {MARITAL_STATUS.map(option => (
-                    <TouchableOpacity
-                      key={option}
-                      style={[styles.checkOption, maritalStatus === option && styles.checkSelected]}
-                      onPress={() => setMaritalStatus(option)}
-                    >
-                      <Text style={[styles.checkText, maritalStatus === option && styles.checkTextSelected]}>
-                        {option}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+        <View style={styles.inputGroup}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Marital Status *</Text>
+            {renderAskMeToggle("maritalStatus", !!maritalStatus)}
           </View>
+          {MARITAL_STATUS.map((option) => (
+            <TouchableOpacity
+              key={option}
+              style={[
+                styles.checkOption,
+                maritalStatus === option && styles.checkSelected,
+              ]}
+              onPress={() => setMaritalStatus(option)}
+            >
+              <Text
+                style={[
+                  styles.checkText,
+                  maritalStatus === option && styles.checkTextSelected,
+                ]}
+              >
+                {option}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Location *</Text>
-            {renderAskMeToggle('location', !!(locationCity || locationState || locationCountry))}
+            {renderAskMeToggle(
+              "location",
+              !!(locationCity || locationState || locationCountry),
+            )}
           </View>
-          
-          <TouchableOpacity 
-            style={styles.selectButton} 
+
+          <TouchableOpacity
+            style={styles.selectButton}
             onPress={() => setShowCountryModal(true)}
           >
-            <Text style={locationCountry ? styles.selectText : styles.selectPlaceholder}>
-              {locationCountry || 'Select Country'}
+            <Text
+              style={
+                locationCountry ? styles.selectText : styles.selectPlaceholder
+              }
+            >
+              {locationCountry || "Select Country"}
             </Text>
             <Ionicons name="chevron-down" size={20} color="#666" />
           </TouchableOpacity>
 
-          {locationCountry === 'United States' && (
-            <TouchableOpacity 
-              style={[styles.selectButton, styles.inputSpaced]} 
+          {locationCountry === "United States" && (
+            <TouchableOpacity
+              style={[styles.selectButton, styles.inputSpaced]}
               onPress={() => setShowStateModal(true)}
             >
-              <Text style={locationState ? styles.selectText : styles.selectPlaceholder}>
-                {locationState || 'Select State'}
+              <Text
+                style={
+                  locationState ? styles.selectText : styles.selectPlaceholder
+                }
+              >
+                {locationState || "Select State"}
               </Text>
               <Ionicons name="chevron-down" size={20} color="#666" />
             </TouchableOpacity>
           )}
 
-          {locationCountry === 'United States' && (
+          {locationCountry === "United States" && (
             <TextInput
               style={[styles.input, styles.inputSpaced]}
               value={locationCity}
@@ -894,21 +1479,34 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Languages (select all that apply) *</Text>
-            {renderAskMeToggle('languages', selectedLanguages.length > 0 || !!languageOther)}
+            <Text style={styles.label}>
+              Languages (select all that apply) *
+            </Text>
+            {renderAskMeToggle(
+              "languages",
+              selectedLanguages.length > 0 || !!languageOther,
+            )}
           </View>
-          {LANGUAGES.map(lang => (
+          {LANGUAGES.map((lang) => (
             <TouchableOpacity
               key={lang}
-              style={[styles.checkOption, selectedLanguages.includes(lang) && styles.checkSelected]}
+              style={[
+                styles.checkOption,
+                selectedLanguages.includes(lang) && styles.checkSelected,
+              ]}
               onPress={() => toggleLanguage(lang)}
             >
-              <Text style={[styles.checkText, selectedLanguages.includes(lang) && styles.checkTextSelected]}>
+              <Text
+                style={[
+                  styles.checkText,
+                  selectedLanguages.includes(lang) && styles.checkTextSelected,
+                ]}
+              >
                 {lang}
               </Text>
             </TouchableOpacity>
           ))}
-          {selectedLanguages.includes('Other') && (
+          {selectedLanguages.includes("Other") && (
             <TextInput
               style={[styles.input, styles.inputSpaced]}
               value={languageOther}
@@ -922,24 +1520,37 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       {/* 4. Nationality / Background */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Nationality / Background *</Text>
-        
+
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Background (select all that apply) *</Text>
-            {renderAskMeToggle('nationality', selectedNationality.length > 0 || !!nationalityOther)}
+            <Text style={styles.label}>
+              Background (select all that apply) *
+            </Text>
+            {renderAskMeToggle(
+              "nationality",
+              selectedNationality.length > 0 || !!nationalityOther,
+            )}
           </View>
-          {NATIONALITY_OPTIONS.map(nat => (
+          {NATIONALITY_OPTIONS.map((nat) => (
             <TouchableOpacity
               key={nat}
-              style={[styles.checkOption, selectedNationality.includes(nat) && styles.checkSelected]}
+              style={[
+                styles.checkOption,
+                selectedNationality.includes(nat) && styles.checkSelected,
+              ]}
               onPress={() => toggleNationality(nat)}
             >
-              <Text style={[styles.checkText, selectedNationality.includes(nat) && styles.checkTextSelected]}>
+              <Text
+                style={[
+                  styles.checkText,
+                  selectedNationality.includes(nat) && styles.checkTextSelected,
+                ]}
+              >
                 {nat}
               </Text>
             </TouchableOpacity>
           ))}
-          {selectedNationality.includes('Other') && (
+          {selectedNationality.includes("Other") && (
             <TextInput
               style={[styles.input, styles.inputSpaced]}
               value={nationalityOther}
@@ -949,24 +1560,44 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
           )}
         </View>
 
-        {gender === 'male' && (
+        {gender === "male" && (
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.label}>Cohen *</Text>
-              {renderAskMeToggle('isCohen', isCohen !== undefined)}
+              {renderAskMeToggle("isCohen", isCohen !== undefined)}
             </View>
             <View style={styles.radioGroup}>
               <TouchableOpacity
-                style={[styles.radioOption, isCohen === true && styles.radioSelected]}
+                style={[
+                  styles.radioOption,
+                  isCohen === true && styles.radioSelected,
+                ]}
                 onPress={() => setIsCohen(true)}
               >
-                <Text style={[styles.radioText, isCohen === true && styles.radioTextSelected]}>Yes</Text>
+                <Text
+                  style={[
+                    styles.radioText,
+                    isCohen === true && styles.radioTextSelected,
+                  ]}
+                >
+                  Yes
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.radioOption, isCohen === false && styles.radioSelected]}
+                style={[
+                  styles.radioOption,
+                  isCohen === false && styles.radioSelected,
+                ]}
                 onPress={() => setIsCohen(false)}
               >
-                <Text style={[styles.radioText, isCohen === false && styles.radioTextSelected]}>No</Text>
+                <Text
+                  style={[
+                    styles.radioText,
+                    isCohen === false && styles.radioTextSelected,
+                  ]}
+                >
+                  No
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -976,24 +1607,35 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       {/* 5. Hashkafa */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Hashkafa (Religious Outlook) *</Text>
-        
+
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Hashkafa Type *</Text>
-            {renderAskMeToggle('hashkafaType', !!hashkafaType || !!hashkafaOther)}
+            {renderAskMeToggle(
+              "hashkafaType",
+              !!hashkafaType || !!hashkafaOther,
+            )}
           </View>
-          {HASHKAFA_OPTIONS.map(option => (
+          {HASHKAFA_OPTIONS.map((option) => (
             <TouchableOpacity
               key={option}
-              style={[styles.checkOption, hashkafaType === option && styles.checkSelected]}
+              style={[
+                styles.checkOption,
+                hashkafaType === option && styles.checkSelected,
+              ]}
               onPress={() => setHashkafaType(option)}
             >
-              <Text style={[styles.checkText, hashkafaType === option && styles.checkTextSelected]}>
+              <Text
+                style={[
+                  styles.checkText,
+                  hashkafaType === option && styles.checkTextSelected,
+                ]}
+              >
                 {option}
               </Text>
             </TouchableOpacity>
           ))}
-          {hashkafaType === 'Other' && (
+          {hashkafaType === "Other" && (
             <TextInput
               style={[styles.input, styles.inputSpaced]}
               value={hashkafaOther}
@@ -1003,25 +1645,36 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
           )}
         </View>
 
-        {gender === 'male' && (
+        {gender === "male" && (
           <>
             <View style={styles.inputGroup}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Torah Learning *</Text>
-                {renderAskMeToggle('torahLearning', !!torahLearning || !!torahLearningOther)}
+                {renderAskMeToggle(
+                  "torahLearning",
+                  !!torahLearning || !!torahLearningOther,
+                )}
               </View>
-              {TORAH_LEARNING_OPTIONS.map(option => (
+              {TORAH_LEARNING_OPTIONS.map((option) => (
                 <TouchableOpacity
                   key={option}
-                  style={[styles.checkOption, torahLearning === option && styles.checkSelected]}
+                  style={[
+                    styles.checkOption,
+                    torahLearning === option && styles.checkSelected,
+                  ]}
                   onPress={() => setTorahLearning(option)}
                 >
-                  <Text style={[styles.checkText, torahLearning === option && styles.checkTextSelected]}>
+                  <Text
+                    style={[
+                      styles.checkText,
+                      torahLearning === option && styles.checkTextSelected,
+                    ]}
+                  >
                     {option}
                   </Text>
                 </TouchableOpacity>
               ))}
-              {torahLearning === 'Other' && (
+              {torahLearning === "Other" && (
                 <TextInput
                   style={[styles.input, styles.inputSpaced]}
                   value={torahLearningOther}
@@ -1034,20 +1687,28 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
             <View style={styles.inputGroup}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Praying *</Text>
-                {renderAskMeToggle('praying', !!praying || !!prayingOther)}
+                {renderAskMeToggle("praying", !!praying || !!prayingOther)}
               </View>
-              {PRAYING_OPTIONS.map(option => (
+              {PRAYING_OPTIONS.map((option) => (
                 <TouchableOpacity
                   key={option}
-                  style={[styles.checkOption, praying === option && styles.checkSelected]}
+                  style={[
+                    styles.checkOption,
+                    praying === option && styles.checkSelected,
+                  ]}
                   onPress={() => setPraying(option)}
                 >
-                  <Text style={[styles.checkText, praying === option && styles.checkTextSelected]}>
+                  <Text
+                    style={[
+                      styles.checkText,
+                      praying === option && styles.checkTextSelected,
+                    ]}
+                  >
                     {option}
                   </Text>
                 </TouchableOpacity>
               ))}
-              {praying === 'Other' && (
+              {praying === "Other" && (
                 <TextInput
                   style={[styles.input, styles.inputSpaced]}
                   value={prayingOther}
@@ -1063,24 +1724,40 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       {/* 6. Education */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Education *</Text>
-        
+
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Education Level (select all that apply) *</Text>
-            {renderAskMeToggle('educationLevel', selectedEducation.length > 0 || !!educationOther)}
+            <Text style={styles.label}>
+              Education Level (select all that apply) *
+            </Text>
+            {renderAskMeToggle(
+              "educationLevel",
+              selectedEducation.length > 0 || !!educationOther,
+            )}
           </View>
-          {(gender === 'male' ? EDUCATION_MALE : EDUCATION_FEMALE).map(option => (
-            <TouchableOpacity
-              key={option}
-              style={[styles.checkOption, selectedEducation.includes(option) && styles.checkSelected]}
-              onPress={() => toggleEducation(option)}
-            >
-              <Text style={[styles.checkText, selectedEducation.includes(option) && styles.checkTextSelected]}>
-                {option}
-              </Text>
-            </TouchableOpacity>
-          ))}
-          {selectedEducation.includes('Other') && (
+          {(gender === "male" ? EDUCATION_MALE : EDUCATION_FEMALE).map(
+            (option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.checkOption,
+                  selectedEducation.includes(option) && styles.checkSelected,
+                ]}
+                onPress={() => toggleEducation(option)}
+              >
+                <Text
+                  style={[
+                    styles.checkText,
+                    selectedEducation.includes(option) &&
+                      styles.checkTextSelected,
+                  ]}
+                >
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ),
+          )}
+          {selectedEducation.includes("Other") && (
             <TextInput
               style={[styles.input, styles.inputSpaced]}
               value={educationOther}
@@ -1093,20 +1770,31 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Post-High School Path *</Text>
-            {renderAskMeToggle('postHighSchoolPath', !!postHighSchoolPath || !!postHSOther)}
+            {renderAskMeToggle(
+              "postHighSchoolPath",
+              !!postHighSchoolPath || !!postHSOther,
+            )}
           </View>
-          {(gender === 'male' ? POST_HS_MALE : POST_HS_FEMALE).map(option => (
+          {(gender === "male" ? POST_HS_MALE : POST_HS_FEMALE).map((option) => (
             <TouchableOpacity
               key={option}
-              style={[styles.checkOption, postHighSchoolPath === option && styles.checkSelected]}
+              style={[
+                styles.checkOption,
+                postHighSchoolPath === option && styles.checkSelected,
+              ]}
               onPress={() => setPostHighSchoolPath(option)}
             >
-              <Text style={[styles.checkText, postHighSchoolPath === option && styles.checkTextSelected]}>
+              <Text
+                style={[
+                  styles.checkText,
+                  postHighSchoolPath === option && styles.checkTextSelected,
+                ]}
+              >
                 {option}
               </Text>
             </TouchableOpacity>
           ))}
-          {postHighSchoolPath === 'Other' && (
+          {postHighSchoolPath === "Other" && (
             <TextInput
               style={[styles.input, styles.inputSpaced]}
               value={postHSOther}
@@ -1120,24 +1808,38 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       {/* 7. Occupation / Study */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Occupation / Study *</Text>
-        
+
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Current Status *</Text>
-            {renderAskMeToggle('currentOccupationStudy', !!currentOccupationStudy || !!occupationOther)}
+            {renderAskMeToggle(
+              "currentOccupationStudy",
+              !!currentOccupationStudy || !!occupationOther,
+            )}
           </View>
-          {(gender === 'male' ? OCCUPATION_MALE : OCCUPATION_FEMALE).map(option => (
-            <TouchableOpacity
-              key={option}
-              style={[styles.checkOption, currentOccupationStudy === option && styles.checkSelected]}
-              onPress={() => setCurrentOccupationStudy(option)}
-            >
-              <Text style={[styles.checkText, currentOccupationStudy === option && styles.checkTextSelected]}>
-                {option}
-              </Text>
-            </TouchableOpacity>
-          ))}
-          {currentOccupationStudy === 'Other' && (
+          {(gender === "male" ? OCCUPATION_MALE : OCCUPATION_FEMALE).map(
+            (option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.checkOption,
+                  currentOccupationStudy === option && styles.checkSelected,
+                ]}
+                onPress={() => setCurrentOccupationStudy(option)}
+              >
+                <Text
+                  style={[
+                    styles.checkText,
+                    currentOccupationStudy === option &&
+                      styles.checkTextSelected,
+                  ]}
+                >
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ),
+          )}
+          {currentOccupationStudy === "Other" && (
             <TextInput
               style={[styles.input, styles.inputSpaced]}
               value={occupationOther}
@@ -1151,24 +1853,35 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       {/* 8. Plan After Marriage */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Plan After Marriage *</Text>
-        
+
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Plans *</Text>
-            {renderAskMeToggle('planAfterMarriage', !!planAfterMarriage || !!planOther)}
+            {renderAskMeToggle(
+              "planAfterMarriage",
+              !!planAfterMarriage || !!planOther,
+            )}
           </View>
-          {(gender === 'male' ? PLAN_MALE : PLAN_FEMALE).map(option => (
+          {(gender === "male" ? PLAN_MALE : PLAN_FEMALE).map((option) => (
             <TouchableOpacity
               key={option}
-              style={[styles.checkOption, planAfterMarriage === option && styles.checkSelected]}
+              style={[
+                styles.checkOption,
+                planAfterMarriage === option && styles.checkSelected,
+              ]}
               onPress={() => setPlanAfterMarriage(option)}
             >
-              <Text style={[styles.checkText, planAfterMarriage === option && styles.checkTextSelected]}>
+              <Text
+                style={[
+                  styles.checkText,
+                  planAfterMarriage === option && styles.checkTextSelected,
+                ]}
+              >
                 {option}
               </Text>
             </TouchableOpacity>
           ))}
-          {planAfterMarriage === 'Other' && (
+          {planAfterMarriage === "Other" && (
             <TextInput
               style={[styles.input, styles.inputSpaced]}
               value={planOther}
@@ -1179,38 +1892,55 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         </View>
       </View>
 
-
       {/* 10. Dress & Appearance */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Dress & Appearance *</Text>
-        
+
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Dress Style *</Text>
-            {renderAskMeToggle('dressStyle', !!dressStyle || !!dressStyleOther)}
+            {renderAskMeToggle("dressStyle", !!dressStyle || !!dressStyleOther)}
           </View>
-          { gender === 'male' ? DRESS_STYLE_MALE.map(option => (
-            <TouchableOpacity
-              key={option}
-              style={[styles.checkOption, dressStyle === option && styles.checkSelected]}
-              onPress={() => setDressStyle(option)}
-            >
-              <Text style={[styles.checkText, dressStyle === option && styles.checkTextSelected]}>
-                {option}
-              </Text>
-            </TouchableOpacity>
-          )) : DRESS_STYLE_FEMALE.map(option => (
-            <TouchableOpacity
-              key={option}
-              style={[styles.checkOption, dressStyle === option && styles.checkSelected]}
-              onPress={() => setDressStyle(option)}
-            >
-              <Text style={[styles.checkText, dressStyle === option && styles.checkTextSelected]}>
-                {option}
-              </Text>
-            </TouchableOpacity>
-          ))}
-          {dressStyle === 'Other' && (
+          {gender === "male"
+            ? DRESS_STYLE_MALE.map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.checkOption,
+                    dressStyle === option && styles.checkSelected,
+                  ]}
+                  onPress={() => setDressStyle(option)}
+                >
+                  <Text
+                    style={[
+                      styles.checkText,
+                      dressStyle === option && styles.checkTextSelected,
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            : DRESS_STYLE_FEMALE.map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.checkOption,
+                    dressStyle === option && styles.checkSelected,
+                  ]}
+                  onPress={() => setDressStyle(option)}
+                >
+                  <Text
+                    style={[
+                      styles.checkText,
+                      dressStyle === option && styles.checkTextSelected,
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+          {dressStyle === "Other" && (
             <TextInput
               style={[styles.input, styles.inputSpaced]}
               value={dressStyleOther}
@@ -1220,47 +1950,78 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
           )}
         </View>
 
-        {gender === 'male' && (
+        {gender === "male" && (
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.label}>Black Hat *</Text>
-              {renderAskMeToggle('wearsBlackHat', wearsBlackHat !== undefined)}
+              {renderAskMeToggle("wearsBlackHat", wearsBlackHat !== undefined)}
             </View>
             <View style={styles.radioGroup}>
               <TouchableOpacity
-                style={[styles.radioOption, wearsBlackHat === true && styles.radioSelected]}
+                style={[
+                  styles.radioOption,
+                  wearsBlackHat === true && styles.radioSelected,
+                ]}
                 onPress={() => setWearsBlackHat(true)}
               >
-                <Text style={[styles.radioText, wearsBlackHat === true && styles.radioTextSelected]}>Yes</Text>
+                <Text
+                  style={[
+                    styles.radioText,
+                    wearsBlackHat === true && styles.radioTextSelected,
+                  ]}
+                >
+                  Yes
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.radioOption, wearsBlackHat === false && styles.radioSelected]}
+                style={[
+                  styles.radioOption,
+                  wearsBlackHat === false && styles.radioSelected,
+                ]}
                 onPress={() => setWearsBlackHat(false)}
               >
-                <Text style={[styles.radioText, wearsBlackHat === false && styles.radioTextSelected]}>No</Text>
+                <Text
+                  style={[
+                    styles.radioText,
+                    wearsBlackHat === false && styles.radioTextSelected,
+                  ]}
+                >
+                  No
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {gender === 'female' && (
+        {gender === "female" && (
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.label}>Head Covering *</Text>
-              {renderAskMeToggle('headCovering', !!headCovering || !!headCoveringOther)}
+              {renderAskMeToggle(
+                "headCovering",
+                !!headCovering || !!headCoveringOther,
+              )}
             </View>
-            {HEAD_COVERING.map(option => (
+            {HEAD_COVERING.map((option) => (
               <TouchableOpacity
                 key={option}
-                style={[styles.checkOption, headCovering === option && styles.checkSelected]}
+                style={[
+                  styles.checkOption,
+                  headCovering === option && styles.checkSelected,
+                ]}
                 onPress={() => setHeadCovering(option)}
               >
-                <Text style={[styles.checkText, headCovering === option && styles.checkTextSelected]}>
+                <Text
+                  style={[
+                    styles.checkText,
+                    headCovering === option && styles.checkTextSelected,
+                  ]}
+                >
                   {option}
                 </Text>
               </TouchableOpacity>
             ))}
-            {headCovering === 'Other' && (
+            {headCovering === "Other" && (
               <TextInput
                 style={[styles.input, styles.inputSpaced]}
                 value={headCoveringOther}
@@ -1275,24 +2036,32 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       {/* 11. Lifestyle */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Lifestyle *</Text>
-        
+
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Smoking *</Text>
-            {renderAskMeToggle('smoking', !!smoking || !!smokingOther)}
+            {renderAskMeToggle("smoking", !!smoking || !!smokingOther)}
           </View>
-          {SMOKING.map(option => (
+          {SMOKING.map((option) => (
             <TouchableOpacity
               key={option}
-              style={[styles.checkOption, smoking === option && styles.checkSelected]}
+              style={[
+                styles.checkOption,
+                smoking === option && styles.checkSelected,
+              ]}
               onPress={() => setSmoking(option)}
             >
-              <Text style={[styles.checkText, smoking === option && styles.checkTextSelected]}>
+              <Text
+                style={[
+                  styles.checkText,
+                  smoking === option && styles.checkTextSelected,
+                ]}
+              >
                 {option}
               </Text>
             </TouchableOpacity>
           ))}
-          {smoking === 'Other' && (
+          {smoking === "Other" && (
             <TextInput
               style={[styles.input, styles.inputSpaced]}
               value={smokingOther}
@@ -1305,20 +2074,31 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Alcohol Consumption *</Text>
-            {renderAskMeToggle('alcoholConsumption', !!alcoholConsumption || !!alcoholOther)}
+            {renderAskMeToggle(
+              "alcoholConsumption",
+              !!alcoholConsumption || !!alcoholOther,
+            )}
           </View>
-          {ALCOHOL.map(option => (
+          {ALCOHOL.map((option) => (
             <TouchableOpacity
               key={option}
-              style={[styles.checkOption, alcoholConsumption === option && styles.checkSelected]}
+              style={[
+                styles.checkOption,
+                alcoholConsumption === option && styles.checkSelected,
+              ]}
               onPress={() => setAlcoholConsumption(option)}
             >
-              <Text style={[styles.checkText, alcoholConsumption === option && styles.checkTextSelected]}>
+              <Text
+                style={[
+                  styles.checkText,
+                  alcoholConsumption === option && styles.checkTextSelected,
+                ]}
+              >
                 {option}
               </Text>
             </TouchableOpacity>
           ))}
-          {alcoholConsumption === 'Other' && (
+          {alcoholConsumption === "Other" && (
             <TextInput
               style={[styles.input, styles.inputSpaced]}
               value={alcoholOther}
@@ -1337,7 +2117,8 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
             <Ionicons name="share-social" size={20} color="#1293DA" />
           </View>
           <Text style={styles.infoTileText}>
-            Upload a photo of your resume from your gallery (optional). It will be shared automatically when you successfully match with someone.
+            Upload a photo of your resume from your gallery (optional). It will
+            be shared automatically when you successfully match with someone.
           </Text>
         </View>
 
@@ -1346,17 +2127,22 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
             <TouchableOpacity
               style={styles.resumeInfo}
               onPress={async () => {
-                const { resumeService } = await import('../../lib/resumeService');
-                const result = await resumeService.downloadResume(resumeUrl, resumeFileName || 'resume');
-                if (!result.success) Alert.alert('Error', result.error || 'Failed to open resume');
+                const { resumeService } =
+                  await import("../../lib/resumeService");
+                const result = await resumeService.downloadResume(
+                  resumeUrl,
+                  resumeFileName || "resume",
+                );
+                if (!result.success)
+                  Alert.alert("Error", result.error || "Failed to open resume");
               }}
               activeOpacity={0.7}
             >
               <Ionicons name="document-text" size={24} color="#1293DA" />
               <View style={styles.resumeDetails}>
                 <Text style={styles.resumeText}>Resume uploaded</Text>
-                <Text style={[styles.resumeSubtext, { color: '#1293DA' }]}>
-                  {resumeFileName || 'resume document'} · Tap to preview
+                <Text style={[styles.resumeSubtext, { color: "#1293DA" }]}>
+                  {resumeFileName || "resume document"} · Tap to preview
                 </Text>
               </View>
             </TouchableOpacity>
@@ -1382,9 +2168,15 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
               <ActivityIndicator size="small" color="#1293DA" />
             ) : (
               <>
-                <Ionicons name="cloud-upload-outline" size={24} color="#1293DA" />
+                <Ionicons
+                  name="cloud-upload-outline"
+                  size={24}
+                  color="#1293DA"
+                />
                 <Text style={styles.uploadResumeText}>Upload Resume</Text>
-                <Text style={styles.uploadResumeSubtext}>Photo from gallery · max 8MB</Text>
+                <Text style={styles.uploadResumeSubtext}>
+                  Photo from gallery · max 8MB
+                </Text>
               </>
             )}
           </TouchableOpacity>
@@ -1403,17 +2195,24 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
 
       {/* Submit Button */}
       <TouchableOpacity
-        style={[styles.submitButton, (!hasChanges || loading) && styles.submitButtonDisabled]}
+        style={[
+          styles.submitButton,
+          (!hasChanges || loading) && styles.submitButtonDisabled,
+        ]}
         onPress={validateAndSubmit}
         disabled={!hasChanges || loading}
       >
         <Text style={styles.submitButtonText}>
-          {loading ? 'Saving...' : 'Save Profile'}
+          {loading ? "Saving..." : "Save Profile"}
         </Text>
       </TouchableOpacity>
 
       {/* Country Selection Modal */}
-      <Modal visible={showCountryModal} animationType="slide" presentationStyle="pageSheet">
+      <Modal
+        visible={showCountryModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowCountryModal(false)}>
@@ -1425,14 +2224,14 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalContent}>
-            {COUNTRIES.map(country => (
+            {COUNTRIES.map((country) => (
               <TouchableOpacity
                 key={country}
                 style={styles.modalOption}
                 onPress={() => {
                   setLocationCountry(country);
-                  if (country !== 'United States') {
-                    setLocationState(''); // Clear state if not USA
+                  if (country !== "United States") {
+                    setLocationState(""); // Clear state if not USA
                   }
                   setShowCountryModal(false);
                 }}
@@ -1448,7 +2247,11 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       </Modal>
 
       {/* State Selection Modal (USA only) */}
-      <Modal visible={showStateModal} animationType="slide" presentationStyle="pageSheet">
+      <Modal
+        visible={showStateModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowStateModal(false)}>
@@ -1460,7 +2263,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalContent}>
-            {US_STATES.map(state => (
+            {US_STATES.map((state) => (
               <TouchableOpacity
                 key={state}
                 style={styles.modalOption}
@@ -1515,7 +2318,11 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
                   itemStyle={{ height: 160, fontSize: 22 }}
                 >
                   {HEIGHT_INCHES.map((inches) => (
-                    <Picker.Item key={inches} label={`${inches}"`} value={inches} />
+                    <Picker.Item
+                      key={inches}
+                      label={`${inches}"`}
+                      value={inches}
+                    />
                   ))}
                 </Picker>
               </View>
@@ -1525,7 +2332,7 @@ export default function SinglesProfileForm({ initialData, onSubmit, gender, load
       </Modal>
 
       {/* Date Picker Modal — unified bottom-sheet for all devices */}
-      {Platform.OS === 'ios' ? (
+      {Platform.OS === "ios" ? (
         <Modal visible={showDatePicker} transparent animationType="slide">
           <View style={styles.heightPickerModalOverlay}>
             <View style={styles.heightPickerModalContent}>
@@ -1584,12 +2391,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   roleSwitchBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 10,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: "#E3F2FD",
     borderLeftWidth: 4,
-    borderLeftColor: '#1293DA',
+    borderLeftColor: "#1293DA",
     margin: 12,
     marginBottom: 4,
     padding: 14,
@@ -1598,34 +2405,34 @@ const styles = StyleSheet.create({
   roleSwitchBannerText: {
     flex: 1,
     fontSize: 13,
-    color: '#1A5276',
+    color: "#1A5276",
     lineHeight: 19,
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     marginTop: 8,
     padding: 20,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 16,
   },
   infoTile: {
-    flexDirection: 'row',
-    backgroundColor: '#EBF8FF',
+    flexDirection: "row",
+    backgroundColor: "#EBF8FF",
     borderLeftWidth: 4,
-    borderLeftColor: '#1293DA',
+    borderLeftColor: "#1293DA",
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -1638,52 +2445,55 @@ const styles = StyleSheet.create({
   infoTileText: {
     flex: 1,
     fontSize: 14,
-    color: '#0D4F8A',
+    color: "#0D4F8A",
     lineHeight: 20,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   inputGroup: {
     marginBottom: 16,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 8,
+    flex: 1,
+    flexShrink: 1,
+    marginRight: 8,
   },
   labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   inputSpaced: {
     marginTop: 8,
   },
   bioInput: {
     height: 100,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   halfInput: {
-    width: '48%',
+    width: "48%",
   },
   radioGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   radioOption: {
@@ -1691,30 +2501,30 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    backgroundColor: '#fff',
+    borderColor: "#e0e0e0",
+    backgroundColor: "#fff",
   },
   radioSelected: {
-    backgroundColor: '#1293DA',
-    borderColor: '#1293DA',
+    backgroundColor: "#1293DA",
+    borderColor: "#1293DA",
   },
   radioText: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   radioTextSelected: {
-    color: '#fff',
+    color: "#fff",
   },
   picturePrivacy: {
     marginBottom: 16,
   },
   picturesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
   },
   pictureWrapper: {
-    position: 'relative',
+    position: "relative",
   },
   picture: {
     width: 80,
@@ -1722,288 +2532,286 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   removePicture: {
-    position: 'absolute',
+    position: "absolute",
     top: -8,
     right: -8,
-    backgroundColor: '#ff4444',
+    backgroundColor: "#ff4444",
     borderRadius: 12,
     width: 24,
     height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   addPicture: {
     width: 80,
     height: 80,
     borderWidth: 2,
-    borderColor: '#e0e0e0',
-    borderStyle: 'dashed',
+    borderColor: "#e0e0e0",
+    borderStyle: "dashed",
     borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   addPictureText: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginTop: 4,
   },
   mainBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 4,
     left: 4,
-    backgroundColor: '#1293DA',
+    backgroundColor: "#1293DA",
     paddingHorizontal: 4,
     paddingVertical: 2,
     borderRadius: 4,
   },
   mainBadgeText: {
     fontSize: 8,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
   },
   securityNotice: {
-    flexDirection: 'row',
-    backgroundColor: '#e3f2fd',
+    flexDirection: "row",
+    backgroundColor: "#e3f2fd",
     borderLeftWidth: 4,
-    borderLeftColor: '#1565C0',
+    borderLeftColor: "#1565C0",
     borderRadius: 10,
     padding: 14,
     marginBottom: 14,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   securityNoticeText: {
     flex: 1,
     fontSize: 13,
-    color: '#0d47a1',
+    color: "#0d47a1",
     lineHeight: 19,
   },
   securityNoticeBold: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   pictureGuide: {
     fontSize: 13,
-    color: '#666',
+    color: "#666",
     marginBottom: 12,
   },
   helpText: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginTop: 8,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   errorText: {
     fontSize: 12,
-    color: '#f44336',
+    color: "#f44336",
     marginTop: 4,
     marginBottom: 8,
   },
   dateButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   dateText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   selectButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   selectText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     flex: 1,
   },
   selectPlaceholder: {
     fontSize: 16,
-    color: '#999',
+    color: "#999",
     flex: 1,
   },
   checkOption: {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
     borderRadius: 8,
     marginBottom: 8,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   checkSelected: {
-    backgroundColor: '#E3F2FD',
-    borderColor: '#1293DA',
+    backgroundColor: "#E3F2FD",
+    borderColor: "#1293DA",
   },
   checkText: {
     fontSize: 15,
-    color: '#333',
+    color: "#333",
   },
   checkTextSelected: {
-    color: '#1293DA',
-    fontWeight: '600',
+    color: "#1293DA",
+    fontWeight: "600",
   },
   askMeToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     gap: 4,
+    flexShrink: 0,
   },
   askMeToggleActive: {
-    backgroundColor: '#1293DA',
+    backgroundColor: "#1293DA",
   },
   askMeText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: "600",
+    color: "#666",
   },
   askMeTextActive: {
-    color: '#fff',
+    color: "#fff",
   },
   submitButton: {
-    backgroundColor: '#1293DA',
+    backgroundColor: "#1293DA",
     margin: 20,
     paddingVertical: 16,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   submitButtonDisabled: {
     opacity: 0.6,
   },
   submitButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   doneText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1293DA',
+    fontWeight: "600",
+    color: "#1293DA",
   },
   modalContent: {
     flex: 1,
   },
   modalOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   modalOptionText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   cancelText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: "600",
+    color: "#666",
   },
   datePickerContainer: {
-
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    
-
+    justifyContent: "center",
+    backgroundColor: "#fff",
+    alignItems: "center",
   },
   datePicker: {
     height: 200,
   },
   heightButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   heightButtonText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   heightButtonPlaceholder: {
     fontSize: 16,
-    color: '#999',
+    color: "#999",
   },
   heightPickerModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   heightPickerModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 30,
   },
   heightPickerModalContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 20,
     gap: 20,
   },
   heightPickerWrapper: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   heightPickerLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 8,
   },
   heightPicker: {
-    width: '100%',
+    width: "100%",
     height: 160,
   },
   resumeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 16,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: "#E3F2FD",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#1293DA',
+    borderColor: "#1293DA",
   },
   resumeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   resumeDetails: {
@@ -2012,49 +2820,48 @@ const styles = StyleSheet.create({
   },
   resumeText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   resumeSubtext: {
     fontSize: 13,
-    color: '#666',
+    color: "#666",
     marginTop: 2,
   },
   deleteResumeButton: {
     padding: 8,
   },
   uploadResumeButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 24,
     borderWidth: 2,
-    borderColor: '#1293DA',
-    borderStyle: 'dashed',
+    borderColor: "#1293DA",
+    borderStyle: "dashed",
     borderRadius: 8,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
   },
   uploadResumeText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1293DA',
+    fontWeight: "600",
+    color: "#1293DA",
     marginTop: 8,
   },
   uploadResumeSubtext: {
     fontSize: 13,
-    color: '#666',
+    color: "#666",
     marginTop: 4,
   },
   lastActiveContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     borderRadius: 8,
   },
   lastActiveText: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
 });
-

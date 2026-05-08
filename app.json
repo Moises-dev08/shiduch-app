@@ -13,7 +13,10 @@
       "bundleIdentifier": "com.zivugmishamayim",
       "associatedDomains": ["applinks:www.zivugmishamayim.com"],
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Allow Zivug Mishamayim to access your photo library to upload a profile picture.",
+        "NSPhotoLibraryAddUsageDescription": "Allow Zivug Mishamayim to save photos to your library.",
+        "NSUserNotificationsUsageDescription": "Allow Zivug Mishamayim to send you notifications about new matches, introductions, and messages."
       }
     },
     "android": {
@@ -63,12 +66,19 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Zivug Mishamayim to access your photo library to upload a profile picture."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./zm-logo.jpg",
           "color": "#1599D4",
           "defaultChannel": "default",
-          "sounds": []
+          "sounds": [],
+          "iosDisplayInForeground": true
         }
       ]
     ],
@@ -82,6 +92,7 @@
         "projectId": "c6f5ce51-10fc-4c03-9059-63cb696335a3"
       }
     },
-    "owner": "moisholino"
+    "owner": "moisholino",
+    "privacyPolicyUrl": "https://zivugmishamayim.com/privacy"
   }
 }

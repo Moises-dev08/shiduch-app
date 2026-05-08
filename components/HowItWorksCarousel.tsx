@@ -1,5 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
-import React, { useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import React, { useRef, useState } from "react";
 import {
   Dimensions,
   Modal,
@@ -8,55 +8,64 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
 interface HowItWorksCarouselProps {
   visible: boolean;
   onClose: () => void;
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const slides = [
   {
-    icon: 'person-add' as const,
-    color: '#4CAF50',
-    title: 'Create Your Profile',
-    description: 'Sign up and create your detailed profile. Add your photos, preferences, and what you\'re looking for in a match.',
+    icon: "person-add" as const,
+    color: "#4CAF50",
+    title: "Create Your Profile",
+    description:
+      "Sign up and create your detailed profile. Add your photos, preferences, and what you're looking for in a match.",
   },
   {
-    icon: 'search' as const,
-    color: '#2196F3',
-    title: 'Browse Profiles',
-    description: 'Explore profiles of potential matches. Filter by age, location, and other preferences to find your perfect match.',
+    icon: "search" as const,
+    color: "#2196F3",
+    title: "Browse Profiles",
+    description:
+      "Explore profiles of potential matches. Filter by age, location, and other preferences to find your perfect match.",
   },
   {
-    icon: 'heart' as const,
-    color: '#DAA520',
-    title: 'Make a Suggestion',
-    description: 'Found someone interesting? Send them a suggestion! You can also ask for more information before deciding.',
+    icon: "heart" as const,
+    color: "#DAA520",
+    title: "Make a Suggestion",
+    description:
+      "Found someone interesting? Send them a suggestion! You can also ask for more information before deciding.",
   },
   {
-    icon: 'people' as const,
-    color: '#1293DA',
-    title: 'Work with Matchmakers',
-    description: 'Connect with Matchmaker/Shadchan who can help guide you through the process and make introductions.',
+    icon: "people" as const,
+    color: "#1293DA",
+    title: "Work with Matchmakers",
+    description:
+      "Connect with matchmaker/shadchan who can help guide you through the process and make introductions.",
   },
   {
-    icon: 'chatbubbles' as const,
-    color: '#FF9800',
-    description: 'When both parties accept, choose how to proceed - by yourselves or with a Matchmaker/Shadchan to facilitate.',
-    title: 'Connect & Continue',
+    icon: "chatbubbles" as const,
+    color: "#FF9800",
+    description:
+      "When both parties accept, choose how to proceed - by yourselves or with a matchmaker/shadchan to facilitate.",
+    title: "Connect & Continue",
   },
   {
-    icon: 'star' as const,
-    color: '#FFC107',
-    title: 'Find Your Match',
-    description: 'Get connected with your match and start your journey together. Your matchmaker is here to support you every step of the way.',
+    icon: "star" as const,
+    color: "#FFC107",
+    title: "Find Your Match",
+    description:
+      "Get connected with your match and start your journey together. Your matchmaker is here to support you every step of the way.",
   },
 ];
 
-export default function HowItWorksCarousel({ visible, onClose }: HowItWorksCarouselProps) {
+export default function HowItWorksCarousel({
+  visible,
+  onClose,
+}: HowItWorksCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -121,7 +130,12 @@ export default function HowItWorksCarousel({ visible, onClose }: HowItWorksCarou
         >
           {slides.map((slide, index) => (
             <View key={index} style={styles.slide}>
-              <View style={[styles.iconContainer, { backgroundColor: slide.color + '20' }]}>
+              <View
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: slide.color + "20" },
+                ]}
+              >
                 <Ionicons name={slide.icon} size={80} color={slide.color} />
               </View>
               <Text style={styles.slideTitle}>{slide.title}</Text>
@@ -139,10 +153,7 @@ export default function HowItWorksCarousel({ visible, onClose }: HowItWorksCarou
             <TouchableOpacity
               key={index}
               onPress={() => goToSlide(index)}
-              style={[
-                styles.dot,
-                currentIndex === index && styles.activeDot,
-              ]}
+              style={[styles.dot, currentIndex === index && styles.activeDot]}
             />
           ))}
         </View>
@@ -158,10 +169,14 @@ export default function HowItWorksCarousel({ visible, onClose }: HowItWorksCarou
           <View style={{ flex: 1 }} />
           <TouchableOpacity onPress={handleNext} style={styles.navButton}>
             <Text style={styles.navButtonText}>
-              {currentIndex === slides.length - 1 ? 'Get Started' : 'Next'}
+              {currentIndex === slides.length - 1 ? "Get Started" : "Next"}
             </Text>
             <Ionicons
-              name={currentIndex === slides.length - 1 ? 'checkmark' : 'arrow-forward'}
+              name={
+                currentIndex === slides.length - 1
+                  ? "checkmark"
+                  : "arrow-forward"
+              }
               size={24}
               color="#007AFF"
             />
@@ -175,23 +190,23 @@ export default function HowItWorksCarousel({ visible, onClose }: HowItWorksCarou
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
     paddingTop: 60,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   closeButton: {
     padding: 4,
@@ -202,42 +217,42 @@ const styles = StyleSheet.create({
   slide: {
     width: SCREEN_WIDTH,
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 40,
   },
   iconContainer: {
     width: 160,
     height: 160,
     borderRadius: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 40,
   },
   slideTitle: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
     marginBottom: 20,
   },
   slideDescription: {
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
     lineHeight: 24,
     paddingHorizontal: 20,
   },
   slideNumber: {
     fontSize: 14,
-    color: '#999',
+    color: "#999",
     marginTop: 30,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   pagination: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 20,
     gap: 8,
   },
@@ -245,33 +260,32 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#ccc',
+    backgroundColor: "#ccc",
   },
   activeDot: {
     width: 24,
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
   },
   navigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 20,
     paddingBottom: 40,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: "#e0e0e0",
   },
   navButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     padding: 12,
   },
   navButtonText: {
     fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
+    color: "#007AFF",
+    fontWeight: "600",
   },
 });
-

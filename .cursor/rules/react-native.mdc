@@ -1,0 +1,28 @@
+---
+alwaysApply: true
+---
+
+# Project Standards & Coding Rules
+
+## 1. Typography & Casing
+
+- **Sentence Case Only**: Do not use Title Case for UI strings or headers (e.g., "This Is My App"). Always use Sentence case (e.g., "This is my app") unless it is a Brand Name or a specific acronym.
+- **Consistency**: Ensure all buttons, labels, and alerts follow this casing standard.
+
+## 2. Modular Architecture
+
+- **Component Pattern**: Follow the "Atomic" design principle. Create small, reusable components instead of monolithic files.
+- **Reusability**: If a UI pattern or logic is used more than once, extract it into a shared component in `src/components/` or a custom hook in `src/hooks/`.
+- **DRY (Don't Repeat Yourself)**: Prioritize composition over duplication.
+
+## 3. Styling Separation
+
+- **No Inline Styles**: Avoid using the `style={{...}}` prop for anything other than dynamic values (e.g., changing color based on a state).
+- **Dedicated Style Files**: For every component `MyComponent.tsx`, create a companion file `MyComponent.styles.ts` (or use a `styles.ts` file within the component's folder).
+- **StyleSheet**: Always use `StyleSheet.create()` in React Native to ensure performance and organization.
+
+## 4. TypeScript Strictness
+
+- **Zero 'any' Policy**: Use TypeScript for everything. Avoid the `any` type at all costs.
+- **Explicit Interfaces**: Define interfaces or types for all component Props, API responses, and State objects.
+- **Return Types**: Always define explicit return types for functions and hooks to ensure type safety across the application.

@@ -11,7 +11,7 @@ import { useRealtimeProfiles } from './useRealtimeProfiles';
 
 // Standalone fetch function — defined outside hook so it is stable across renders
 async function fetchHomeData() {
-  const [currentProfileResult, profilesQuery, viewedResult] = await Promise.all([
+  const [currentProfileResult, profilesQuery, viewedResult, adminUsersQuery] = await Promise.all([
     profileService.getProfile(),
     supabase
       .from('profiles')
@@ -20,8 +20,9 @@ async function fetchHomeData() {
       .eq('is_active', true)
       .eq('role', 'single'),
     pictureViewService.getViewedProfiles(),
+    supabase.from('admin_users').select('user_id'),
   ]);
-  return { currentProfileResult, profilesQuery, viewedResult };
+  return { currentProfileResult, profilesQuery, viewedResult, adminUsersQuery };
 }
 
 // Transform database profile to display profile (outside hook — pure function)
@@ -133,7 +134,7 @@ export function useHomeProfiles() {
   // ── Sync query result → local state ─────────────────────────────────────
   useEffect(() => {
     if (!data) return;
-    const { currentProfileResult, profilesQuery, viewedResult } = data;
+    const { currentProfileResult, profilesQuery, viewedResult, adminUsersQuery } = data;
 
     if (currentProfileResult.success && currentProfileResult.profile) {
       setCurrentUserProfile(currentProfileResult.profile);
@@ -142,7 +143,11 @@ export function useHomeProfiles() {
     const { data: profilesData, error } = profilesQuery;
     if (!error && profilesData) {
       const viewedProfileIds = viewedResult.success ? viewedResult.viewedProfileIds : [];
-      const transformed = profilesData.map((p) => transformProfile(p, viewedProfileIds));
+      const adminUserIds = new Set(
+        (adminUsersQuery.data ?? []).map((a: { user_id: string }) => a.user_id)
+      );
+      const nonAdminProfiles = profilesData.filter((p) => !adminUserIds.has(p.user_id));
+      const transformed = nonAdminProfiles.map((p) => transformProfile(p, viewedProfileIds));
       setAllProfiles(transformed);
     }
   }, [data]);

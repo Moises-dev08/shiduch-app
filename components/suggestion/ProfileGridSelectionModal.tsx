@@ -29,6 +29,7 @@ interface ProfileGridSelectionModalProps {
 // Local interface for database profile structure
 interface DatabaseProfile {
   id: string;
+  user_id: string;
   first_name: string;
   last_name: string;
   dob?: string;
@@ -93,7 +94,7 @@ export default function ProfileGridSelectionModal({
       let query = supabase
         .from("profiles")
         .select(
-          "id, first_name, last_name, dob, gender, role, hashkafa_type, pictures, picture_privacy, location_country, location_state, location_city, nationality, marital_status, has_children, education_level, current_occupation_study, height",
+          "id, user_id, first_name, last_name, dob, gender, role, hashkafa_type, pictures, picture_privacy, location_country, location_state, location_city, nationality, marital_status, has_children, education_level, current_occupation_study, height",
         )
         .eq("status", "approved")
         .eq("is_active", true)
@@ -109,11 +110,19 @@ export default function ProfileGridSelectionModal({
         query = query.eq("gender", oppositeGender);
       }
 
-      const { data, error } = await query;
+      const [{ data, error }, { data: adminUsers }] = await Promise.all([
+        query,
+        supabase.from("admin_users").select("user_id"),
+      ]);
 
       if (error) throw error;
 
-      setProfiles((data as DatabaseProfile[]) || []);
+      const adminUserIds = new Set((adminUsers ?? []).map((a) => a.user_id));
+      setProfiles(
+        ((data ?? []) as DatabaseProfile[]).filter(
+          (p) => !adminUserIds.has(p.user_id),
+        ),
+      );
     } catch (error) {
       console.error("Error loading profiles:", error);
     } finally {

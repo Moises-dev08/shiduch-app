@@ -1,20 +1,14 @@
-import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import {
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface PreviousSuggestionWarningModalProps {
   visible: boolean;
   profileOneName: string;
   profileTwoName: string;
-  profileOneStatus: 'pending' | 'accepted' | 'rejected';
-  profileTwoStatus: 'pending' | 'accepted' | 'rejected';
+  profileOneStatus: "pending" | "accepted" | "rejected";
+  profileTwoStatus: "pending" | "accepted" | "rejected";
   createdAt: string;
   onCancel: () => void;
   onContinue: () => void;
@@ -32,23 +26,23 @@ export default function PreviousSuggestionWarningModal({
 }: PreviousSuggestionWarningModalProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   const getStatusDisplay = (status: string) => {
     switch (status) {
-      case 'accepted':
-        return { text: 'Accepted ✓', color: '#4CAF50' };
-      case 'rejected':
-        return { text: 'Declined ✗', color: '#F59E0B' };
-      case 'pending':
-        return { text: 'Pending ⏳', color: '#FF9800' };
+      case "accepted":
+        return { text: "Accepted ✓", color: "#4CAF50" };
+      case "rejected":
+        return { text: "Declined ✗", color: "#F59E0B" };
+      case "pending":
+        return { text: "Pending ⏳", color: "#FF9800" };
       default:
-        return { text: status, color: '#666' };
+        return { text: status, color: "#666" };
     }
   };
 
@@ -71,7 +65,7 @@ export default function PreviousSuggestionWarningModal({
               <View style={styles.iconContainer}>
                 <Ionicons name="alert-circle" size={48} color="#FF9800" />
               </View>
-              <Text style={styles.title}>Previous Suggestion Found</Text>
+              <Text style={styles.title}>Previous suggestion found</Text>
               <Text style={styles.subtitle}>
                 These profiles were suggested before
               </Text>
@@ -91,8 +85,18 @@ export default function PreviousSuggestionWarningModal({
                     <Ionicons name="person" size={20} color="#666" />
                     <Text style={styles.responseName}>{profileOneName}</Text>
                   </View>
-                  <View style={[styles.statusBadge, { backgroundColor: `${profileOneDisplay.color}15` }]}>
-                    <Text style={[styles.statusText, { color: profileOneDisplay.color }]}>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: `${profileOneDisplay.color}15` },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusText,
+                        { color: profileOneDisplay.color },
+                      ]}
+                    >
                       {profileOneDisplay.text}
                     </Text>
                   </View>
@@ -103,8 +107,18 @@ export default function PreviousSuggestionWarningModal({
                     <Ionicons name="person" size={20} color="#666" />
                     <Text style={styles.responseName}>{profileTwoName}</Text>
                   </View>
-                  <View style={[styles.statusBadge, { backgroundColor: `${profileTwoDisplay.color}15` }]}>
-                    <Text style={[styles.statusText, { color: profileTwoDisplay.color }]}>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: `${profileTwoDisplay.color}15` },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusText,
+                        { color: profileTwoDisplay.color },
+                      ]}
+                    >
                       {profileTwoDisplay.text}
                     </Text>
                   </View>
@@ -132,7 +146,9 @@ export default function PreviousSuggestionWarningModal({
                 style={[styles.button, styles.continueButton]}
                 onPress={onContinue}
               >
-                <Text style={styles.continueButtonText}>Yes, Suggest Again</Text>
+                <Text style={styles.continueButtonText}>
+                  Yes, suggest again
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -145,22 +161,22 @@ export default function PreviousSuggestionWarningModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   safeArea: {
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     paddingHorizontal: 20,
   },
   modalContainer: {
-    width: '100%',
+    width: "100%",
     maxWidth: 400,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
@@ -168,71 +184,71 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 24,
-    alignItems: 'center',
+    alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   iconContainer: {
     marginBottom: 12,
   },
   title: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#333',
+    fontWeight: "700",
+    color: "#333",
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
   },
   content: {
     padding: 24,
   },
   infoCard: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     padding: 16,
     borderRadius: 12,
     marginBottom: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   infoLabel: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginBottom: 4,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   infoDate: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   responsesContainer: {
     marginBottom: 20,
     gap: 12,
   },
   responseItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
     borderRadius: 12,
   },
   responseHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     flex: 1,
   },
   responseName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -241,12 +257,12 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   warningBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#e3f2fd',
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#e3f2fd",
     padding: 16,
     borderRadius: 12,
     gap: 12,
@@ -254,39 +270,38 @@ const styles = StyleSheet.create({
   warningText: {
     flex: 1,
     fontSize: 14,
-    color: '#0277bd',
+    color: "#0277bd",
     lineHeight: 20,
   },
   actions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 16,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: "#f0f0f0",
   },
   button: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButton: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
   },
   cancelButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: "600",
+    color: "#666",
   },
   continueButton: {
-    backgroundColor: '#1293DA',
+    backgroundColor: "#1293DA",
   },
   continueButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#fff",
   },
 });
-

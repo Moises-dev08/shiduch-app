@@ -85,8 +85,9 @@ export default function ProfileScreen() {
       setShowSetupModal(true);
       setSetupStep(1);
     } else if (profileResult && !profileResult.success) {
-      setShowSetupModal(true);
-      setSetupStep(1);
+      // Transient error (e.g. brief "not authenticated" right after login) — do NOT open
+      // the setup modal, which would incorrectly start the account-creation flow.
+      // The React Query will retry and the correct state will arrive shortly.
     }
   }, [profileResult]);
 

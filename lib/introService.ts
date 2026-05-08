@@ -726,6 +726,68 @@ class IntroService {
       middlePersonRequests: result.matchmakerRequests,
     };
   }
+
+  getMiddlePersonContactInfo(
+    request: IntroRequest,
+    currentUserProfileId: string,
+  ): {
+    shouldShowContact: boolean;
+    message: string;
+    contactPerson?: { name: string; phone?: string; email?: string; whatsapp?: string };
+  } {
+    const isActive = request.status === 'accepted' || request.status === 'completed';
+    const isRequesterSide = request.requester_middle_person_id === currentUserProfileId;
+    const isRequestedSide = request.requested_middle_person_id === currentUserProfileId;
+
+    if (!isActive) {
+      return {
+        shouldShowContact: false,
+        message:
+          request.matchmaker_status === 'pending'
+            ? 'Waiting for your response'
+            : 'Waiting for the other party to respond',
+      };
+    }
+
+    const buildContact = (profile: any) => ({
+      name: `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim(),
+      phone: profile.phone,
+      email: profile.email,
+      whatsapp: profile.whatsapp,
+    });
+
+    if (isRequesterSide) {
+      const contactProfile =
+        request.requested_middle_person ?? request.requested_profile;
+      if (!contactProfile) {
+        return { shouldShowContact: false, message: 'Contact info not available' };
+      }
+      return {
+        shouldShowContact: true,
+        message: request.requested_middle_person
+          ? "Contact the other matchmaker"
+          : "Contact the requested person",
+        contactPerson: buildContact(contactProfile),
+      };
+    }
+
+    if (isRequestedSide) {
+      const contactProfile =
+        request.requester_middle_person ?? request.requester_profile;
+      if (!contactProfile) {
+        return { shouldShowContact: false, message: 'Contact info not available' };
+      }
+      return {
+        shouldShowContact: true,
+        message: request.requester_middle_person
+          ? "Contact the requester's matchmaker"
+          : "Contact the requester",
+        contactPerson: buildContact(contactProfile),
+      };
+    }
+
+    return { shouldShowContact: false, message: 'Contact info not available' };
+  }
 }
 
 export const introService = new IntroService();

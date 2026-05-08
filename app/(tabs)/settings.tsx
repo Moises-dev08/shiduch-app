@@ -1,6 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -11,15 +12,18 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import FeedbackModal from '../../components/FeedbackModal';
-import HowItWorksCarousel from '../../components/HowItWorksCarousel';
-import TermsModal from '../../components/TermsModal';
-import { useAuth } from '../../lib/AuthContext';
-import { engagementService, EngagementWithProfiles } from '../../lib/engagementService';
-import { profileService } from '../../lib/profileService';
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import FeedbackModal from "../../components/FeedbackModal";
+import HowItWorksCarousel from "../../components/HowItWorksCarousel";
+import TermsModal from "../../components/TermsModal";
+import { useAuth } from "../../lib/AuthContext";
+import {
+  engagementService,
+  EngagementWithProfiles,
+} from "../../lib/engagementService";
+import { profileService } from "../../lib/profileService";
 
 export default function SettingsScreen() {
   const [showFreezeModal, setShowFreezeModal] = useState(false);
@@ -29,9 +33,14 @@ export default function SettingsScreen() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [isProfileActive, setIsProfileActive] = useState(true);
   const [loadingProfileStatus, setLoadingProfileStatus] = useState(true);
-  const [profileInfo, setProfileInfo] = useState<{ firstName: string; lastName: string; id: string } | null>(null);
+  const [profileInfo, setProfileInfo] = useState<{
+    firstName: string;
+    lastName: string;
+    id: string;
+  } | null>(null);
   const [processingFreeze, setProcessingFreeze] = useState(false);
-  const [myEngagement, setMyEngagement] = useState<EngagementWithProfiles | null>(null);
+  const [myEngagement, setMyEngagement] =
+    useState<EngagementWithProfiles | null>(null);
   const [loadingEngagement, setLoadingEngagement] = useState(true);
   const { signOut } = useAuth();
 
@@ -44,9 +53,9 @@ export default function SettingsScreen() {
         if (result.success && result.profile) {
           setIsProfileActive(result.profile.is_active);
           setProfileInfo({
-            firstName: result.profile.first_name || '',
-            lastName: result.profile.last_name || '',
-            id: result.profile.id || '',
+            firstName: result.profile.first_name || "",
+            lastName: result.profile.last_name || "",
+            id: result.profile.id || "",
           });
         }
         setLoadingProfileStatus(false);
@@ -63,37 +72,33 @@ export default function SettingsScreen() {
 
       fetchProfileStatus();
       fetchEngagement();
-    }, [])
+    }, []),
   );
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-            router.replace('/auth/login');
-          }
-        }
-      ]
-    );
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          await signOut();
+          router.replace("/auth/login");
+        },
+      },
+    ]);
   };
 
   const handleReportProblem = async () => {
-    const subject = encodeURIComponent('Problem Report – Zivug Mishamayim');
+    const subject = encodeURIComponent("Problem Report – Zivug Mishamayim");
 
     const userLine = profileInfo
       ? `Name: ${profileInfo.firstName} ${profileInfo.lastName}\nUser ID: ${profileInfo.id}`
-      : '';
+      : "";
 
     const body = encodeURIComponent(
       `Please describe the problem you encountered:\n\n\n\n` +
-      `---\n${userLine}`
+        `---\n${userLine}`,
     );
 
     const mailtoUrl = `mailto:support@zivugmishamayim.com?subject=${subject}&body=${body}`;
@@ -103,8 +108,8 @@ export default function SettingsScreen() {
       Linking.openURL(mailtoUrl);
     } else {
       Alert.alert(
-        'No Email App Found',
-        'Please send your report directly to support@zivugmishamayim.com'
+        "No email app found",
+        "Please send your report directly to support@zivugmishamayim.com",
       );
     }
   };
@@ -128,15 +133,15 @@ export default function SettingsScreen() {
     if (result.success) {
       setIsProfileActive(false);
       Alert.alert(
-        'Profile Frozen',
-        'Your profile has been frozen and will not be visible to other users.',
-        [{ text: 'OK' }]
+        "Profile Frozen",
+        "Your profile has been frozen and will not be visible to other users.",
+        [{ text: "OK" }],
       );
     } else {
       Alert.alert(
-        'Error',
-        result.error || 'Failed to freeze profile. Please try again.',
-        [{ text: 'OK' }]
+        "Error",
+        result.error || "Failed to freeze profile. Please try again.",
+        [{ text: "OK" }],
       );
     }
   };
@@ -150,32 +155,32 @@ export default function SettingsScreen() {
     if (result.success) {
       setIsProfileActive(true);
       Alert.alert(
-        'Profile Unfrozen',
-        'Your profile is now active and visible to other users.',
-        [{ text: 'OK' }]
+        "Profile Unfrozen",
+        "Your profile is now active and visible to other users.",
+        [{ text: "OK" }],
       );
     } else {
       Alert.alert(
-        'Error',
-        result.error || 'Failed to unfreeze profile. Please try again.',
-        [{ text: 'OK' }]
+        "Error",
+        result.error || "Failed to unfreeze profile. Please try again.",
+        [{ text: "OK" }],
       );
     }
   };
 
   const handleInviteFriend = async () => {
     try {
-      const inviteLink = 'https://shiduchim.app/invite'; // TODO: Update with actual app link
+      const inviteLink = "https://shiduchim.app/invite"; // TODO: Update with actual app link
       const message = `Join Zivug Mishamayim App! A modern matchmaking platform to find your perfect match. Download here: ${inviteLink}`;
-      
+
       await Share.share({
         message: message,
-        title: 'Invite Friends to Zivug Mishamayim App',
+        title: "Invite Friends to Zivug Mishamayim App",
       });
     } catch (error: any) {
-      if (error.message !== 'User did not share') {
-        console.error('Error sharing invite:', error);
-        Alert.alert('Error', 'Unable to share invite link');
+      if (error.message !== "User did not share") {
+        console.error("Error sharing invite:", error);
+        Alert.alert("Error", "Unable to share invite link");
       }
     }
   };
@@ -191,210 +196,270 @@ export default function SettingsScreen() {
   const handleUndoEngagement = () => {
     if (!myEngagement) return;
 
-    const partnerName = myEngagement.user1_profile?.first_name || myEngagement.user2_profile?.first_name || 'your partner';
+    const partnerName =
+      myEngagement.user1_profile?.first_name ||
+      myEngagement.user2_profile?.first_name ||
+      "your partner";
 
     Alert.alert(
-      'Undo Engagement',
+      "Undo Engagement",
       `Are you sure you want to undo your engagement with ${partnerName}? This will remove your engagement from the public successful matches list.`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Undo Engagement',
-          style: 'destructive',
+          text: "Undo Engagement",
+          style: "destructive",
           onPress: async () => {
-            const result = await engagementService.undoEngagement(myEngagement.id);
+            const result = await engagementService.undoEngagement(
+              myEngagement.id,
+            );
             if (result.success) {
               setMyEngagement(null);
-              Alert.alert('Engagement Undone', 'Your engagement has been removed.');
+              Alert.alert(
+                "Engagement Undone",
+                "Your engagement has been removed.",
+              );
             } else {
-              Alert.alert('Error', result.error || 'Failed to undo engagement');
+              Alert.alert("Error", result.error || "Failed to undo engagement");
             }
           },
         },
-      ]
+      ],
     );
   };
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Delete Account',
-      'Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be permanently removed.',
+      "Delete Account",
+      "Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be permanently removed.",
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: () => {
             Alert.alert(
-              'Final Confirmation',
-              'This is your last chance. Are you absolutely sure you want to delete your account?',
+              "Final Confirmation",
+              "This is your last chance. Are you absolutely sure you want to delete your account?",
               [
-                { text: 'Cancel', style: 'cancel' },
+                { text: "Cancel", style: "cancel" },
                 {
-                  text: 'Delete Forever',
-                  style: 'destructive',
+                  text: "Delete Forever",
+                  style: "destructive",
                   onPress: async () => {
                     setDeletingAccount(true);
-                    
+
                     try {
                       const result = await profileService.deleteAccount();
-                      
+
                       if (result.success) {
                         Alert.alert(
-                          'Account Deleted',
-                          'Your account has been permanently deleted.',
+                          "Account Deleted",
+                          "Your account has been permanently deleted.",
                           [
                             {
-                              text: 'OK',
+                              text: "OK",
                               onPress: async () => {
                                 await signOut();
-                                router.replace('/auth/login');
-                              }
-                            }
-                          ]
+                                router.replace("/auth/login");
+                              },
+                            },
+                          ],
                         );
                       } else {
                         setDeletingAccount(false);
                         Alert.alert(
-                          'Error',
-                          result.error || 'Failed to delete account. Please try again or contact support.'
+                          "Error",
+                          result.error ||
+                            "Failed to delete account. Please try again or contact support.",
                         );
                       }
                     } catch (error) {
                       setDeletingAccount(false);
-                      console.error('Error deleting account:', error);
-                      Alert.alert('Error', 'An unexpected error occurred while deleting your account.');
+                      console.error("Error deleting account:", error);
+                      Alert.alert(
+                        "Error",
+                        "An unexpected error occurred while deleting your account.",
+                      );
                     }
-                  }
-                }
-              ]
+                  },
+                },
+              ],
             );
-          }
-        }
-      ]
+          },
+        },
+      ],
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.push('/(tabs)/profile')}
+          onPress={() => router.push("/(tabs)/profile")}
         >
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.title}>Settings</Text>
         <View style={styles.placeholder} />
       </View>
-      <ScrollView  showsVerticalScrollIndicator={false}>
-      <View style={styles.content}>
-        {/* General Section */}
-        <Text style={styles.sectionTitle}>General</Text>
-        
-        <TouchableOpacity style={styles.settingsItem} onPress={handleHowItWorks}>
-          <View style={styles.settingsItemLeft}>
-            <Ionicons name="information-circle" size={24} color="#4CAF50" />
-            <Text style={styles.settingsItemText}>How It Works</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
-        </TouchableOpacity>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          {/* General Section */}
+          <Text style={styles.sectionTitle}>General</Text>
 
-        <TouchableOpacity style={styles.settingsItem} onPress={handleInviteFriend}>
-          <View style={styles.settingsItemLeft}>
-            <Ionicons name="person-add" size={24} color="#1293DA" />
-            <Text style={styles.settingsItemText}>Invite a Friend</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.settingsItem}
+            onPress={handleHowItWorks}
+          >
+            <View style={styles.settingsItemLeft}>
+              <Ionicons name="information-circle" size={24} color="#4CAF50" />
+              <Text style={styles.settingsItemText}>How It Works</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.settingsItem} 
-          onPress={handleFreezeProfile}
-          disabled={loadingProfileStatus || processingFreeze}
-        >
-          <View style={styles.settingsItemLeft}>
-            {processingFreeze ? (
-              <ActivityIndicator size="small" color="#2196f3" />
-            ) : (
-              <Ionicons 
-                name={isProfileActive ? "snow" : "sunny"} 
-                size={24} 
-                color={isProfileActive ? "#2196f3" : "#4CAF50"} 
-              />
-            )}
-            <Text style={[styles.settingsItemText, (loadingProfileStatus || processingFreeze) && styles.disabledText]}>
-              {loadingProfileStatus ? 'Loading...' : isProfileActive ? 'Freeze Profile' : 'Unfreeze Profile'}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.settingsItem}
+            onPress={handleInviteFriend}
+          >
+            <View style={styles.settingsItemLeft}>
+              <Ionicons name="person-add" size={24} color="#1293DA" />
+              <Text style={styles.settingsItemText}>Invite a Friend</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
 
-        {/* Support Section */}
-        <Text style={styles.sectionTitle}>Support</Text>
+          <TouchableOpacity
+            style={styles.settingsItem}
+            onPress={handleFreezeProfile}
+            disabled={loadingProfileStatus || processingFreeze}
+          >
+            <View style={styles.settingsItemLeft}>
+              {processingFreeze ? (
+                <ActivityIndicator size="small" color="#2196f3" />
+              ) : (
+                <Ionicons
+                  name={isProfileActive ? "snow" : "sunny"}
+                  size={24}
+                  color={isProfileActive ? "#2196f3" : "#4CAF50"}
+                />
+              )}
+              <Text
+                style={[
+                  styles.settingsItemText,
+                  (loadingProfileStatus || processingFreeze) &&
+                    styles.disabledText,
+                ]}
+              >
+                {loadingProfileStatus
+                  ? "Loading..."
+                  : isProfileActive
+                    ? "Freeze Profile"
+                    : "Unfreeze Profile"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.settingsItem} onPress={handleReportProblem}>
-          <View style={styles.settingsItemLeft}>
-            <Ionicons name="flag" size={24} color="#ff6b35" />
-            <Text style={styles.settingsItemText}>Report a Problem</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
-        </TouchableOpacity>
+          {/* Support Section */}
+          <Text style={styles.sectionTitle}>Support</Text>
 
-        {/* Feedback Section */}
-        <Text style={styles.sectionTitle}>Feedback</Text>
+          <TouchableOpacity
+            style={styles.settingsItem}
+            onPress={handleReportProblem}
+          >
+            <View style={styles.settingsItemLeft}>
+              <Ionicons name="flag" size={24} color="#ff6b35" />
+              <Text style={styles.settingsItemText}>Report a Problem</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.settingsItem} onPress={() => setShowFeedbackModal(true)}>
-          <View style={styles.settingsItemLeft}>
-            <Ionicons name="chatbox-ellipses" size={24} color="#1293DA" />
-            <Text style={styles.settingsItemText}>Give Us Feedback</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
-        </TouchableOpacity>
+          {/* Feedback Section */}
+          <Text style={styles.sectionTitle}>Feedback</Text>
 
-        {/* Legal Section */}
-        <Text style={styles.sectionTitle}>Legal</Text>
+          <TouchableOpacity
+            style={styles.settingsItem}
+            onPress={() => setShowFeedbackModal(true)}
+          >
+            <View style={styles.settingsItemLeft}>
+              <Ionicons name="chatbox-ellipses" size={24} color="#1293DA" />
+              <Text style={styles.settingsItemText}>Give Us Feedback</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.settingsItem} onPress={handleTermsAndConditions}>
-          <View style={styles.settingsItemLeft}>
-            <Ionicons name="document-text" size={24} color="#3F51B5" />
-            <Text style={styles.settingsItemText}>Terms and Conditions</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
-        </TouchableOpacity>
+          {/* Legal Section */}
+          <Text style={styles.sectionTitle}>Legal</Text>
 
-        {/* Account Section */}
-        <Text style={styles.sectionTitle}>Account</Text>
+          <TouchableOpacity
+            style={styles.settingsItem}
+            onPress={handleTermsAndConditions}
+          >
+            <View style={styles.settingsItemLeft}>
+              <Ionicons name="document-text" size={24} color="#3F51B5" />
+              <Text style={styles.settingsItemText}>Terms and conditions</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
 
-        {/* Undo Engagement Option - only show if user is engaged */}
-        {!loadingEngagement && myEngagement && (
-          <>
-            <Text style={styles.sectionTitle}>Relationship Status</Text>
-            <TouchableOpacity style={styles.settingsItem} onPress={handleUndoEngagement}>
-              <View style={styles.settingsItemLeft}>
-                <Ionicons name="heart-dislike" size={24} color="#9b59b6" />
-                <Text style={styles.settingsItemText}>Undo Engagement</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#666" />
-            </TouchableOpacity>
-          </>
-        )}
+          <TouchableOpacity
+            style={styles.settingsItem}
+            onPress={() =>
+              Linking.openURL("https://zivugmishamayim.com/privacy")
+            }
+          >
+            <View style={styles.settingsItemLeft}>
+              <Ionicons name="shield-checkmark" size={24} color="#3F51B5" />
+              <Text style={styles.settingsItemText}>Privacy policy</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.settingsItem} onPress={handleDeleteAccount}>
-          <View style={styles.settingsItemLeft}>
-            <Ionicons name="trash" size={24} color="#F44336" />
-            <Text style={styles.settingsItemText}>Delete Account</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.settingsItem} onPress={handleLogout}>
-          <View style={styles.settingsItemLeft}>
-            <Ionicons name="log-out" size={24} color="#FF9800" />
-            <Text style={styles.settingsItemText}>Logout</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
-        </TouchableOpacity>
-      </View>
+          {/* Account Section */}
+          <Text style={styles.sectionTitle}>Account</Text>
+
+          {/* Undo Engagement Option - only show if user is engaged */}
+          {!loadingEngagement && myEngagement && (
+            <>
+              <Text style={styles.sectionTitle}>Relationship Status</Text>
+              <TouchableOpacity
+                style={styles.settingsItem}
+                onPress={handleUndoEngagement}
+              >
+                <View style={styles.settingsItemLeft}>
+                  <Ionicons name="heart-dislike" size={24} color="#9b59b6" />
+                  <Text style={styles.settingsItemText}>Undo Engagement</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+            </>
+          )}
+
+          <TouchableOpacity
+            style={styles.settingsItem}
+            onPress={handleDeleteAccount}
+          >
+            <View style={styles.settingsItemLeft}>
+              <Ionicons name="trash" size={24} color="#F44336" />
+              <Text style={styles.settingsItemText}>Delete Account</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.settingsItem} onPress={handleLogout}>
+            <View style={styles.settingsItemLeft}>
+              <Ionicons name="log-out" size={24} color="#FF9800" />
+              <Text style={styles.settingsItemText}>Logout</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+
+          <Text style={styles.versionText}>
+            Version {Constants.expoConfig?.version ?? "1.0.0"}
+          </Text>
+        </View>
       </ScrollView>
 
       {/* How It Works Modal */}
@@ -417,37 +482,46 @@ export default function SettingsScreen() {
       />
 
       {/* Freeze Profile Confirmation Modal */}
-      <Modal visible={showFreezeModal} transparent animationType="fade" statusBarTranslucent>
+      <Modal
+        visible={showFreezeModal}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+      >
         <View style={styles.freezeModalOverlay}>
           <View style={styles.freezeModal}>
             <View style={styles.freezeModalHeader}>
               <Ionicons name="snow" size={32} color="#2196f3" />
               <Text style={styles.freezeModalTitle}>Freeze Your Profile</Text>
             </View>
-            
+
             <View style={styles.freezeModalContent}>
               <Text style={styles.freezeModalDescription}>
-                Freezing your profile will make it invisible to other users. You can unfreeze it anytime from your settings.
+                Freezing your profile will make it invisible to other users. You
+                can unfreeze it anytime from your settings.
               </Text>
-              
+
               <Text style={styles.freezeModalWarning}>
-                ⚠️ This action will hide your profile from all potential matches until you unfreeze it.
+                ⚠️ This action will hide your profile from all potential matches
+                until you unfreeze it.
               </Text>
             </View>
-            
+
             <View style={styles.freezeModalActions}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.freezeModalCancel}
                 onPress={() => setShowFreezeModal(false)}
               >
                 <Text style={styles.freezeModalCancelText}>Cancel</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.freezeModalConfirm}
                 onPress={confirmFreezeProfile}
               >
-                <Text style={styles.freezeModalConfirmText}>Freeze Profile</Text>
+                <Text style={styles.freezeModalConfirmText}>
+                  Freeze Profile
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -461,7 +535,9 @@ export default function SettingsScreen() {
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#007AFF" />
               <Text style={styles.loadingText}>Deleting your account...</Text>
-              <Text style={styles.loadingSubtext}>Please wait, this may take a moment.</Text>
+              <Text style={styles.loadingSubtext}>
+                Please wait, this may take a moment.
+              </Text>
             </View>
           </View>
         </Modal>
@@ -473,24 +549,24 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   backButton: {
     padding: 8,
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   placeholder: {
     width: 40, // Same width as back button to center title
@@ -501,24 +577,24 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: "600",
+    color: "#666",
     marginTop: 20,
     marginBottom: 12,
     marginLeft: 4,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   settingsItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 12,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 8,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -528,13 +604,13 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   settingsItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   settingsItemText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     marginLeft: 12,
   },
   disabledText: {
@@ -543,26 +619,26 @@ const styles = StyleSheet.create({
   // Freeze Modal Styles
   freezeModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   freezeModal: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 24,
-    width: '100%',
+    width: "100%",
     maxWidth: 400,
   },
   freezeModalHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
   freezeModalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginTop: 12,
   },
   freezeModalContent: {
@@ -570,22 +646,22 @@ const styles = StyleSheet.create({
   },
   freezeModalDescription: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     lineHeight: 22,
     marginBottom: 16,
   },
   freezeModalWarning: {
     fontSize: 14,
-    color: '#ff6b35',
+    color: "#ff6b35",
     lineHeight: 20,
-    backgroundColor: '#fff3e0',
+    backgroundColor: "#fff3e0",
     padding: 12,
     borderRadius: 8,
   },
   freezeModalActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     gap: 12,
   },
   freezeModalCancel: {
@@ -594,57 +670,63 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    alignItems: 'center',
+    borderColor: "#e0e0e0",
+    alignItems: "center",
   },
   freezeModalCancelText: {
     fontSize: 16,
-    color: '#666',
-    fontWeight: '600',
-    textAlign: 'center',
+    color: "#666",
+    fontWeight: "600",
+    textAlign: "center",
   },
   freezeModalConfirm: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
-    backgroundColor: '#2196f3',
-    alignItems: 'center',
-    textAlign: 'center',
-    
+    backgroundColor: "#2196f3",
+    alignItems: "center",
+    textAlign: "center",
   },
   freezeModalConfirmText: {
     fontSize: 16,
-    color: '#fff',
-    fontWeight: '600',
-    alignItems: 'center',
-    textAlign: 'center',
+    color: "#fff",
+    fontWeight: "600",
+    alignItems: "center",
+    textAlign: "center",
+  },
+  versionText: {
+    textAlign: "center",
+    fontSize: 13,
+    color: "#aaa",
+    marginTop: 24,
+    marginBottom: 8,
   },
   // Loading Overlay Styles
   loadingOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 32,
-    alignItems: 'center',
+    alignItems: "center",
     minWidth: 250,
   },
   loadingText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginTop: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   loadingSubtext: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginTop: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

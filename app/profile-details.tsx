@@ -17,7 +17,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AskForInfoModal from "../components/AskForInfoModal";
-import EngagementButton from "../components/EngagementButton";
 import PictureViewerModal from "../components/home/PictureViewerModal";
 import ReportProfileModal from "../components/home/ReportProfileModal";
 import ContinuationChoiceModal from "../components/intro/ContinuationChoiceModal";
@@ -1189,7 +1188,7 @@ export default function ProfileDetailsScreen() {
         <View style={{ height: hideActions ? 20 : 100 }} />
       </ScrollView>
 
-      {/* Action Buttons */}
+      {/* Action Buttons (hidden when navigating from suggestion/intro cards) */}
       {!hideActions && profile && currentUserProfile && (
         <View style={styles.actionsContainer}>
           {/* Setup button - for both singles and matchmakers */}
@@ -1250,18 +1249,9 @@ export default function ProfileDetailsScreen() {
               )}
             </TouchableOpacity>
           )}
-
-          {/* Engagement button - for singles with accepted intros */}
-          {currentUserProfile.role === "single" &&
-            existingIntroRequest?.status === "accepted" && (
-              <EngagementButton
-                otherUserId={profile.id}
-                otherUserName={profile.name}
-                currentUserName={currentUserProfile.first_name}
-              />
-            )}
         </View>
       )}
+
 
       {/* Picture Viewer Modal */}
       {showPictureViewer && (
