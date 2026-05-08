@@ -7,6 +7,7 @@ import {
   Alert,
   Linking,
   Modal,
+  Platform,
   ScrollView,
   Share,
   StyleSheet,
@@ -169,14 +170,17 @@ export default function SettingsScreen() {
   };
 
   const handleInviteFriend = async () => {
-    try {
-      const inviteLink = "https://shiduchim.app/invite"; // TODO: Update with actual app link
-      const message = `Join Zivug Mishamayim App! A modern matchmaking platform to find your perfect match. Download here: ${inviteLink}`;
+    const inviteLink = "https://www.zivugmishamayim.com/invite";
+    const message =
+      "Join me on Zivug Mishamayim — a Jewish matchmaking app to find your perfect match. Download it here:";
 
-      await Share.share({
-        message: message,
-        title: "Invite Friends to Zivug Mishamayim App",
-      });
+    try {
+      await Share.share(
+        Platform.OS === "ios"
+          ? { message, url: inviteLink }
+          : { message: `${message}\n${inviteLink}` },
+        { dialogTitle: "Invite a friend" },
+      );
     } catch (error: any) {
       if (error.message !== "User did not share") {
         console.error("Error sharing invite:", error);
