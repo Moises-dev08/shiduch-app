@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import EngagementCelebration from './EngagementCelebration';
 import { Engagement, engagementService } from '../lib/engagementService';
@@ -27,6 +27,8 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
   const [showCelebration, setShowCelebration] = useState(false);
   const [otherUserAuthId, setOtherUserAuthId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // Prevents double-tap from firing proposeEngagement twice before React re-renders
+  const isSubmitting = useRef(false);
 
   // Load current user ID on mount
   useEffect(() => {
@@ -147,7 +149,12 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
   };
 
   const handleConfirmEngagement = async () => {
+    // Block double-tap: useRef is synchronous unlike useState
+    if (isSubmitting.current) return;
+    isSubmitting.current = true;
+
     if (!otherUserAuthId) {
+      isSubmitting.current = false;
       setSuccessMessage({
         title: 'Error',
         message: 'Unable to find user information'
@@ -170,14 +177,16 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
         // Remove the Action Needed card immediately
         queryClient.invalidateQueries({ queryKey: ['pending_engagement'] });
 
-        // Both confirmed — notify both partners and all admins
+        // Notify each partner personally — the community broadcast ("Mazal Tov!")
+        // is already sent by engagementService.notifyAllUsersExcept, which includes
+        // admins, so we do NOT call notifyAdmins here to avoid duplicate notifications.
+        const { data: { user } } = await supabase.auth.getUser();
         await notificationService.sendNotification(
           otherUserAuthId,
           'Mazel Tov! 💍',
           `You and ${currentUserName} are officially engaged! Wishing you both much happiness!`,
           { type: 'engagement_confirmed' }
         );
-        const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           await notificationService.sendNotification(
             user.id,
@@ -186,16 +195,6 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
             { type: 'engagement_confirmed' }
           );
         }
-        await notificationService.notifyAdmins(
-          '💍 New Engagement Confirmed!',
-          `${currentUserName} and ${otherUserName} have confirmed their engagement.`,
-          { type: 'engagement_confirmed_admin' },
-          {
-            excludeUserIds: [user?.id, otherUserAuthId].filter(
-              (id): id is string => typeof id === 'string' && id.length > 0
-            ),
-          }
-        );
         setShowCelebration(true);
       } else {
         // One side proposed — notify the other person
@@ -220,6 +219,7 @@ export default function EngagementButton({ otherUserId, otherUserName, currentUs
     }
     
     setProposing(false);
+    isSubmitting.current = false;
   };
 
   if (loading) {

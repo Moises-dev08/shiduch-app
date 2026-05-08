@@ -92,7 +92,9 @@ export default function SuggestionCard({
     setShowContinuationModal(false);
     setIsResponding(true);
 
-    const statusKey = isProfileOne ? "profile_one_status" : "profile_two_status";
+    const statusKey = isProfileOne
+      ? "profile_one_status"
+      : "profile_two_status";
     const choiceKey = isProfileOne
       ? "profile_one_continuation_choice"
       : "profile_two_continuation_choice";
@@ -289,17 +291,19 @@ export default function SuggestionCard({
       )}
 
       {/* You Liked banner — shown when current user said yes but other hasn't responded */}
-      {myStatus === "accepted" && otherStatus !== "accepted" && otherProfile && (
-        <View style={styles.youLikedBanner}>
-          <Ionicons name="heart" size={15} color="#e91e63" />
-          <Text style={styles.youLikedText}>
-            You liked{" "}
-            <Text style={styles.youLikedName}>
-              {otherProfile.first_name} {otherProfile.last_name}
+      {myStatus === "accepted" &&
+        otherStatus !== "accepted" &&
+        otherProfile && (
+          <View style={styles.youLikedBanner}>
+            <Ionicons name="heart" size={15} color="#e91e63" />
+            <Text style={styles.youLikedText}>
+              You liked{" "}
+              <Text style={styles.youLikedName}>
+                {otherProfile.first_name} {otherProfile.last_name}
+              </Text>
             </Text>
-          </Text>
-        </View>
-      )}
+          </View>
+        )}
 
       {/* Header */}
       <View style={styles.header}>
@@ -550,17 +554,19 @@ export default function SuggestionCard({
         )}
 
       {/* Engagement button — shown when both sides have accepted the suggestion */}
-      {myStatus === "accepted" && otherStatus === "accepted" && otherProfile && (
-        <EngagementButton
-          otherUserId={otherProfile.id}
-          otherUserName={`${otherProfile.first_name ?? ""} ${otherProfile.last_name ?? ""}`}
-          currentUserName={
-            isProfileOne
-              ? `${suggestion.profile_one?.first_name ?? ""} ${suggestion.profile_one?.last_name ?? ""}`
-              : `${suggestion.profile_two?.first_name ?? ""} ${suggestion.profile_two?.last_name ?? ""}`
-          }
-        />
-      )}
+      {myStatus === "accepted" &&
+        otherStatus === "accepted" &&
+        otherProfile && (
+          <EngagementButton
+            otherUserId={otherProfile.id}
+            otherUserName={`${otherProfile.first_name ?? ""} ${otherProfile.last_name ?? ""}`}
+            currentUserName={
+              isProfileOne
+                ? `${suggestion.profile_one?.first_name ?? ""} ${suggestion.profile_one?.last_name ?? ""}`
+                : `${suggestion.profile_two?.first_name ?? ""} ${suggestion.profile_two?.last_name ?? ""}`
+            }
+          />
+        )}
 
       {/* Learn More Modal */}
       <Modal

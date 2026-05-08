@@ -618,7 +618,6 @@ export default function IntroRequestCardNew({
                     </TouchableOpacity>
                   )}
                 </View>
-
               </>
             )}
           </View>

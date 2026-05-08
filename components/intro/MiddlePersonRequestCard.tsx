@@ -115,7 +115,10 @@ export default function MiddlePersonRequestCard({
     }
 
     // Awaiting response - Pending means waiting for requested person's initial response
-    if (request.status === "pending_matchmaker" || request.status === "pending_requested") {
+    if (
+      request.status === "pending_matchmaker" ||
+      request.status === "pending_requested"
+    ) {
       return {
         category: "Awaiting response",
         icon: "time" as const,
@@ -263,7 +266,8 @@ export default function MiddlePersonRequestCard({
             )}
           </View>
           {renderResponseStatus(
-            request.status !== "pending_matchmaker" && request.status !== "pending_requested",
+            request.status !== "pending_matchmaker" &&
+              request.status !== "pending_requested",
             request.status === "rejected" ? "rejected" : "accepted",
           )}
         </TouchableOpacity>

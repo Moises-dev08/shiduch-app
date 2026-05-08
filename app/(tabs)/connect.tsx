@@ -27,8 +27,8 @@ import { infoRequestService } from "../../lib/infoRequestService";
 import { introService } from "../../lib/introService";
 import { notificationService } from "../../lib/notificationService";
 import { Profile, profileService } from "../../lib/profileService";
-import { supabase } from "../../lib/supabase";
 import { suggestionService } from "../../lib/suggestionService";
+import { supabase } from "../../lib/supabase";
 import { viewedNotificationService } from "../../lib/viewedNotificationService";
 
 // ── Standalone query functions (stable, no re-creation on render) ──────────
@@ -63,7 +63,9 @@ async function fetchPendingEngagementData() {
     return { pendingEngagement: null, otherProfile: null };
   }
   const engagement = result.engagement;
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { pendingEngagement: null, otherProfile: null };
 
   const otherAuthId =
@@ -1032,22 +1034,25 @@ export default function ConnectScreen() {
         {activeCategory === "for_you" && activeSection === "action_needed" && (
           <>
             {/* Pending Engagement Confirmation */}
-            {pendingEngagement && pendingEngagementOtherProfile && currentUserProfile && (
-              <View style={styles.engagementActionCard}>
-                <View style={styles.engagementActionHeader}>
-                  <Ionicons name="heart-circle" size={24} color="#DAA520" />
-                  <Text style={styles.engagementActionTitle}>
-                    {pendingEngagementOtherProfile.first_name} wants to confirm your engagement!
-                  </Text>
+            {pendingEngagement &&
+              pendingEngagementOtherProfile &&
+              currentUserProfile && (
+                <View style={styles.engagementActionCard}>
+                  <View style={styles.engagementActionHeader}>
+                    <Ionicons name="heart-circle" size={24} color="#DAA520" />
+                    <Text style={styles.engagementActionTitle}>
+                      {pendingEngagementOtherProfile.first_name} wants to
+                      confirm your engagement!
+                    </Text>
+                  </View>
+                  <EngagementButton
+                    otherUserId={pendingEngagementOtherProfile.id}
+                    otherUserName={`${pendingEngagementOtherProfile.first_name} ${pendingEngagementOtherProfile.last_name}`}
+                    currentUserName={`${currentUserProfile.first_name} ${currentUserProfile.last_name}`}
+                    containerStyle={styles.engagementActionButtonContainer}
+                  />
                 </View>
-                <EngagementButton
-                  otherUserId={pendingEngagementOtherProfile.id}
-                  otherUserName={`${pendingEngagementOtherProfile.first_name} ${pendingEngagementOtherProfile.last_name}`}
-                  currentUserName={`${currentUserProfile.first_name} ${currentUserProfile.last_name}`}
-                  containerStyle={styles.engagementActionButtonContainer}
-                />
-              </View>
-            )}
+              )}
 
             {/* Received Info Requests (need response) */}
             {receivedInfoRequests

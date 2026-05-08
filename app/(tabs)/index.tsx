@@ -92,11 +92,11 @@ export default function HomeScreen() {
     if (isNearBottom && hasMore) {
       loadMore();
     }
-  };[]
+  };
 
   // Get active filters for display
   const getActiveFilters = () => {
-    const activeFilters: Array<{ label: string; removeKey: string }> = [];
+    const activeFilters: { label: string; removeKey: string }[] = [];
 
     if (filterState.genderFilter !== "all") {
       const label =

@@ -47,8 +47,7 @@ export default function MadeSuggestionCard({
   const handleSendSMS = (phone: string) => Linking.openURL(`sms:${phone}`);
   const handleSendWhatsApp = (phone: string) =>
     Linking.openURL(`https://wa.me/${phone.replace(/\D/g, "")}`);
-  const handleSendEmail = (email: string) =>
-    Linking.openURL(`mailto:${email}`);
+  const handleSendEmail = (email: string) => Linking.openURL(`mailto:${email}`);
   const handleCopyPhone = async (phone: string) => {
     await Clipboard.setStringAsync(phone);
     Alert.alert("Copied!", "Phone number copied to clipboard");

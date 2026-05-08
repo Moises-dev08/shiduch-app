@@ -1252,7 +1252,6 @@ export default function ProfileDetailsScreen() {
         </View>
       )}
 
-
       {/* Picture Viewer Modal */}
       {showPictureViewer && (
         <PictureViewerModal
