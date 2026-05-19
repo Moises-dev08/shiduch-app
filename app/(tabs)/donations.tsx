@@ -1,4 +1,8 @@
-import { FontAwesome5, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import {
+  FontAwesome5,
+  Ionicons,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import React from "react";
 import {
@@ -12,7 +16,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const PAYPAL_LINK = "https://www.paypal.com/ncp/payment/YF8LQFHC7JAVC";
+const PAYPAL_LINK =
+  "https://www.paypal.com/donate/?hosted_button_id=B5N55UVTNUZT2";
 const ZELLE_EMAIL = "donations@zivugmishamayim.com";
 
 type PaymentMethod = {
@@ -53,15 +58,15 @@ export default function DonationsScreen() {
       action: openPayPal,
       icon: <FontAwesome5 name="paypal" size={26} color="#003087" />,
     },
-    {
-      id: "apple-pay",
-      label: "Apple Pay",
-      sublabel: "One-tap payment via Safari",
-      color: "#1a1a1a",
-      bgColor: "#F2F2F2",
-      action: openPayPal,
-      icon: <FontAwesome5 name="apple-pay" size={28} color="#1a1a1a" />,
-    },
+    // {
+    //   id: "apple-pay",
+    //   label: "Apple Pay",
+    //   sublabel: "One-tap payment via Safari",
+    //   color: "#1a1a1a",
+    //   bgColor: "#F2F2F2",
+    //   action: openPayPal,
+    //   icon: <FontAwesome5 name="apple-pay" size={28} color="#1a1a1a" />,
+    // },
     {
       id: "card",
       label: "Credit / Debit Card",
@@ -78,14 +83,19 @@ export default function DonationsScreen() {
       color: "#6C2FF2",
       bgColor: "#F5F0FF",
       action: handleZelle,
-      icon: <MaterialCommunityIcons name="bank-transfer" size={28} color="#6C2FF2" />,
+      icon: (
+        <MaterialCommunityIcons
+          name="bank-transfer"
+          size={28}
+          color="#6C2FF2"
+        />
+      ),
     },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerIcon}>
@@ -93,8 +103,8 @@ export default function DonationsScreen() {
           </View>
           <Text style={styles.title}>Support Our Community</Text>
           <Text style={styles.subtitle}>
-            Your generosity keeps the app running and helps us create
-            meaningful connections across the community.
+            Your generosity keeps the app running and helps us create meaningful
+            connections across the community.
           </Text>
         </View>
 
@@ -124,7 +134,12 @@ export default function DonationsScreen() {
               onPress={method.action}
               activeOpacity={0.75}
             >
-              <View style={[styles.methodIconBox, { backgroundColor: method.bgColor }]}>
+              <View
+                style={[
+                  styles.methodIconBox,
+                  { backgroundColor: method.bgColor },
+                ]}
+              >
                 {method.icon}
               </View>
 
@@ -141,9 +156,13 @@ export default function DonationsScreen() {
                 </Text>
               </View>
 
-              <View style={[styles.arrowBox, { backgroundColor: method.bgColor }]}>
+              <View
+                style={[styles.arrowBox, { backgroundColor: method.bgColor }]}
+              >
                 <Ionicons
-                  name={method.id === "zelle" ? "copy-outline" : "arrow-forward"}
+                  name={
+                    method.id === "zelle" ? "copy-outline" : "arrow-forward"
+                  }
                   size={16}
                   color={method.color}
                 />
@@ -156,10 +175,10 @@ export default function DonationsScreen() {
         <View style={styles.footer}>
           <Ionicons name="lock-closed-outline" size={14} color="#999" />
           <Text style={styles.footerText}>
-            All payments are processed securely. Thank you for your generosity! 🙏
+            All payments are processed securely. Thank you for your generosity!
+            🙏
           </Text>
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
