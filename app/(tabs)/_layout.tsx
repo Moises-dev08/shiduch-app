@@ -1,4 +1,4 @@
-import { FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { Tabs, usePathname } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
@@ -233,27 +233,6 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
-        name="donations"
-        options={{
-          title: "Donations",
-          tabBarIcon: ({ color, size }) => (
-            <FontAwesome5
-              name="donate"
-              size={size}
-              color={isTabDisabled ? "#ccc" : color}
-            />
-          ),
-          tabBarLabelStyle: isTabDisabled ? { color: "#ccc" } : {},
-        }}
-        listeners={{
-          tabPress: (e) => {
-            if (!handleTabPress("donations")) {
-              e.preventDefault();
-            }
-          },
-        }}
-      />
       <Tabs.Screen
         name="notifications"
         options={{

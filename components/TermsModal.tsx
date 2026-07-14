@@ -66,11 +66,6 @@ export default function TermsModal({ visible, onAccept, onDecline, viewOnly = fa
             <Text style={styles.text}>
               This rule applies to all communication or assistance initiated through information obtained on the platform.
             </Text>
-            
-            <Text style={styles.subsectionTitle}>Support for the App</Text>
-            <Text style={styles.text}>
-              If I receive any voluntary appreciation payment from someone I assisted, I agree to contribute 30% of that amount to support and maintain the app.
-            </Text>
           </View>
 
           <View style={styles.divider} />

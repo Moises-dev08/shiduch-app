@@ -11,7 +11,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.zivugmishamayim",
-      "associatedDomains": ["applinks:www.zivugmishamayim.com"],
+      "associatedDomains": [
+        "applinks:www.zivugmishamayim.com"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "Allow Zivug Mishamayim to access your photo library to upload a profile picture.",
@@ -43,7 +45,10 @@
               "pathPrefix": "/profile"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -80,7 +85,9 @@
           "sounds": [],
           "iosDisplayInForeground": true
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
