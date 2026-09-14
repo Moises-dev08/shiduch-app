@@ -9,10 +9,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppTextInput } from '../../components/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { adminService } from '../../lib/adminService';
 import { supabase } from '../../lib/supabase';
@@ -164,6 +164,7 @@ export default function ManageAdminsScreen() {
         </View>
       ) : (
         <ScrollView
+          keyboardShouldPersistTaps="handled"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1293DA']} />}
           contentContainerStyle={styles.list}
         >
@@ -234,7 +235,7 @@ export default function ManageAdminsScreen() {
             <Text style={styles.modalSubtitle}>
               Enter the email of the user to promote to admin.
             </Text>
-            <TextInput
+            <AppTextInput
               style={styles.input}
               placeholder="user@example.com"
               placeholderTextColor="#999"

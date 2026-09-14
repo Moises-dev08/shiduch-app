@@ -10,6 +10,8 @@ interface ProfileCardProps {
   renderAction?: ReactNode;
   /** Small floating element rendered over the photo area (e.g. a "View" pill). */
   renderOverlay?: ReactNode;
+  /** Override default card width (used for responsive web grids). */
+  cardWidthPercent?: number;
 }
 
 export default function ProfileCard({
@@ -17,6 +19,7 @@ export default function ProfileCard({
   onPress,
   renderAction,
   renderOverlay,
+  cardWidthPercent,
 }: ProfileCardProps) {
   const [imageError, setImageError] = useState(false);
   const showImage =
@@ -31,7 +34,10 @@ export default function ProfileCard({
 
   return (
     <TouchableOpacity
-      style={styles.profileCard}
+      style={[
+        styles.profileCard,
+        cardWidthPercent != null && { width: `${cardWidthPercent}%` },
+      ]}
       onPress={() => onPress(profile)}
       activeOpacity={0.7}
     >

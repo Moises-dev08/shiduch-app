@@ -11,15 +11,23 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { AppTextInput } from "../../components/AppTextInput";
+import { AuthFormShell } from "../../components/auth/AuthFormShell";
 import TermsModal from "../../components/TermsModal";
 import { supabase } from "../../lib/supabase";
+import { authBrandLayout } from "../../styles/authScreens";
 
-export default function SignupScreen() {
-  const [formData, setFormData] = useState({
+interface SignupFormData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export default function SignupScreen(): React.JSX.Element {
+  const [formData, setFormData] = useState<SignupFormData>({
     email: "",
     password: "",
     confirmPassword: "",
@@ -29,20 +37,23 @@ export default function SignupScreen() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (
+    field: keyof SignupFormData,
+    value: string,
+  ): void => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const togglePasswordVisibility = () => setShowPassword((prev) => !prev);
-  const toggleConfirmPasswordVisibility = () =>
+  const togglePasswordVisibility = (): void => setShowPassword((prev) => !prev);
+  const toggleConfirmPasswordVisibility = (): void =>
     setShowConfirmPassword((prev) => !prev);
 
-  const validateEmail = (email: string) => {
+  const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
-  const handleSignup = () => {
+  const handleSignup = (): void => {
     const { email, password, confirmPassword } = formData;
 
     if (!email || !password || !confirmPassword) {
@@ -50,7 +61,7 @@ export default function SignupScreen() {
       return;
     }
     if (!validateEmail(email.trim())) {
-      Alert.alert("Invalid Email", "Please enter a valid email address");
+      Alert.alert("Invalid email", "Please enter a valid email address");
       return;
     }
     if (password !== confirmPassword) {
@@ -65,7 +76,7 @@ export default function SignupScreen() {
     setShowTermsModal(true);
   };
 
-  const handleAcceptTerms = async () => {
+  const handleAcceptTerms = async (): Promise<void> => {
     setShowTermsModal(false);
     setLoading(true);
 
@@ -76,11 +87,10 @@ export default function SignupScreen() {
       });
 
       if (error) {
-        Alert.alert("Signup Failed", error.message);
+        Alert.alert("Signup failed", error.message);
         return;
       }
 
-      // Prefer returned session; re-read in case the client persisted it asynchronously.
       let session = data.session;
       if (!session) {
         const { data: refreshed } = await supabase.auth.getSession();
@@ -91,7 +101,7 @@ export default function SignupScreen() {
         router.replace("/(tabs)/profile");
       } else if (data.user) {
         Alert.alert(
-          "Verify Your Email",
+          "Verify your email",
           "Please check your email to verify your account before logging in.",
           [{ text: "OK", onPress: () => router.replace("/auth/login") }],
         );
@@ -115,15 +125,15 @@ export default function SignupScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={authBrandLayout.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.content}>
+          <AuthFormShell style={authBrandLayout.scrollInner}>
             <View style={styles.header}>
               <Image
                 source={require("../../logo-original.png")}
-                style={styles.logo}
+                style={authBrandLayout.logo}
                 contentFit="contain"
               />
               <Text style={styles.title}>Create your account</Text>
@@ -138,7 +148,7 @@ export default function SignupScreen() {
                   color="#1293DA"
                   style={styles.inputIcon}
                 />
-                <TextInput
+                <AppTextInput
                   style={styles.input}
                   placeholder="Email"
                   placeholderTextColor="#aaa"
@@ -156,7 +166,7 @@ export default function SignupScreen() {
                   color="#1293DA"
                   style={styles.inputIcon}
                 />
-                <TextInput
+                <AppTextInput
                   style={styles.input}
                   placeholder="Password"
                   placeholderTextColor="#aaa"
@@ -187,9 +197,9 @@ export default function SignupScreen() {
                   color="#1293DA"
                   style={styles.inputIcon}
                 />
-                <TextInput
+                <AppTextInput
                   style={styles.input}
-                  placeholder="Confirm Password"
+                  placeholder="Confirm password"
                   placeholderTextColor="#aaa"
                   value={formData.confirmPassword}
                   onChangeText={(value) =>
@@ -221,7 +231,7 @@ export default function SignupScreen() {
                 {loading ? (
                   <ActivityIndicator color="#282828" />
                 ) : (
-                  <Text style={styles.signupButtonText}>Create Account</Text>
+                  <Text style={styles.signupButtonText}>Create account</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -229,10 +239,10 @@ export default function SignupScreen() {
             <View style={styles.footer}>
               <Text style={styles.footerText}>Already have an account? </Text>
               <TouchableOpacity onPress={() => router.push("/auth/login")}>
-                <Text style={styles.loginLink}>Login Here</Text>
+                <Text style={styles.loginLink}>Login here</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </AuthFormShell>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -252,22 +262,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-  },
-  content: {
-    paddingHorizontal: 28,
-    paddingVertical: 40,
-  },
   header: {
     alignItems: "center",
     marginBottom: 32,
-  },
-  logo: {
-    width: 400,
-    height: 360,
-    marginBottom: -16,
   },
   title: {
     fontSize: 28,

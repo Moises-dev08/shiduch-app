@@ -9,16 +9,22 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+import { useWebTabVisible } from '../../hooks/useWebTabVisible';
+import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ProfileStatusModal from '../../components/ProfileStatusModal';
 import SuccessModal from '../../components/SuccessModal';
+import { WebShareModal } from '../../components/WebShareModal';
 import MatchmakerProfileForm from '../../components/profile/MatchmakerProfileForm';
 import SinglesProfileForm from '../../components/profile/SinglesProfileForm';
+import { ProfilePageShell } from '../../components/profile/ProfilePageShell';
 import { useProfileShare } from '../../hooks/useProfileShare';
 import { FieldPrivacy, Profile, ProfileData, profileService } from '../../lib/profileService';
 export default function ProfileScreen() {
+  const isTabVisible = useWebTabVisible();
+  const { isDesktop } = useResponsiveLayout();
   const queryClient = useQueryClient();
   // Incrementing this key forces the form to remount with fresh initialData,
   // discarding any unsaved changes when the user returns to this tab.
@@ -62,7 +68,14 @@ export default function ProfileScreen() {
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
   const [showStatusModal, setShowStatusModal] = useState(false);
   
-  const { isSharing, shareProfile } = useProfileShare();
+  const {
+    isSharing,
+    shareProfile,
+    showWebShareModal,
+    webShareUrl,
+    closeWebShareModal,
+    copyWebShareUrl,
+  } = useProfileShare();
 
   // Sync query result to local UI state
   useEffect(() => {
@@ -334,95 +347,117 @@ export default function ProfileScreen() {
     }
   };
 
+  if (!isTabVisible) {
+    return null;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerText}>
-            <Text style={styles.title}>Profile Setup</Text>
-            <Text style={styles.subtitle}>
-              {selectedRole === 'single' ? 'Tell us about yourself' : 'Matchmaker profile'}
-            </Text>
+      <ProfilePageShell
+        profileStatus={profileStatus}
+        rejectionReason={rejectionReason}
+        onShare={shareProfile}
+        isSharing={isSharing}
+        showStatusBanner={hasSubmitted}
+      >
+        {/* Header */}
+        <View style={isDesktop ? styles.desktopHeader : styles.header}>
+          <View style={styles.headerContent}>
+            <View style={styles.headerText}>
+              <Text style={isDesktop ? styles.desktopTitle : styles.title}>
+                {isDesktop ? 'My Profile' : 'Profile Setup'}
+              </Text>
+              <Text style={isDesktop ? styles.desktopSubtitle : styles.subtitle}>
+                {isDesktop
+                  ? existingProfile?.status === 'approved'
+                    ? 'Your profile is live and visible to the community'
+                    : existingProfile?.status === 'pending'
+                    ? 'Your profile is under review by our team'
+                    : 'Complete your profile to start connecting'
+                  : selectedRole === 'single'
+                    ? 'Tell us about yourself'
+                    : 'Matchmaker profile'}
+              </Text>
+            </View>
+            <View style={styles.headerButtons}>
+              {selectedRole && selectedGender && !hasSubmitted && (
+                <TouchableOpacity
+                  style={styles.changeButton}
+                  onPress={handleChangeRoleGender}
+                >
+                  <Ionicons name="swap-horizontal" size={20} color="#1293DA" />
+                  <Text style={styles.changeButtonText}>Change</Text>
+                </TouchableOpacity>
+              )}
+              {!isDesktop && existingProfile && profileStatus === 'approved' && (
+                <TouchableOpacity
+                  style={[styles.shareButton, isSharing && styles.shareButtonDisabled]}
+                  onPress={handleShareProfile}
+                  disabled={isSharing}
+                >
+                  {isSharing ? (
+                    <ActivityIndicator size="small" color="#007AFF" />
+                  ) : (
+                    <Ionicons name="share-social" size={24} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={styles.settingsButton}
+                onPress={() => router.push('/(tabs)/settings')}
+              >
+                <Ionicons name="settings" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.headerButtons}>
-            {selectedRole && selectedGender && !hasSubmitted && (
-              <TouchableOpacity
-                style={styles.changeButton}
-                onPress={handleChangeRoleGender}
-              >
-                <Ionicons name="swap-horizontal" size={20} color="#1293DA" />
-                <Text style={styles.changeButtonText}>Change</Text>
-              </TouchableOpacity>
-            )}
-            {existingProfile && profileStatus === 'approved' && (
-              <TouchableOpacity
-                style={[styles.shareButton, isSharing && styles.shareButtonDisabled]}
-                onPress={handleShareProfile}
-                disabled={isSharing}
-              >
-                {isSharing ? (
-                  <ActivityIndicator size="small" color="#007AFF" />
-                ) : (
-                  <Ionicons name="share-social" size={24} color="#007AFF" />
-                )}
-              </TouchableOpacity>
-            )}
+          {hasSubmitted && (
             <TouchableOpacity
-              style={styles.settingsButton}
-              onPress={() => router.push('/(tabs)/settings')}
+              style={[styles.switchRoleButton, isSwitchingRole && styles.changeButtonDisabled]}
+              onPress={handleSwitchRole}
+              disabled={isSwitchingRole}
             >
-              <Ionicons name="settings" size={24} color="#666" />
+              {isSwitchingRole ? (
+                <ActivityIndicator size="small" color="#1293DA" />
+              ) : (
+                <>
+                  <Ionicons name="swap-horizontal" size={18} color="#1293DA" />
+                  <Text style={styles.switchRoleButtonText}>
+                    {selectedRole === 'single' ? 'Switch to Matchmaker' : 'Switch to Single'}
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
-          </View>
+          )}
         </View>
-        {hasSubmitted && (
-          <TouchableOpacity
-            style={[styles.switchRoleButton, isSwitchingRole && styles.changeButtonDisabled]}
-            onPress={handleSwitchRole}
-            disabled={isSwitchingRole}
-          >
-            {isSwitchingRole ? (
-              <ActivityIndicator size="small" color="#1293DA" />
-            ) : (
-              <>
-                <Ionicons name="swap-horizontal" size={18} color="#1293DA" />
-                <Text style={styles.switchRoleButtonText}>
-                  {selectedRole === 'single' ? 'Switch to Matchmaker' : 'Switch to Single'}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
 
-      {/* Loading State or Form Content */}
-      {initialLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1293DA" />
-          <Text style={styles.loadingText}>Loading profile...</Text>
-        </View>
-      ) : selectedRole && selectedGender ? (
-        selectedRole === 'single' ? (
-          <SinglesProfileForm
-            key={formKey}
-            initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
-            onSubmit={handleFormSubmit}
-            gender={selectedGender}
-            loading={loading}
-            roleSwitched={roleSwitched}
-          />
-        ) : (
-          <MatchmakerProfileForm
-            key={formKey}
-            initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
-            onSubmit={handleFormSubmit}
-            gender={selectedGender}
-            loading={loading}
-            roleSwitched={roleSwitched}
-          />
-        )
-      ) : null}
+        {/* Loading State or Form Content */}
+        {initialLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#1293DA" />
+            <Text style={styles.loadingText}>Loading profile...</Text>
+          </View>
+        ) : selectedRole && selectedGender ? (
+          selectedRole === 'single' ? (
+            <SinglesProfileForm
+              key={formKey}
+              initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
+              onSubmit={handleFormSubmit}
+              gender={selectedGender}
+              loading={loading}
+              roleSwitched={roleSwitched}
+            />
+          ) : (
+            <MatchmakerProfileForm
+              key={formKey}
+              initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
+              onSubmit={handleFormSubmit}
+              gender={selectedGender}
+              loading={loading}
+              roleSwitched={roleSwitched}
+            />
+          )
+        ) : null}
+      </ProfilePageShell>
 
       {/* Setup Modal (Role & Gender Selection) */}
       <Modal
@@ -538,6 +573,14 @@ export default function ProfileScreen() {
         buttonText="Continue"
       />
 
+      {/* Web Share Modal (Web only) */}
+      <WebShareModal
+        visible={showWebShareModal}
+        url={webShareUrl}
+        onClose={closeWebShareModal}
+        onCopy={copyWebShareUrl}
+      />
+
       {/* Profile Status Modal */}
       <ProfileStatusModal
         visible={showStatusModal}
@@ -576,6 +619,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+  },
+  desktopHeader: {
+    padding: 24,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  desktopTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 6,
+  },
+  desktopSubtitle: {
+    fontSize: 15,
+    color: '#666',
   },
   headerContent: {
     flexDirection: 'row',

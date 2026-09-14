@@ -584,7 +584,7 @@ export default function SuggestionCard({
             <View style={{ width: 28 }} />
           </View>
 
-          <ScrollView style={styles.modalContent}>
+          <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
             {/* Suggester Profile */}
             <View style={styles.profileSection}>
               <Text style={styles.sectionTitle}>Suggested by</Text>

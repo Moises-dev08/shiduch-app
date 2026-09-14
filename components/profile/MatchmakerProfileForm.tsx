@@ -623,7 +623,11 @@ export default function MatchmakerProfileForm({
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
       {roleSwitched && (
         <View style={styles.roleSwitchBanner}>
           <Ionicons name="information-circle" size={20} color="#1293DA" />
@@ -1093,7 +1097,7 @@ export default function MatchmakerProfileForm({
               <Text style={styles.doneText}>Done</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView style={styles.modalList}>
+          <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
             {COUNTRIES.map((country) => (
               <TouchableOpacity
                 key={country}
@@ -1126,7 +1130,7 @@ export default function MatchmakerProfileForm({
               <Text style={styles.doneText}>Done</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView style={styles.modalList}>
+          <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
             {US_STATES.map((state) => (
               <TouchableOpacity
                 key={state}

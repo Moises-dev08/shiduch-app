@@ -6,10 +6,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppTextInput } from '../AppTextInput';
 
 interface AskMeRequestModalProps {
   visible: boolean;
@@ -69,7 +69,7 @@ export default function AskMeRequestModal({
           </View>
 
           <Text style={styles.label}>Your message:</Text>
-          <TextInput
+          <AppTextInput
             style={styles.textInput}
             value={message}
             onChangeText={setMessage}

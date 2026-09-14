@@ -7,11 +7,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppTextInput } from '../AppTextInput';
 import { reportService, ReportReason } from '../../lib/reportService';
 
 interface ReportProfileModalProps {
@@ -197,7 +197,7 @@ export default function ReportProfileModal({
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Additional Details (Optional)</Text>
-            <TextInput
+            <AppTextInput
               style={styles.textInput}
               placeholder="Provide any additional information that might help our review..."
               placeholderTextColor="#999"

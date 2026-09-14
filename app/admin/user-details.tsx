@@ -8,10 +8,10 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
+import { AppTextInput } from '../../components/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SuccessModal from '../../components/SuccessModal';
 import { adminService } from '../../lib/adminService';
@@ -194,6 +194,7 @@ export default function UserDetailsScreen() {
       </View>
 
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         style={styles.scrollView}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -361,7 +362,7 @@ export default function UserDetailsScreen() {
               <>
                 <Text style={styles.dialogTitle}>Suspend User</Text>
                 <Text style={styles.dialogSubtitle}>Enter reason for suspension:</Text>
-                <TextInput
+                <AppTextInput
                   style={styles.reasonInput}
                   placeholder="Reason..."
                   value={actionReason}

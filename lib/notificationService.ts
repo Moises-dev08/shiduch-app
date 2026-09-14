@@ -2,24 +2,31 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { isNativePushNotificationsSupported } from './pushNotificationsPlatform';
 import { supabase, supabaseUrl } from './supabase';
 
 // Configure how notifications are handled when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (isNativePushNotificationsSupported) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 class NotificationService {
   /**
    * Register for push notifications and save token
    */
   async registerForPushNotifications(): Promise<string | null> {
+    if (!isNativePushNotificationsSupported) {
+      return null;
+    }
+
     try {
       // Check if physical device
       if (!Device.isDevice) {
@@ -128,6 +135,10 @@ class NotificationService {
    * Remove all push tokens for the current device on logout
    */
   async removePushToken(): Promise<void> {
+    if (!isNativePushNotificationsSupported) {
+      return;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;

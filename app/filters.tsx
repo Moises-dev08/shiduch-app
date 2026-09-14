@@ -3,8 +3,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppTextInput } from '../components/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { profileService } from '../lib/profileService';
 import { FilterState } from '../types/homeTypes';
 
@@ -182,7 +184,7 @@ function SearchableCountryPicker({ visible, selectedValue, countries, onSelect, 
         {/* Search Input */}
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
-          <TextInput
+          <AppTextInput
             style={styles.searchInput}
             placeholder="Search countries..."
             placeholderTextColor="#999"
@@ -202,7 +204,7 @@ function SearchableCountryPicker({ visible, selectedValue, countries, onSelect, 
         </View>
 
         {/* Countries List */}
-        <ScrollView style={styles.countryListContainer}>
+        <ScrollView style={styles.countryListContainer} keyboardShouldPersistTaps="handled">
           <TouchableOpacity
             style={[
               styles.countryItem,
@@ -254,6 +256,7 @@ function SearchableCountryPicker({ visible, selectedValue, countries, onSelect, 
 }
 
 export default function FiltersScreen() {
+  const { isDesktop, contentPadding } = useResponsiveLayout();
   const params = useLocalSearchParams();
   const [currentUserGender, setCurrentUserGender] = useState<'male' | 'female' | null>(
     (params.userGender as string) === 'male' || (params.userGender as string) === 'female'
@@ -518,7 +521,7 @@ export default function FiltersScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
         {/* See First (matchmaker only) */}
         {currentUserRole === 'matchmaker' && renderSection('See First', 'seeFirst', (
           <View style={styles.chipRow}>
@@ -1335,7 +1338,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',

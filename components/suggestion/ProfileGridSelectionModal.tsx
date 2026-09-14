@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useProfileGridLayout } from "../../hooks/useProfileGridLayout";
 import { profileService } from "../../lib/profileService";
 import { supabase } from "../../lib/supabase";
 import { calculateAge } from "../../lib/utils";
@@ -78,6 +79,7 @@ export default function ProfileGridSelectionModal({
   onSelect,
   onCancel,
 }: ProfileGridSelectionModalProps) {
+  const { cardWidthPercent } = useProfileGridLayout();
   const [profiles, setProfiles] = useState<DatabaseProfile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<DatabaseProfile[]>(
     [],
@@ -647,6 +649,7 @@ export default function ProfileGridSelectionModal({
             style={styles.scrollView}
             contentContainerStyle={styles.profilesGrid}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             {filteredProfiles.map((dbProfile) => {
               const profile = transformProfile(dbProfile);
@@ -655,6 +658,7 @@ export default function ProfileGridSelectionModal({
                   key={profile.id}
                   profile={profile}
                   onPress={handleSelectProfile}
+                  cardWidthPercent={cardWidthPercent}
                   renderOverlay={
                     <TouchableOpacity
                       style={styles.viewPill}
@@ -747,8 +751,9 @@ const styles = StyleSheet.create({
   profilesGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     padding: 16,
+    gap: 12,
   },
   viewPill: {
     alignItems: "center",

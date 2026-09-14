@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import EngagementButton from "../../components/EngagementButton";
+import { ConnectHeader } from "../../components/connect/ConnectHeader";
 import InfoRequestCard from "../../components/connect/InfoRequestCard";
 import IntroRequestCard from "../../components/intro/IntroRequestCard";
 import MatchmakerRequestCard from "../../components/intro/MatchmakerRequestCard";
@@ -21,7 +22,9 @@ import SuggestionCard from "../../components/suggestion/SuggestionCard";
 import { useRealtimeInfoRequests } from "../../hooks/useRealtimeInfoRequests";
 import { useRealtimeIntroRequests } from "../../hooks/useRealtimeIntroRequests";
 import { useRealtimeSuggestions } from "../../hooks/useRealtimeSuggestions";
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { UNREAD_COUNT_QUERY_KEY } from "../../hooks/useUnreadNotificationsCount";
+import { useWebTabVisible } from "../../hooks/useWebTabVisible";
 import { engagementService } from "../../lib/engagementService";
 import { infoRequestService } from "../../lib/infoRequestService";
 import { introService } from "../../lib/introService";
@@ -93,6 +96,8 @@ async function fetchInfoData() {
 }
 
 export default function ConnectScreen() {
+  const isTabVisible = useWebTabVisible();
+  const { isDesktop, contentPadding } = useResponsiveLayout();
   const queryClient = useQueryClient();
   const params = useLocalSearchParams();
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(
@@ -710,12 +715,53 @@ export default function ConnectScreen() {
     profileQuery.data?.profile?.role ?? currentUserProfile?.role;
   const isSingle = profileRole === "single";
 
+  if (!isTabVisible) {
+    return null;
+  }
+
+  // Calculate counts for header badges
+  const headerCounts = {
+    intros: receivedIntroRequests.filter(
+      (r) =>
+        r.requested_status === "pending" ||
+        (r.requested_status === "accepted" && !r.requested_continuation_choice),
+    ).length +
+    sentIntroRequests.filter(
+      (r) =>
+        r.matchmaker_status === "accepted" &&
+        r.requested_status === "accepted" &&
+        !r.requester_continuation_choice,
+    ).length,
+    suggestions: currentUserProfile
+      ? receivedSuggestions.filter((s) => {
+          const isProfileOne = s.profile_one_id === currentUserProfile.id;
+          const myStatus = isProfileOne
+            ? s.profile_one_status
+            : s.profile_two_status;
+          const myContinuationChoice = isProfileOne
+            ? s.profile_one_continuation_choice
+            : s.profile_two_continuation_choice;
+          return myStatus === "pending" || (myStatus === "accepted" && !myContinuationChoice);
+        }).length
+      : 0,
+    info: receivedInfoRequests.filter((r) => r.status === "pending").length,
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Connect</Text>
-      </View>
+      {/* Header - Desktop version has tabs */}
+      {isDesktop ? (
+        <ConnectHeader
+          activeTab="intros"
+          onTabChange={() => {}}
+          counts={headerCounts}
+          isDesktop={true}
+        />
+      ) : (
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Connect</Text>
+        </View>
+      )}
 
       {/* Category Tabs (only for singles) */}
       {isSingle && (

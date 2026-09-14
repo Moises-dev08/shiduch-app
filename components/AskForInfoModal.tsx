@@ -7,10 +7,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppTextInput } from './AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface AskForInfoModalProps {
@@ -83,7 +83,7 @@ export default function AskForInfoModal({
             <Text style={styles.helperText}>
               Personalize your message to increase the chances of approval
             </Text>
-            <TextInput
+            <AppTextInput
               style={styles.textInput}
               value={note}
               onChangeText={setNote}

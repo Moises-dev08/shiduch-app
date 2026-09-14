@@ -3,18 +3,17 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { AppTextInput } from './AppTextInput';
+import { DismissKeyboard } from './DismissKeyboard';
 import { feedbackService } from '../lib/feedbackService';
 
 interface FeedbackModalProps {
@@ -86,10 +85,8 @@ export default function FeedbackModal({ visible, onClose }: FeedbackModalProps) 
       transparent
       onRequestClose={handleCancel}
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.kavContainer}>
+      <DismissKeyboard style={styles.overlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.kavContainer}>
             <View style={styles.modalContainer}>
               {/* Header */}
               <View style={styles.header}>
@@ -112,7 +109,7 @@ export default function FeedbackModal({ visible, onClose }: FeedbackModalProps) 
                   We'd love to hear your thoughts! Your feedback helps us improve the app and provide a better experience for everyone.
                 </Text>
 
-                <TextInput
+                <AppTextInput
                   style={styles.textInput}
                   placeholder="Share your thoughts, suggestions, or report issues..."
                   placeholderTextColor="#999"
@@ -160,10 +157,8 @@ export default function FeedbackModal({ visible, onClose }: FeedbackModalProps) 
                 </TouchableOpacity>
               </View>
             </View>
-            </KeyboardAvoidingView>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
+      </DismissKeyboard>
     </Modal>
   );
 }

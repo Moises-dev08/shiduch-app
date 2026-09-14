@@ -237,7 +237,7 @@ export default function FilterModal({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content}>
+        <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
           {/* Age Filter */}
           {renderSection('Age Range', 'age', (
             <>

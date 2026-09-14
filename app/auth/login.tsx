@@ -11,34 +11,36 @@ import {
   Platform,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { AppTextInput } from "../../components/AppTextInput";
+import { AuthFormShell } from "../../components/auth/AuthFormShell";
+import { DismissKeyboard } from "../../components/DismissKeyboard";
 import { adminService } from "../../lib/adminService";
 import { supabase } from "../../lib/supabase";
+import { authBrandLayout } from "../../styles/authScreens";
 
-export default function LoginScreen() {
+export default function LoginScreen(): React.JSX.Element {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const togglePasswordVisibility = () => setShowPassword((prev) => !prev);
+  const togglePasswordVisibility = (): void => setShowPassword((prev) => !prev);
 
-  const validateEmail = (email: string) => {
+  const validateEmail = (value: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    return emailRegex.test(value);
   };
 
-  const handleLogin = async () => {
+  const handleLogin = async (): Promise<void> => {
     if (!email || !password) {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
     if (!validateEmail(email.trim())) {
-      Alert.alert("Invalid Email", "Please enter a valid email address");
+      Alert.alert("Invalid email", "Please enter a valid email address");
       return;
     }
 
@@ -50,7 +52,7 @@ export default function LoginScreen() {
       });
 
       if (error) {
-        Alert.alert("Login Failed", error.message);
+        Alert.alert("Login failed", error.message);
         return;
       }
 
@@ -80,15 +82,15 @@ export default function LoginScreen() {
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.content}>
+        <AuthFormShell style={authBrandLayout.content}>
+          <DismissKeyboard style={styles.shellInner}>
             <View style={styles.header}>
               <Image
                 source={require("../../logo-original.png")}
-                style={styles.logo}
+                style={authBrandLayout.logo}
                 contentFit="contain"
               />
-              <Text style={styles.title}>Welcome Back</Text>
+              <Text style={styles.title}>Welcome back</Text>
               <Text style={styles.subtitle}>Login to your account</Text>
             </View>
 
@@ -100,7 +102,7 @@ export default function LoginScreen() {
                   color="#1293DA"
                   style={styles.inputIcon}
                 />
-                <TextInput
+                <AppTextInput
                   style={styles.input}
                   placeholder="Email"
                   placeholderTextColor="#aaa"
@@ -120,7 +122,7 @@ export default function LoginScreen() {
                   color="#1293DA"
                   style={styles.inputIcon}
                 />
-                <TextInput
+                <AppTextInput
                   style={styles.input}
                   placeholder="Password"
                   placeholderTextColor="#aaa"
@@ -162,7 +164,7 @@ export default function LoginScreen() {
                 style={styles.forgotPassword}
                 onPress={() => router.push("/auth/forgot-password")}
               >
-                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
               </TouchableOpacity>
             </View>
 
@@ -171,11 +173,11 @@ export default function LoginScreen() {
                 Don&apos;t have an account?{" "}
               </Text>
               <TouchableOpacity onPress={() => router.push("/auth/signup")}>
-                <Text style={styles.signupLink}>Sign Up</Text>
+                <Text style={styles.signupLink}>Sign up</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </TouchableWithoutFeedback>
+          </DismissKeyboard>
+        </AuthFormShell>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
@@ -188,20 +190,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 28,
-    paddingVertical: 20,
+  shellInner: {
+    width: "100%",
   },
   header: {
     alignItems: "center",
     marginBottom: 36,
-  },
-  logo: {
-    width: 400,
-    height: 360,
-    marginBottom: -16,
   },
   title: {
     fontSize: 28,

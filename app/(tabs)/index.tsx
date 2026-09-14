@@ -8,21 +8,28 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import EngagementCelebration from "../../components/EngagementCelebration";
+import { DesktopSidebar } from "../../components/home/DesktopSidebar";
+import { HomeHeader } from "../../components/home/HomeHeader";
 import ProfileCard from "../../components/home/ProfileCard";
 import NotificationPanel from "../../components/NotificationPanel";
 import { useEngagementCelebrations } from "../../hooks/useEngagementCelebrations";
 import { useHomeProfiles } from "../../hooks/useHomeProfiles";
+import { useProfileGridLayout } from "../../hooks/useProfileGridLayout";
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useUnreadNotificationsCount } from "../../hooks/useUnreadNotificationsCount";
+import { useWebTabVisible } from "../../hooks/useWebTabVisible";
 import { supabase } from "../../lib/supabase";
 import { Profile } from "../../types/homeTypes";
 
 export default function HomeScreen() {
+  const isTabVisible = useWebTabVisible();
+  const { cardWidthPercent } = useProfileGridLayout();
+  const { isDesktop } = useResponsiveLayout();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -412,6 +419,21 @@ export default function HomeScreen() {
 
   const activeFilters = getActiveFilters();
 
+  const handleOpenFilters = () => {
+    router.push({
+      pathname: "/filters",
+      params: {
+        filterState: JSON.stringify(filterState),
+        userRole: currentUserProfile?.role ?? "",
+        userGender: currentUserProfile?.gender ?? "",
+      },
+    });
+  };
+
+  if (!isTabVisible) {
+    return null;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Engagement Celebration */}
@@ -425,149 +447,112 @@ export default function HomeScreen() {
       )}
 
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>Discover</Text>
-          <TouchableOpacity
-            style={styles.successMatchesButton}
-            onPress={() => router.push("/successful-matches")}
-          >
-            <Text style={styles.successMatchesEmoji}>🎉</Text>
-            <Text style={styles.successMatchesText}>Success stories</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={() => setNotificationPanelVisible(true)}
-          >
-            <Ionicons
-              name={
-                unreadNotifCount > 0 ? "notifications" : "notifications-outline"
-              }
-              size={24}
-              color="#333"
-            />
-            {unreadNotifCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadNotifCount > 99 ? "99+" : unreadNotifCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-        <View style={styles.searchRow}>
-          <View style={styles.searchContainer}>
-            <Ionicons
-              name="search"
-              size={20}
-              color="#999"
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search profiles..."
-              placeholderTextColor="#999"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-          <TouchableOpacity
-            style={styles.filterButton}
-            onPress={() =>
-              router.push({
-                pathname: "/filters",
-                params: {
-                  filterState: JSON.stringify(filterState),
-                  userRole: currentUserProfile?.role ?? "",
-                  userGender: currentUserProfile?.gender ?? "",
-                },
-              })
+      <HomeHeader
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        unreadCount={unreadNotifCount}
+        onNotificationPress={() => setNotificationPanelVisible(true)}
+        onFilterPress={handleOpenFilters}
+        isDesktop={isDesktop}
+      />
+
+      {/* Main Content Area - Desktop: Sidebar + Grid, Mobile: Grid only */}
+      <View style={isDesktop ? styles.desktopLayout : styles.mobileLayout}>
+        {/* Desktop Sidebar */}
+        {isDesktop && (
+          <DesktopSidebar
+            profileCount={filteredProfiles.length}
+            visibleCount={visibleProfiles.length}
+            activeFiltersCount={activeFilters.length}
+            onOpenFilters={handleOpenFilters}
+            currentUserProfile={currentUserProfile}
+          />
+        )}
+
+        {/* Main Content */}
+        <View style={styles.mainContent}>
+          {/* Active Filters Summary */}
+          {activeFilters.length > 0 && (
+            <View style={styles.filtersSummary}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filtersScrollContent}
+              >
+                {activeFilters.map((filter, index) => (
+                  <View key={index} style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>{filter.label}</Text>
+                    <TouchableOpacity
+                      onPress={() => removeFilter(filter.removeKey)}
+                      style={styles.filterBadgeRemove}
+                    >
+                      <Ionicons name="close-circle" size={16} color="#666" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Profiles Grid */}
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            scrollEventThrottle={200}
+            onScroll={handleScroll}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#1293DA"]}
+                tintColor="#1293DA"
+              />
             }
           >
-            <Ionicons name="options" size={20} color="#1293DA" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Active Filters Summary */}
-      {activeFilters.length > 0 && (
-        <View style={styles.filtersSummary}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filtersScrollContent}
-          >
-            {activeFilters.map((filter, index) => (
-              <View key={index} style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{filter.label}</Text>
-                <TouchableOpacity
-                  onPress={() => removeFilter(filter.removeKey)}
-                  style={styles.filterBadgeRemove}
-                >
-                  <Ionicons name="close-circle" size={16} color="#666" />
-                </TouchableOpacity>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#1293DA" />
+                <Text style={styles.loadingText}>Loading profiles...</Text>
               </View>
-            ))}
+            ) : filteredProfiles.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="people-outline" size={80} color="#ccc" />
+                <Text style={styles.emptyText}>No profiles found</Text>
+                <Text style={styles.emptySubtext}>
+                  {searchQuery
+                    ? "Try adjusting your search 🔍"
+                    : "Check back later for new profiles ✨"}
+                </Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.profilesGrid}>
+                  {visibleProfiles.map((profile) => (
+                    <ProfileCard
+                      key={profile.id}
+                      profile={profile}
+                      onPress={handleProfilePress}
+                      cardWidthPercent={cardWidthPercent}
+                    />
+                  ))}
+                </View>
+                {hasMore && (
+                  <View style={styles.loadMoreContainer}>
+                    <ActivityIndicator size="small" color="#1293DA" />
+                    <Text style={styles.loadMoreText}>Loading more…</Text>
+                  </View>
+                )}
+                {!hasMore && filteredProfiles.length > 0 && (
+                  <Text style={styles.endOfListText}>
+                    Showing all {filteredProfiles.length} profiles
+                  </Text>
+                )}
+              </>
+            )}
           </ScrollView>
         </View>
-      )}
-
-      {/* Profiles Grid */}
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        scrollEventThrottle={200}
-        onScroll={handleScroll}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={["#1293DA"]}
-            tintColor="#1293DA"
-          />
-        }
-      >
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#1293DA" />
-            <Text style={styles.loadingText}>Loading profiles...</Text>
-          </View>
-        ) : filteredProfiles.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={80} color="#ccc" />
-            <Text style={styles.emptyText}>No profiles found</Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery
-                ? "Try adjusting your search 🔍"
-                : "Check back later for new profiles ✨"}
-            </Text>
-          </View>
-        ) : (
-          <>
-            <View style={styles.profilesGrid}>
-              {visibleProfiles.map((profile) => (
-                <ProfileCard
-                  key={profile.id}
-                  profile={profile}
-                  onPress={handleProfilePress}
-                />
-              ))}
-            </View>
-            {hasMore && (
-              <View style={styles.loadMoreContainer}>
-                <ActivityIndicator size="small" color="#1293DA" />
-                <Text style={styles.loadMoreText}>Loading more…</Text>
-              </View>
-            )}
-            {!hasMore && filteredProfiles.length > 0 && (
-              <Text style={styles.endOfListText}>
-                Showing all {filteredProfiles.length} profiles
-              </Text>
-            )}
-          </>
-        )}
-      </ScrollView>
+      </View>
 
       <NotificationPanel
         visible={notificationPanelVisible}
@@ -582,101 +567,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f9f9f9",
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  headerTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  successMatchesButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    backgroundColor: "#DAA520",
-    borderRadius: 20,
-    gap: 4,
-    shadowColor: "#DAA520",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  successMatchesEmoji: {
-    fontSize: 14,
-  },
-  successMatchesText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  notificationButton: {
-    padding: 6,
-    position: "relative",
-  },
-  notificationBadge: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    backgroundColor: "#E53935",
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 3,
-    borderWidth: 1.5,
-    borderColor: "#fff",
-  },
-  notificationBadgeText: {
-    color: "#fff",
-    fontSize: 9,
-    fontWeight: "bold",
-    lineHeight: 12,
-  },
-  searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  searchContainer: {
+  desktopLayout: {
     flex: 1,
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f0f0f0",
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    gap: 24,
+    paddingHorizontal: 32,
+    paddingTop: 24,
   },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
+  mobileLayout: {
     flex: 1,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: "#333",
   },
-  filterButton: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#1293DA",
-    justifyContent: "center",
-    alignItems: "center",
+  mainContent: {
+    flex: 1,
   },
   scrollView: {
     flex: 1,

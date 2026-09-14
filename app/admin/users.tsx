@@ -8,10 +8,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { AppTextInput } from '../../components/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { adminService } from '../../lib/adminService';
 import { Profile, profileService } from '../../lib/profileService';
@@ -117,7 +117,7 @@ export default function AdminUsers() {
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={20} color="#666" style={{ marginRight: 8 }} />
-          <TextInput
+          <AppTextInput
             style={styles.searchInput}
             placeholder="Search name or email..."
             value={searchQuery}
@@ -179,6 +179,7 @@ export default function AdminUsers() {
         </View>
       ) : (
         <ScrollView
+          keyboardShouldPersistTaps="handled"
           style={styles.scrollView}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

@@ -1092,7 +1092,11 @@ export default function SinglesProfileForm({
   );
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
       {roleSwitched && (
         <View style={styles.roleSwitchBanner}>
           <Ionicons name="information-circle" size={20} color="#1293DA" />
@@ -2223,7 +2227,7 @@ export default function SinglesProfileForm({
               <Text style={styles.doneText}>Done</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView style={styles.modalContent}>
+          <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
             {COUNTRIES.map((country) => (
               <TouchableOpacity
                 key={country}
@@ -2262,7 +2266,7 @@ export default function SinglesProfileForm({
               <Text style={styles.doneText}>Done</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView style={styles.modalContent}>
+          <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
             {US_STATES.map((state) => (
               <TouchableOpacity
                 key={state}

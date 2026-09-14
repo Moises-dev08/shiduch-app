@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AskForInfoModal from "../components/AskForInfoModal";
+import { WebShareModal } from "../components/WebShareModal";
 import PictureViewerModal from "../components/home/PictureViewerModal";
 import ReportProfileModal from "../components/home/ReportProfileModal";
 import ContinuationChoiceModal from "../components/intro/ContinuationChoiceModal";
@@ -33,7 +34,7 @@ import { suggestionService } from "../lib/suggestionService";
 import { supabase } from "../lib/supabase";
 import { calculateAge } from "../lib/utils";
 import { Profile } from "../types/homeTypes";
-import { profileDetailsStyles } from "./styles";
+import { profileDetailsStyles } from "../styles/profileDetails";
 
 const styles = profileDetailsStyles;
 
@@ -246,8 +247,19 @@ async function fetchProfileDetails(profileId: string) {
 
 export default function ProfileDetailsScreen() {
   const params = useLocalSearchParams();
+  const routerInstance = useRouter();
   const profileId = (params.profileId || params.id) as string;
   const hideActions = params.hideActions === "true"; // Hide actions when viewing from suggestions
+
+  // Robust back navigation handler
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      // Fallback: navigate to home if can't go back
+      router.replace("/(tabs)");
+    }
+  };
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [currentUserProfile, setCurrentUserProfile] =
@@ -327,7 +339,14 @@ export default function ProfileDetailsScreen() {
 
   // Report and Share states
   const [showReportModal, setShowReportModal] = useState(false);
-  const { isSharing, shareProfile } = useProfileShare();
+  const {
+    isSharing,
+    shareProfile,
+    showWebShareModal,
+    webShareUrl,
+    closeWebShareModal,
+    copyWebShareUrl,
+  } = useProfileShare();
 
   // Sync React Query result into local state
   useEffect(() => {
@@ -345,7 +364,7 @@ export default function ProfileDetailsScreen() {
 
   // Navigate back if profile could not be loaded
   useEffect(() => {
-    if (isError) router.back();
+    if (isError) handleGoBack();
   }, [isError]);
 
   const handlePicturePress = async (index: number) => {
@@ -720,7 +739,11 @@ export default function ProfileDetailsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity 
+            onPress={handleGoBack}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel="Go back"
+          >
             <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
           <Text style={styles.title}>Profile</Text>
@@ -797,14 +820,18 @@ export default function ProfileDetailsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity 
+          onPress={handleGoBack}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.title}>Profile</Text>
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.imageWrapper}>
@@ -1676,7 +1703,10 @@ export default function ProfileDetailsScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.noteModalContent}>
+            <ScrollView
+              style={styles.noteModalContent}
+              keyboardShouldPersistTaps="handled"
+            >
               <Text style={styles.noteModalLabel}>
                 You are about to suggest {profile?.name} and{" "}
                 {selectedProfileForSetup?.name} to each other.
@@ -1776,6 +1806,14 @@ export default function ProfileDetailsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Web Share Modal (Web only) */}
+      <WebShareModal
+        visible={showWebShareModal}
+        url={webShareUrl}
+        onClose={closeWebShareModal}
+        onCopy={copyWebShareUrl}
+      />
     </SafeAreaView>
   );
 }

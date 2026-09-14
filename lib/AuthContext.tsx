@@ -2,6 +2,7 @@ import { Session, User } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { notificationService } from './notificationService';
+import { isNativePushNotificationsSupported } from './pushNotificationsPlatform';
 import { supabase } from './supabase';
 
 interface AuthContextType {
@@ -66,8 +67,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     await notificationService.removePushToken().catch(() => {});
-    await Notifications.setBadgeCountAsync(0).catch(() => {});
-    await Notifications.dismissAllNotificationsAsync().catch(() => {});
+    if (isNativePushNotificationsSupported) {
+      await Notifications.setBadgeCountAsync(0).catch(() => {});
+      await Notifications.dismissAllNotificationsAsync().catch(() => {});
+    }
     await supabase.auth.signOut();
   };
 

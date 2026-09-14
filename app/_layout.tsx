@@ -4,16 +4,20 @@ import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { router, Stack } from "expo-router";
 import { useEffect, useRef } from "react";
-import { Linking } from "react-native";
+import { Linking, Platform } from "react-native";
 import { AuthProvider, useAuth } from "../lib/AuthContext";
 import { extractProfileIdFromShareUrl } from "../lib/profileShareUrls";
 import { getNavigationTarget } from "../lib/notificationRoutes";
+import { isNativePushNotificationsSupported } from "../lib/pushNotificationsPlatform";
 import { supabase } from "../lib/supabase";
+import { WebAppShell } from "../components/WebAppShell";
 
 const PENDING_PROFILE_DEEP_LINK_KEY = 'pendingProfileDeepLink';
 
-// Keep splash visible until we explicitly hide it
-SplashScreen.preventAutoHideAsync();
+// Keep splash visible until we explicitly hide it (native only; web overlay blocks input)
+if (Platform.OS !== "web") {
+  SplashScreen.preventAutoHideAsync();
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,6 +72,8 @@ function NotificationHandler() {
 
   // ── Cold-start: capture notification that launched the app from killed state ──
   useEffect(() => {
+    if (!isNativePushNotificationsSupported) return;
+
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (!response) return;
       coldStartId.current = response.notification.request.identifier;
@@ -95,6 +101,8 @@ function NotificationHandler() {
 
   // ── Foreground / background taps (app already running) ───────────────────
   useEffect(() => {
+    if (!isNativePushNotificationsSupported) return;
+
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       // Skip the cold-start tap — already handled by the effect above
       if (response.notification.request.identifier === coldStartId.current) return;
@@ -198,8 +206,8 @@ function PendingDeepLinkResumer() {
 function SplashController() {
   const { loading } = useAuth();
   useEffect(() => {
-    if (!loading) {
-      SplashScreen.hideAsync();
+    if (Platform.OS === "web" || !loading) {
+      SplashScreen.hideAsync().catch(() => {});
     }
   }, [loading]);
   return null;
@@ -228,13 +236,15 @@ export default function RootLayout() {
       <NotificationHandler />
       <PasswordResetHandler />
       <PendingDeepLinkResumer />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="auth" options={{ headerShown: false }} />
-        <Stack.Screen name="admin" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="filters" options={{ headerShown: false }} />
-        <Stack.Screen name="profile/[id]" options={{ headerShown: false, presentation: 'modal' }} />
-      </Stack>
+      <WebAppShell>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="auth" options={{ headerShown: false }} />
+          <Stack.Screen name="admin" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="filters" options={{ headerShown: false }} />
+          <Stack.Screen name="profile" options={{ headerShown: false, presentation: 'modal' }} />
+        </Stack>
+      </WebAppShell>
     </AuthProvider>
     </QueryClientProvider>
   );

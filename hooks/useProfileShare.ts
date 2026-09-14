@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Alert, Platform, Share } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { getProfileHttpsShareUrl } from "../lib/profileShareUrls";
 
 // Structural type — accepts any Profile shape as long as it has the fields we need.
@@ -12,10 +13,16 @@ export interface ShareableProfile {
 export interface UseProfileShareResult {
   isSharing: boolean;
   shareProfile: (profile: ShareableProfile) => Promise<void>;
+  showWebShareModal: boolean;
+  webShareUrl: string;
+  closeWebShareModal: () => void;
+  copyWebShareUrl: () => Promise<void>;
 }
 
 export function useProfileShare(): UseProfileShareResult {
   const [isSharing, setIsSharing] = useState(false);
+  const [showWebShareModal, setShowWebShareModal] = useState(false);
+  const [webShareUrl, setWebShareUrl] = useState("");
 
   const shareProfile = async (profile: ShareableProfile): Promise<void> => {
     if (!profile.id) {
@@ -31,6 +38,14 @@ export function useProfileShare(): UseProfileShareResult {
     const webUrl = getProfileHttpsShareUrl(profile.id);
     const name = `${profile.first_name} ${profile.last_name}`;
 
+    // Web platform: show share modal with URL
+    if (Platform.OS === "web") {
+      setWebShareUrl(webUrl);
+      setShowWebShareModal(true);
+      return;
+    }
+
+    // Mobile platforms: use native Share API
     try {
       setIsSharing(true);
       await Share.share(
@@ -57,5 +72,27 @@ export function useProfileShare(): UseProfileShareResult {
     }
   };
 
-  return { isSharing, shareProfile };
+  const closeWebShareModal = () => {
+    setShowWebShareModal(false);
+    setWebShareUrl("");
+  };
+
+  const copyWebShareUrl = async () => {
+    try {
+      await Clipboard.setStringAsync(webShareUrl);
+      Alert.alert("Success", "Profile link copied to clipboard!");
+    } catch (error) {
+      console.error("Error copying to clipboard:", error);
+      Alert.alert("Error", "Failed to copy link to clipboard.");
+    }
+  };
+
+  return {
+    isSharing,
+    shareProfile,
+    showWebShareModal,
+    webShareUrl,
+    closeWebShareModal,
+    copyWebShareUrl,
+  };
 }

@@ -8,6 +8,7 @@ import {
   FlatList,
   Modal,
   Platform,
+  Pressable,
   RefreshControl,
   StatusBar,
   StyleSheet,
@@ -305,15 +306,20 @@ export default function NotificationPanel({ visible, onClose }: NotificationPane
       onRequestClose={handleClose}
       statusBarTranslucent
     >
-      {/* Backdrop — tap to close */}
-      <TouchableWithoutFeedback onPress={handleClose}>
-        <Animated.View
-          style={[
-            styles.backdrop,
-            { opacity: backdropAnim },
-          ]}
-        />
-      </TouchableWithoutFeedback>
+      {/* Backdrop — tap to close (Pressable on web; TWOF breaks input focus elsewhere) */}
+      {Platform.OS === "web" ? (
+        <Pressable style={styles.backdrop} onPress={handleClose}>
+          <Animated.View
+            style={[StyleSheet.absoluteFill, { opacity: backdropAnim, backgroundColor: "rgba(0,0,0,0.45)" }]}
+          />
+        </Pressable>
+      ) : (
+        <TouchableWithoutFeedback onPress={handleClose}>
+          <Animated.View
+            style={[styles.backdrop, { opacity: backdropAnim }]}
+          />
+        </TouchableWithoutFeedback>
+      )}
 
       {/* Sliding panel */}
       <Animated.View

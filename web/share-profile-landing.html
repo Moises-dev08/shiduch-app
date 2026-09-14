@@ -48,18 +48,33 @@
     .stores { margin-top: 28px; padding-top: 24px; border-top: 1px solid #ddd; }
     .stores h2 { font-size: 1rem; color: #333; margin-bottom: 16px; }
     .muted { font-size: 0.85rem; color: #888; margin-top: 24px; }
+    .hidden { display: none; }
+    .desktop-message { max-width: 400px; margin: 0 auto 20px; }
   </style>
 </head>
 <body>
   <h1>Zivug Mishamayim</h1>
-  <p>Someone shared a profile with you. Open it in the app, or download the app first.</p>
+  
+  <!-- Mobile content -->
+  <div id="mobileContent">
+    <p>Someone shared a profile with you. Open it in the app, or download the app first.</p>
+    <button type="button" class="btn btn-primary" id="openApp">Open in app</button>
+    <div class="stores">
+      <h2>Don't have the app yet?</h2>
+      <a class="btn btn-secondary" id="appStore" href="https://apps.apple.com/" target="_blank" rel="noopener">Download for iPhone</a>
+      <a class="btn btn-secondary" id="playStore" href="https://play.google.com/store" target="_blank" rel="noopener">Download for Android</a>
+    </div>
+  </div>
 
-  <button type="button" class="btn btn-primary" id="openApp">Open in app</button>
-
-  <div class="stores">
-    <h2>Don't have the app yet?</h2>
-    <a class="btn btn-secondary" id="appStore" href="https://apps.apple.com/" target="_blank" rel="noopener">Download for iPhone</a>
-    <a class="btn btn-secondary" id="playStore" href="https://play.google.com/store" target="_blank" rel="noopener">Download for Android</a>
+  <!-- Desktop/Web content -->
+  <div id="desktopContent" class="hidden">
+    <p class="desktop-message">Someone shared a profile with you. View it in your browser or download our mobile app.</p>
+    <a class="btn btn-primary" id="viewInBrowser" href="#">View profile in browser</a>
+    <div class="stores">
+      <h2>Prefer to use the mobile app?</h2>
+      <a class="btn btn-secondary" id="appStoreDesktop" href="https://apps.apple.com/" target="_blank" rel="noopener">Download for iPhone</a>
+      <a class="btn btn-secondary" id="playStoreDesktop" href="https://play.google.com/store" target="_blank" rel="noopener">Download for Android</a>
+    </div>
   </div>
 
   <p class="muted" id="profileHint"></p>
@@ -79,14 +94,28 @@
       var AUTO_ATTEMPT_ON_MOBILE = true;
       // =====================================================================
 
-      document.getElementById('appStore').href = APP_STORE_URL;
-      document.getElementById('playStore').href = PLAY_STORE_URL;
+      // Show/hide content based on platform
+      if (isDesktop) {
+        document.getElementById('mobileContent').classList.add('hidden');
+        document.getElementById('desktopContent').classList.remove('hidden');
+        document.getElementById('appStoreDesktop').href = APP_STORE_URL;
+        document.getElementById('playStoreDesktop').href = PLAY_STORE_URL;
+      } else {
+        document.getElementById('appStore').href = APP_STORE_URL;
+        document.getElementById('playStore').href = PLAY_STORE_URL;
+      }
 
       var match = window.location.pathname.match(/\/profile\/([^/]+)/);
       var profileId = match ? match[1] : null;
 
       if (profileId) {
         document.getElementById('profileHint').textContent = 'Profile link is ready.';
+        
+        // Update "View in browser" link for desktop
+        if (isDesktop) {
+          var webAppUrl = window.location.origin + '/profile-details?id=' + profileId;
+          document.getElementById('viewInBrowser').href = webAppUrl;
+        }
       } else {
         document.getElementById('profileHint').textContent = 'Invalid link — open a profile link shared from the app.';
         return;
@@ -95,6 +124,8 @@
       var ua = navigator.userAgent || '';
       var isIOS = /iPhone|iPad|iPod/i.test(ua);
       var isAndroid = /Android/i.test(ua);
+      var isMobile = isIOS || isAndroid;
+      var isDesktop = !isMobile;
 
       function openApp() {
         if (!profileId) return;
@@ -135,7 +166,8 @@
         banner.setAttribute('content', prev.replace('PROFILE_ID', profileId));
       }
 
-      if (AUTO_ATTEMPT_ON_MOBILE && (isIOS || isAndroid)) {
+      // Only auto-attempt on mobile devices
+      if (AUTO_ATTEMPT_ON_MOBILE && isMobile) {
         // Small delay so the page at least paints first.
         setTimeout(openApp, 150);
       }

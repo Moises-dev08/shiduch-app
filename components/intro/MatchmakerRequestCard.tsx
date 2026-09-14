@@ -242,6 +242,7 @@ export default function MatchmakerRequestCard({
             <ScrollView
               style={styles.contactsContainer}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
               {/* Requester Contact Info */}
               {requesterProfile && (

@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useProfileGridLayout } from "../../hooks/useProfileGridLayout";
 import { profileService } from "../../lib/profileService";
 import { supabase } from "../../lib/supabase";
 import { calculateAge } from "../../lib/utils";
@@ -45,6 +46,7 @@ export default function MiddlePersonSelectionModal({
   onSelect,
   onCancel,
 }: MiddlePersonSelectionModalProps) {
+  const { cardWidthPercent } = useProfileGridLayout();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -474,7 +476,7 @@ export default function MiddlePersonSelectionModal({
             <ActivityIndicator size="large" color="#1293DA" />
           </View>
         ) : (
-          <ScrollView style={styles.profileList}>
+          <ScrollView style={styles.profileList} keyboardShouldPersistTaps="handled">
             {filteredProfiles.length === 0 && !loading ? (
               <View style={styles.emptyState}>
                 <Ionicons name="people-outline" size={64} color="#ccc" />
@@ -507,7 +509,7 @@ export default function MiddlePersonSelectionModal({
                   return (
                     <TouchableOpacity
                       key={profile.id}
-                      style={styles.profileCard}
+                      style={[styles.profileCard, { width: `${cardWidthPercent}%` }]}
                       onPress={() => handleSelectProfile(profile)}
                       activeOpacity={0.7}
                     >
@@ -713,11 +715,11 @@ const styles = StyleSheet.create({
   profilesGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     padding: 16,
+    gap: 12,
   },
   profileCard: {
-    width: "31%",
     backgroundColor: "#fff",
     borderRadius: 12,
     overflow: "hidden",
