@@ -3,7 +3,6 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -12,6 +11,8 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ConfirmationModal from '../../components/ConfirmationModal';
+import InfoModal from '../../components/InfoModal';
 import { adminService } from '../../lib/adminService';
 import { Profile } from '../../lib/profileService';
 import { reportService } from '../../lib/reportService';
@@ -26,6 +27,20 @@ export default function AdminDashboard() {
   const [filter, setFilter] = useState<'all' | 'new' | 'updates'>('all');
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  
+  // Modal states
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [infoModal, setInfoModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    iconName?: keyof typeof Ionicons.glyphMap;
+    iconColor?: string;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   useEffect(() => {
     loadProfiles();
@@ -48,7 +63,13 @@ export default function AdminDashboard() {
       setAllProfiles(result.profiles);
       applyFilter(result.profiles, filter);
     } else {
-      Alert.alert('Error', result.error || 'Failed to load profiles');
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: result.error || 'Failed to load profiles',
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
     }
     setLoading(false);
   };
@@ -171,22 +192,7 @@ export default function AdminDashboard() {
 
           <TouchableOpacity 
             style={styles.actionButton}
-            onPress={() => {
-              Alert.alert(
-                'Logout',
-                'Are you sure you want to logout?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Logout',
-                    onPress: async () => {
-                      await supabase.auth.signOut();
-                      router.replace('/auth/login');
-                    },
-                  },
-                ]
-              );
-            }}
+            onPress={() => setShowLogoutConfirm(true)}
           >
             <View style={styles.actionButtonContent}>
               <Ionicons name="log-out" size={20} color="#666" />
@@ -313,6 +319,32 @@ export default function AdminDashboard() {
         )}
       </ScrollView>
 
+      {/* Logout Confirmation Modal */}
+      <ConfirmationModal
+        visible={showLogoutConfirm}
+        title="Logout"
+        message="Are you sure you want to logout?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        onConfirm={async () => {
+          setShowLogoutConfirm(false);
+          await supabase.auth.signOut();
+          router.replace('/auth/login');
+        }}
+        onCancel={() => setShowLogoutConfirm(false)}
+        iconName="log-out"
+        iconColor="#FF9800"
+      />
+
+      {/* Info Modal */}
+      <InfoModal
+        visible={infoModal.visible}
+        title={infoModal.title}
+        message={infoModal.message}
+        iconName={infoModal.iconName}
+        iconColor={infoModal.iconColor}
+        onClose={() => setInfoModal({ visible: false, title: '', message: '' })}
+      />
     </SafeAreaView>
   );
 }

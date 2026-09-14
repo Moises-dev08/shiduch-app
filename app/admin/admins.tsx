@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   RefreshControl,
   ScrollView,
@@ -14,6 +13,8 @@ import {
 } from 'react-native';
 import { AppTextInput } from '../../components/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ConfirmationModal from '../../components/ConfirmationModal';
+import InfoModal from '../../components/InfoModal';
 import { adminService } from '../../lib/adminService';
 import { supabase } from '../../lib/supabase';
 
@@ -34,6 +35,33 @@ export default function ManageAdminsScreen() {
   const [addEmail, setAddEmail] = useState('');
   const [adding, setAdding] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  // Modal states
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    iconName?: keyof typeof Ionicons.glyphMap;
+    iconColor?: string;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+  
+  const [infoModal, setInfoModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    iconName?: keyof typeof Ionicons.glyphMap;
+    iconColor?: string;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   useEffect(() => {
     load();
@@ -60,7 +88,13 @@ export default function ManageAdminsScreen() {
   const handleAdd = async () => {
     const email = addEmail.trim().toLowerCase();
     if (!email) {
-      Alert.alert('Email required', 'Please enter the email address of the user to promote.');
+      setInfoModal({
+        visible: true,
+        title: 'Email required',
+        message: 'Please enter the email address of the user to promote.',
+        iconName: 'mail',
+        iconColor: '#FF9800',
+      });
       return;
     }
     setAdding(true);
@@ -70,62 +104,93 @@ export default function ManageAdminsScreen() {
       setAddEmail('');
       setShowAddModal(false);
       await load();
-      Alert.alert('Admin added', `${email} is now an admin.`);
+      setInfoModal({
+        visible: true,
+        title: 'Admin added',
+        message: `${email} is now an admin.`,
+        iconName: 'checkmark-circle',
+        iconColor: '#4CAF50',
+      });
     } else {
-      Alert.alert('Error', result.error || 'Failed to add admin');
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: result.error || 'Failed to add admin',
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
     }
   };
 
   const handleRemove = (admin: AdminRow) => {
     if (currentUserId && admin.user_id === currentUserId) {
-      Alert.alert('Not allowed', 'You cannot remove yourself from the admin list.');
+      setInfoModal({
+        visible: true,
+        title: 'Not allowed',
+        message: 'You cannot remove yourself from the admin list.',
+        iconName: 'alert-circle',
+        iconColor: '#FF9800',
+      });
       return;
     }
-    Alert.alert(
-      'Remove admin',
-      `Remove admin access for ${admin.email}? Their regular account will remain.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await adminService.removeAdmin(admin.id);
-            if (result.success) {
-              await load();
-            } else {
-              Alert.alert('Error', result.error || 'Failed to remove admin');
-            }
-          },
-        },
-      ]
-    );
+    setConfirmModal({
+      visible: true,
+      title: 'Remove admin',
+      message: `Remove admin access for ${admin.email}? Their regular account will remain.`,
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, visible: false });
+        const result = await adminService.removeAdmin(admin.id);
+        if (result.success) {
+          await load();
+        } else {
+          setInfoModal({
+            visible: true,
+            title: 'Error',
+            message: result.error || 'Failed to remove admin',
+            iconName: 'alert-circle',
+            iconColor: '#F44336',
+          });
+        }
+      },
+      iconName: 'trash',
+      iconColor: '#F44336',
+    });
   };
 
   const handleDemoteSuper = (admin: AdminRow) => {
     if (!admin.is_super_admin) return;
     if (currentUserId && admin.user_id === currentUserId) {
-      Alert.alert('Not allowed', 'You cannot remove your own super admin privileges.');
+      setInfoModal({
+        visible: true,
+        title: 'Not allowed',
+        message: 'You cannot remove your own super admin privileges.',
+        iconName: 'alert-circle',
+        iconColor: '#FF9800',
+      });
       return;
     }
-    Alert.alert(
-      'Demote super admin',
-      `Remove super admin privileges from ${admin.email}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Demote',
-          onPress: async () => {
-            const result = await adminService.setSuperAdmin(admin.id, false);
-            if (result.success) {
-              await load();
-            } else {
-              Alert.alert('Error', result.error || 'Failed to update super admin status');
-            }
-          },
-        },
-      ]
-    );
+    setConfirmModal({
+      visible: true,
+      title: 'Demote super admin',
+      message: `Remove super admin privileges from ${admin.email}?`,
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, visible: false });
+        const result = await adminService.setSuperAdmin(admin.id, false);
+        if (result.success) {
+          await load();
+        } else {
+          setInfoModal({
+            visible: true,
+            title: 'Error',
+            message: result.error || 'Failed to update super admin status',
+            iconName: 'alert-circle',
+            iconColor: '#F44336',
+          });
+        }
+      },
+      iconName: 'arrow-down-circle',
+      iconColor: '#FF9800',
+    });
   };
 
   if (!isSuperAdmin && !loading) {
@@ -264,6 +329,29 @@ export default function ManageAdminsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        visible={confirmModal.visible}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="Confirm"
+        cancelText="Cancel"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+        iconName={confirmModal.iconName}
+        iconColor={confirmModal.iconColor}
+      />
+
+      {/* Info Modal */}
+      <InfoModal
+        visible={infoModal.visible}
+        title={infoModal.title}
+        message={infoModal.message}
+        iconName={infoModal.iconName}
+        iconColor={infoModal.iconColor}
+        onClose={() => setInfoModal({ visible: false, title: '', message: '' })}
+      />
     </SafeAreaView>
   );
 }

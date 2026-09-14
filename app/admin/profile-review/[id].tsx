@@ -3,7 +3,6 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   ScrollView,
@@ -15,6 +14,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import SuccessModal from "../../../components/SuccessModal";
+import ConfirmationModal from "../../../components/ConfirmationModal";
+import InfoModal from "../../../components/InfoModal";
 import { adminService } from "../../../lib/adminService";
 import { Profile, profileService } from "../../../lib/profileService";
 import { calculateAge } from "../../../lib/utils";
@@ -32,6 +33,21 @@ export default function ProfileReviewPage() {
     title: "",
     message: "",
   });
+  
+  // Modal states
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [infoModal, setInfoModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onClose?: () => void;
+    iconName?: keyof typeof Ionicons.glyphMap;
+    iconColor?: string;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   const loadProfile = useCallback(async () => {
     if (!id) {
@@ -46,14 +62,24 @@ export default function ProfileReviewPage() {
       if (foundProfile) {
         setProfile(foundProfile);
       } else {
-        Alert.alert("Error", "Profile not found", [
-          { text: "OK", onPress: () => router.back() },
-        ]);
+        setInfoModal({
+          visible: true,
+          title: 'Error',
+          message: 'Profile not found',
+          onClose: () => router.back(),
+          iconName: 'alert-circle',
+          iconColor: '#F44336',
+        });
       }
     } else {
-      Alert.alert("Error", result.error || "Failed to load profile", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: result.error || 'Failed to load profile',
+        onClose: () => router.back(),
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
     }
     setLoading(false);
   }, [id]);
@@ -66,37 +92,35 @@ export default function ProfileReviewPage() {
 
   const handleApprove = async (profileId: string) => {
     if (!profile) return;
+    setShowApproveConfirm(true);
+  };
 
-    const isUpdate = profile.is_update;
-    Alert.alert(
-      "Approve Profile",
-      isUpdate
-        ? "Are you sure you want to approve this profile update? The user will be able to use the app again."
-        : "Are you sure you want to approve this profile? It will be visible to other users.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Approve",
-          onPress: async () => {
-            setProcessingApprove(true);
-            const result = await adminService.approveProfile(profileId);
-            setProcessingApprove(false);
+  const confirmApprove = async () => {
+    if (!profile) return;
+    
+    setShowApproveConfirm(false);
+    setProcessingApprove(true);
+    const result = await adminService.approveProfile(profile.id);
+    setProcessingApprove(false);
 
-            if (result.success) {
-              setSuccessMessage({
-                title: "Profile Approved!",
-                message: isUpdate
-                  ? "The profile update has been approved successfully. The user can now use the app again."
-                  : "The profile has been approved successfully and is now visible to other users.",
-              });
-              setShowSuccessModal(true);
-            } else {
-              Alert.alert("Error", result.error || "Failed to approve profile");
-            }
-          },
-        },
-      ],
-    );
+    if (result.success) {
+      const isUpdate = profile.is_update;
+      setSuccessMessage({
+        title: "Profile Approved!",
+        message: isUpdate
+          ? "The profile update has been approved successfully. The user can now use the app again."
+          : "The profile has been approved successfully and is now visible to other users.",
+      });
+      setShowSuccessModal(true);
+    } else {
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: result.error || 'Failed to approve profile',
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
+    }
   };
 
   const handleReject = () => {
@@ -109,7 +133,13 @@ export default function ProfileReviewPage() {
     if (!profile) return;
 
     if (!rejectionReason.trim()) {
-      Alert.alert("Error", "Please provide a reason for rejection");
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: 'Please provide a reason for rejection',
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
       return;
     }
 
@@ -131,7 +161,13 @@ export default function ProfileReviewPage() {
       setShowSuccessModal(true);
       setShowRejectModal(false);
     } else {
-      Alert.alert("Error", result.error || "Failed to reject profile");
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: result.error || 'Failed to reject profile',
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
     }
   };
 
@@ -759,6 +795,41 @@ export default function ProfileReviewPage() {
         title={successMessage.title}
         message={successMessage.message}
         onClose={handleSuccessClose}
+      />
+
+      {/* Approve Confirmation Modal */}
+      {profile && (
+        <ConfirmationModal
+          visible={showApproveConfirm}
+          title="Approve Profile"
+          message={
+            profile.is_update
+              ? "Are you sure you want to approve this profile update? The user will be able to use the app again."
+              : "Are you sure you want to approve this profile? It will be visible to other users."
+          }
+          confirmText="Approve"
+          cancelText="Cancel"
+          onConfirm={confirmApprove}
+          onCancel={() => setShowApproveConfirm(false)}
+          loading={processingApprove}
+          iconName="checkmark-circle"
+          iconColor="#4CAF50"
+        />
+      )}
+
+      {/* Info Modal */}
+      <InfoModal
+        visible={infoModal.visible}
+        title={infoModal.title}
+        message={infoModal.message}
+        iconName={infoModal.iconName}
+        iconColor={infoModal.iconColor}
+        onClose={() => {
+          if (infoModal.onClose) {
+            infoModal.onClose();
+          }
+          setInfoModal({ visible: false, title: '', message: '' });
+        }}
       />
     </SafeAreaView>
   );

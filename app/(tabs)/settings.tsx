@@ -199,7 +199,10 @@ export default function SettingsScreen() {
   };
 
   const handleInviteFriend = async () => {
-    const inviteLink = "https://www.zivugmishamayim.com/invite";
+    // Use different URLs for web vs mobile
+    const inviteLink = Platform.OS === "web" 
+      ? "https://zivugmishamayim.com"
+      : "https://zivugmishamayim.com/invite";
     const message =
       "Join me on Zivug Mishamayim — a Jewish matchmaking app to find your perfect match. Download it here:";
 
@@ -232,7 +235,10 @@ export default function SettingsScreen() {
   };
 
   const handleCopyInviteLink = async () => {
-    const inviteLink = "https://www.zivugmishamayim.com/invite";
+    // Use different URLs for web vs mobile
+    const inviteLink = Platform.OS === "web"
+      ? "https://zivugmishamayim.com"
+      : "https://zivugmishamayim.com/invite";
     try {
       await Clipboard.setStringAsync(inviteLink);
       setInfoModal({
@@ -537,7 +543,7 @@ export default function SettingsScreen() {
       {/* Invite Friend Web Share Modal */}
       <WebShareModal
         visible={showInviteModal}
-        url="https://www.zivugmishamayim.com/invite"
+        url="https://zivugmishamayim.com"
         onClose={() => setShowInviteModal(false)}
         onCopy={handleCopyInviteLink}
       />

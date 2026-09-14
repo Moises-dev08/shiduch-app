@@ -3,7 +3,6 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,9 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ConfirmationModal from '../../components/ConfirmationModal';
+import InfoModal from '../../components/InfoModal';
+import PromptModal from '../../components/PromptModal';
 import { ProfileReport, reportService } from '../../lib/reportService';
 
 export default function AdminReportsScreen() {
@@ -19,6 +21,43 @@ export default function AdminReportsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'reviewed'>('pending');
+  
+  // Modal states
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+  
+  const [promptModal, setPromptModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onSubmit: (text: string) => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    onSubmit: () => {},
+  });
+  
+  const [infoModal, setInfoModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    iconName?: keyof typeof Ionicons.glyphMap;
+    iconColor?: string;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   const loadReports = async () => {
     setLoading(true);
@@ -26,7 +65,13 @@ export default function AdminReportsScreen() {
     if (result.success && result.reports) {
       setReports(result.reports);
     } else {
-      Alert.alert('Error', result.error || 'Failed to load reports');
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: result.error || 'Failed to load reports',
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
     }
     setLoading(false);
   };
@@ -48,48 +93,69 @@ export default function AdminReportsScreen() {
     status: 'reviewed' | 'dismissed' | 'actioned',
     statusLabel: string
   ) => {
-    Alert.alert(
-      `Mark as ${statusLabel}`,
-      'Would you like to add any notes?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
+    setConfirmModal({
+      visible: true,
+      title: `Mark as ${statusLabel}`,
+      message: 'Would you like to update without notes or add notes?',
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, visible: false });
+        // Update without notes
+        const result = await reportService.updateReportStatus(reportId, status);
+        if (result.success) {
+          setInfoModal({
+            visible: true,
+            title: 'Success',
+            message: `Report marked as ${statusLabel.toLowerCase()}`,
+            iconName: 'checkmark-circle',
+            iconColor: '#4CAF50',
+          });
+          loadReports();
+        } else {
+          setInfoModal({
+            visible: true,
+            title: 'Error',
+            message: result.error || 'Failed to update report',
+            iconName: 'alert-circle',
+            iconColor: '#F44336',
+          });
+        }
+      },
+    });
+    
+    // Also show option to add notes
+    setTimeout(() => {
+      setConfirmModal((prev) => ({
+        ...prev,
+        visible: false,
+      }));
+      setPromptModal({
+        visible: true,
+        title: 'Admin Notes',
+        message: 'Enter your notes (optional):',
+        onSubmit: async (notes) => {
+          setPromptModal({ ...promptModal, visible: false });
+          const result = await reportService.updateReportStatus(reportId, status, notes || undefined);
+          if (result.success) {
+            setInfoModal({
+              visible: true,
+              title: 'Success',
+              message: `Report marked as ${statusLabel.toLowerCase()}`,
+              iconName: 'checkmark-circle',
+              iconColor: '#4CAF50',
+            });
+            loadReports();
+          } else {
+            setInfoModal({
+              visible: true,
+              title: 'Error',
+              message: result.error || 'Failed to update report',
+              iconName: 'alert-circle',
+              iconColor: '#F44336',
+            });
+          }
         },
-        {
-          text: 'No Notes',
-          onPress: async () => {
-            const result = await reportService.updateReportStatus(reportId, status);
-            if (result.success) {
-              Alert.alert('Success', `Report marked as ${statusLabel.toLowerCase()}`);
-              loadReports();
-            } else {
-              Alert.alert('Error', result.error || 'Failed to update report');
-            }
-          },
-        },
-        {
-          text: 'Add Notes',
-          onPress: () => {
-            // For simplicity, we'll just update without notes for now
-            // In a full implementation, you'd show a text input modal
-            Alert.prompt(
-              'Admin Notes',
-              'Enter your notes:',
-              async (notes) => {
-                const result = await reportService.updateReportStatus(reportId, status, notes);
-                if (result.success) {
-                  Alert.alert('Success', `Report marked as ${statusLabel.toLowerCase()}`);
-                  loadReports();
-                } else {
-                  Alert.alert('Error', result.error || 'Failed to update report');
-                }
-              }
-            );
-          },
-        },
-      ]
-    );
+      });
+    }, 100);
   };
 
   const handleViewProfile = (profileId: string) => {
@@ -272,6 +338,41 @@ export default function AdminReportsScreen() {
           ))
         )}
       </ScrollView>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        visible={confirmModal.visible}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="No Notes"
+        cancelText="Add Notes"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+        iconName="document-text"
+        iconColor="#1293DA"
+      />
+
+      {/* Prompt Modal */}
+      <PromptModal
+        visible={promptModal.visible}
+        title={promptModal.title}
+        message={promptModal.message}
+        placeholder="Enter your notes here..."
+        onSubmit={promptModal.onSubmit}
+        onCancel={() => setPromptModal({ ...promptModal, visible: false })}
+        iconName="create"
+        iconColor="#1293DA"
+      />
+
+      {/* Info Modal */}
+      <InfoModal
+        visible={infoModal.visible}
+        title={infoModal.title}
+        message={infoModal.message}
+        iconName={infoModal.iconName}
+        iconColor={infoModal.iconColor}
+        onClose={() => setInfoModal({ visible: false, title: '', message: '' })}
+      />
     </SafeAreaView>
   );
 }
