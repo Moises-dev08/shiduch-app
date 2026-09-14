@@ -120,6 +120,8 @@ export default function ConnectScreen() {
   >("awaiting");
   const [lastViewedMatchesForOthersAt, setLastViewedMatchesForOthersAt] =
     useState<Date | null>(null);
+  // Desktop tab state (intros, suggestions, info)
+  const [activeTab, setActiveTab] = useState<"intros" | "suggestions" | "info">("intros");
 
   // ── React Query ────────────────────────────────────────────────────────────
   const introQuery = useQuery({
@@ -752,8 +754,8 @@ export default function ConnectScreen() {
       {/* Header - Desktop version has tabs */}
       {isDesktop ? (
         <ConnectHeader
-          activeTab="intros"
-          onTabChange={() => {}}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
           counts={headerCounts}
           isDesktop={true}
         />
@@ -1101,56 +1103,60 @@ export default function ConnectScreen() {
               )}
 
             {/* Received Info Requests (need response) */}
-            {receivedInfoRequests
-              .filter((r) => r.status === "pending")
-              .map((request) => (
-                <InfoRequestCard
-                  key={request.id}
-                  request={request}
-                  onUpdate={invalidateInfoRequests}
-                />
-              ))}
+            {(!isDesktop || activeTab === "info") &&
+              receivedInfoRequests
+                .filter((r) => r.status === "pending")
+                .map((request) => (
+                  <InfoRequestCard
+                    key={request.id}
+                    request={request}
+                    onUpdate={invalidateInfoRequests}
+                  />
+                ))}
 
             {/* Received Intro Requests (need response OR need continuation choice) */}
-            {receivedIntroRequests
-              .filter(
-                (r) =>
-                  r.requested_status === "pending" ||
-                  (r.requested_status === "accepted" &&
-                    !r.requested_continuation_choice),
-              )
-              .map((request) => (
-                <IntroRequestCard
-                  key={request.id}
-                  request={request}
-                  isRequester={false}
-                  onUpdate={invalidateIntroRequests}
-                  onAccepted={handleCardAccepted}
-                  isActionNeeded={true}
-                />
-              ))}
+            {(!isDesktop || activeTab === "intros") &&
+              receivedIntroRequests
+                .filter(
+                  (r) =>
+                    r.requested_status === "pending" ||
+                    (r.requested_status === "accepted" &&
+                      !r.requested_continuation_choice),
+                )
+                .map((request) => (
+                  <IntroRequestCard
+                    key={request.id}
+                    request={request}
+                    isRequester={false}
+                    onUpdate={invalidateIntroRequests}
+                    onAccepted={handleCardAccepted}
+                    isActionNeeded={true}
+                  />
+                ))}
 
             {/* Sent Intro Requests (need to choose continuation after both accepted) */}
-            {sentIntroRequests
-              .filter(
-                (r) =>
-                  r.matchmaker_status === "accepted" &&
-                  r.requested_status === "accepted" &&
-                  !r.requester_continuation_choice,
-              )
-              .map((request) => (
-                <IntroRequestCard
-                  key={request.id}
-                  request={request}
-                  isRequester={true}
-                  onUpdate={invalidateIntroRequests}
-                  onAccepted={handleCardAccepted}
-                  isActionNeeded={true}
-                />
-              ))}
+            {(!isDesktop || activeTab === "intros") &&
+              sentIntroRequests
+                .filter(
+                  (r) =>
+                    r.matchmaker_status === "accepted" &&
+                    r.requested_status === "accepted" &&
+                    !r.requester_continuation_choice,
+                )
+                .map((request) => (
+                  <IntroRequestCard
+                    key={request.id}
+                    request={request}
+                    isRequester={true}
+                    onUpdate={invalidateIntroRequests}
+                    onAccepted={handleCardAccepted}
+                    isActionNeeded={true}
+                  />
+                ))}
 
             {/* Received Suggestions (need response OR need continuation choice) */}
-            {currentUserProfile &&
+            {(!isDesktop || activeTab === "suggestions") &&
+              currentUserProfile &&
               receivedSuggestions
                 .filter((s) => {
                   const isProfileOne =
@@ -1198,38 +1204,41 @@ export default function ConnectScreen() {
                 </View>
               )}
 
-            {sentIntroRequests
-              .filter(
-                (r) =>
-                  r.matchmaker_status === "accepted" &&
-                  r.requested_status === "accepted",
-              )
-              .map((request) => (
-                <IntroRequestCard
-                  key={request.id}
-                  request={request}
-                  isRequester={true}
-                  onUpdate={invalidateIntroRequests}
-                />
-              ))}
+            {(!isDesktop || activeTab === "intros") &&
+              sentIntroRequests
+                .filter(
+                  (r) =>
+                    r.matchmaker_status === "accepted" &&
+                    r.requested_status === "accepted",
+                )
+                .map((request) => (
+                  <IntroRequestCard
+                    key={request.id}
+                    request={request}
+                    isRequester={true}
+                    onUpdate={invalidateIntroRequests}
+                  />
+                ))}
 
-            {receivedIntroRequests
-              .filter(
-                (r) =>
-                  r.matchmaker_status === "accepted" &&
-                  r.requested_status === "accepted",
-              )
-              .map((request) => (
-                <IntroRequestCard
-                  key={request.id}
-                  request={request}
-                  isRequester={false}
-                  onUpdate={invalidateIntroRequests}
-                />
-              ))}
+            {(!isDesktop || activeTab === "intros") &&
+              receivedIntroRequests
+                .filter(
+                  (r) =>
+                    r.matchmaker_status === "accepted" &&
+                    r.requested_status === "accepted",
+                )
+                .map((request) => (
+                  <IntroRequestCard
+                    key={request.id}
+                    request={request}
+                    isRequester={false}
+                    onUpdate={invalidateIntroRequests}
+                  />
+                ))}
 
             {/* Show matched suggestions — both sides must have accepted */}
-            {currentUserProfile &&
+            {(!isDesktop || activeTab === "suggestions") &&
+              currentUserProfile &&
               receivedSuggestions
                 .filter((s) => {
                   const isP1 = s.profile_one_id === currentUserProfile.id;
@@ -1258,37 +1267,40 @@ export default function ConnectScreen() {
         {/* Show profiles you liked in You Liked section */}
         {activeCategory === "for_you" && activeSection === "liked" && (
           <>
-            {sentIntroRequests
-              .filter(
-                (r) =>
-                  r.status !== "completed" &&
-                  r.matchmaker_status !== "rejected" &&
-                  !(
-                    r.matchmaker_status === "accepted" &&
-                    r.requested_status === "rejected"
-                  ),
-              )
-              .map((request) => (
-                <IntroRequestCard
-                  key={request.id}
-                  request={request}
-                  isRequester={true}
-                  onUpdate={invalidateIntroRequests}
-                />
-              ))}
+            {(!isDesktop || activeTab === "intros") &&
+              sentIntroRequests
+                .filter(
+                  (r) =>
+                    r.status !== "completed" &&
+                    r.matchmaker_status !== "rejected" &&
+                    !(
+                      r.matchmaker_status === "accepted" &&
+                      r.requested_status === "rejected"
+                    ),
+                )
+                .map((request) => (
+                  <IntroRequestCard
+                    key={request.id}
+                    request={request}
+                    isRequester={true}
+                    onUpdate={invalidateIntroRequests}
+                  />
+                ))}
 
-            {receivedIntroRequests
-              .filter((r) => r.requested_status === "accepted")
-              .map((request) => (
-                <IntroRequestCard
-                  key={request.id}
-                  request={request}
-                  isRequester={false}
-                  onUpdate={invalidateIntroRequests}
-                />
-              ))}
+            {(!isDesktop || activeTab === "intros") &&
+              receivedIntroRequests
+                .filter((r) => r.requested_status === "accepted")
+                .map((request) => (
+                  <IntroRequestCard
+                    key={request.id}
+                    request={request}
+                    isRequester={false}
+                    onUpdate={invalidateIntroRequests}
+                  />
+                ))}
 
-            {currentUserProfile &&
+            {(!isDesktop || activeTab === "suggestions") &&
+              currentUserProfile &&
               receivedSuggestions
                 .filter((s) => {
                   const isProfileOne =
@@ -1320,35 +1332,38 @@ export default function ConnectScreen() {
         {/* Show rejected requests in Passed section */}
         {activeCategory === "for_you" && activeSection === "passed" && (
           <>
-            {sentIntroRequests
-              .filter(
-                (r) =>
-                  r.matchmaker_status === "rejected" ||
-                  (r.matchmaker_status === "accepted" &&
-                    r.requested_status === "rejected"),
-              )
-              .map((request) => (
-                <IntroRequestCard
-                  key={request.id}
-                  request={request}
-                  isRequester={true}
-                  onUpdate={invalidateIntroRequests}
-                />
-              ))}
+            {(!isDesktop || activeTab === "intros") &&
+              sentIntroRequests
+                .filter(
+                  (r) =>
+                    r.matchmaker_status === "rejected" ||
+                    (r.matchmaker_status === "accepted" &&
+                      r.requested_status === "rejected"),
+                )
+                .map((request) => (
+                  <IntroRequestCard
+                    key={request.id}
+                    request={request}
+                    isRequester={true}
+                    onUpdate={invalidateIntroRequests}
+                  />
+                ))}
 
-            {receivedIntroRequests
-              .filter((r) => r.requested_status === "rejected")
-              .map((request) => (
-                <IntroRequestCard
-                  key={request.id}
-                  request={request}
-                  isRequester={false}
-                  onUpdate={invalidateIntroRequests}
-                />
-              ))}
+            {(!isDesktop || activeTab === "intros") &&
+              receivedIntroRequests
+                .filter((r) => r.requested_status === "rejected")
+                .map((request) => (
+                  <IntroRequestCard
+                    key={request.id}
+                    request={request}
+                    isRequester={false}
+                    onUpdate={invalidateIntroRequests}
+                  />
+                ))}
 
             {/* Show rejected suggestions — check individual status as well for older records */}
-            {currentUserProfile &&
+            {(!isDesktop || activeTab === "suggestions") &&
+              currentUserProfile &&
               receivedSuggestions
                 .filter((s) => {
                   const isProfileOne =
@@ -1489,7 +1504,8 @@ export default function ConnectScreen() {
           activeForOthersSection === "awaiting" && (
             <>
               {/* Show intro requests for matchmakers */}
-              {matchmakerRequests.length > 0 &&
+              {(!isDesktop || activeTab === "intros") &&
+                matchmakerRequests.length > 0 &&
                 matchmakerRequests
                   .filter(
                     (r) =>
@@ -1506,7 +1522,8 @@ export default function ConnectScreen() {
                   ))}
 
               {/* Show suggestions (both singles and matchmakers) */}
-              {currentUserProfile &&
+              {(!isDesktop || activeTab === "suggestions") &&
+                currentUserProfile &&
                 madeSuggestions
                   .filter(
                     (s) =>
@@ -1555,7 +1572,8 @@ export default function ConnectScreen() {
           activeForOthersSection === "matched" && (
             <>
               {/* Show matched intro requests for matchmakers */}
-              {matchmakerRequests.length > 0 &&
+              {(!isDesktop || activeTab === "intros") &&
+                matchmakerRequests.length > 0 &&
                 matchmakerRequests
                   .filter(
                     (r) =>
@@ -1571,7 +1589,8 @@ export default function ConnectScreen() {
                   ))}
 
               {/* Show suggestions (both singles and matchmakers) */}
-              {currentUserProfile &&
+              {(!isDesktop || activeTab === "suggestions") &&
+                currentUserProfile &&
                 madeSuggestions
                   .filter(
                     (s) =>
@@ -1617,7 +1636,8 @@ export default function ConnectScreen() {
           activeForOthersSection === "not_matched" && (
             <>
               {/* Show rejected intro requests for matchmakers */}
-              {matchmakerRequests.length > 0 &&
+              {(!isDesktop || activeTab === "intros") &&
+                matchmakerRequests.length > 0 &&
                 matchmakerRequests
                   .filter(
                     (r) =>
@@ -1634,7 +1654,8 @@ export default function ConnectScreen() {
                   ))}
 
               {/* Show suggestions (both singles and matchmakers) */}
-              {currentUserProfile &&
+              {(!isDesktop || activeTab === "suggestions") &&
+                currentUserProfile &&
                 madeSuggestions
                   .filter((s) => s.status === "rejected")
                   .map((suggestion) => (

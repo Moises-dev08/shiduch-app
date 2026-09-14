@@ -4,7 +4,6 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   Modal,
   Platform,
@@ -16,9 +15,13 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as Clipboard from "expo-clipboard";
 import FeedbackModal from "../../components/FeedbackModal";
 import HowItWorksCarousel from "../../components/HowItWorksCarousel";
 import TermsModal from "../../components/TermsModal";
+import { WebShareModal } from "../../components/WebShareModal";
+import ConfirmationModal from "../../components/ConfirmationModal";
+import InfoModal from "../../components/InfoModal";
 import { useAuth } from "../../lib/AuthContext";
 import {
   engagementService,
@@ -31,6 +34,7 @@ export default function SettingsScreen() {
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [isProfileActive, setIsProfileActive] = useState(true);
   const [loadingProfileStatus, setLoadingProfileStatus] = useState(true);
@@ -44,6 +48,24 @@ export default function SettingsScreen() {
     useState<EngagementWithProfiles | null>(null);
   const [loadingEngagement, setLoadingEngagement] = useState(true);
   const { signOut } = useAuth();
+
+  // Modal states
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showUndoEngagementConfirm, setShowUndoEngagementConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showFinalDeleteConfirm, setShowFinalDeleteConfirm] = useState(false);
+  const [infoModal, setInfoModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    iconName?: keyof typeof Ionicons.glyphMap;
+    iconColor?: string;
+    onClose?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   // Fetch profile status and engagement when screen is focused
   useFocusEffect(
@@ -77,17 +99,13 @@ export default function SettingsScreen() {
   );
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          await signOut();
-          router.replace("/auth/login");
-        },
-      },
-    ]);
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = async () => {
+    setShowLogoutConfirm(false);
+    await signOut();
+    router.replace("/auth/login");
   };
 
   const handleReportProblem = async () => {
@@ -108,10 +126,13 @@ export default function SettingsScreen() {
     if (canOpen) {
       Linking.openURL(mailtoUrl);
     } else {
-      Alert.alert(
-        "No email app found",
-        "Please send your report directly to support@zivugmishamayim.com",
-      );
+      setInfoModal({
+        visible: true,
+        title: 'No email app found',
+        message: 'Please send your report directly to support@zivugmishamayim.com',
+        iconName: 'mail',
+        iconColor: '#FF9800',
+      });
     }
   };
 
@@ -133,17 +154,21 @@ export default function SettingsScreen() {
 
     if (result.success) {
       setIsProfileActive(false);
-      Alert.alert(
-        "Profile Frozen",
-        "Your profile has been frozen and will not be visible to other users.",
-        [{ text: "OK" }],
-      );
+      setInfoModal({
+        visible: true,
+        title: 'Profile Frozen',
+        message: 'Your profile has been frozen and will not be visible to other users.',
+        iconName: 'snow',
+        iconColor: '#2196F3',
+      });
     } else {
-      Alert.alert(
-        "Error",
-        result.error || "Failed to freeze profile. Please try again.",
-        [{ text: "OK" }],
-      );
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: result.error || 'Failed to freeze profile. Please try again.',
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
     }
   };
 
@@ -155,17 +180,21 @@ export default function SettingsScreen() {
 
     if (result.success) {
       setIsProfileActive(true);
-      Alert.alert(
-        "Profile Unfrozen",
-        "Your profile is now active and visible to other users.",
-        [{ text: "OK" }],
-      );
+      setInfoModal({
+        visible: true,
+        title: 'Profile Unfrozen',
+        message: 'Your profile is now active and visible to other users.',
+        iconName: 'sunny',
+        iconColor: '#4CAF50',
+      });
     } else {
-      Alert.alert(
-        "Error",
-        result.error || "Failed to unfreeze profile. Please try again.",
-        [{ text: "OK" }],
-      );
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: result.error || 'Failed to unfreeze profile. Please try again.',
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
     }
   };
 
@@ -174,6 +203,13 @@ export default function SettingsScreen() {
     const message =
       "Join me on Zivug Mishamayim — a Jewish matchmaking app to find your perfect match. Download it here:";
 
+    // Web platform: show share modal
+    if (Platform.OS === "web") {
+      setShowInviteModal(true);
+      return;
+    }
+
+    // Mobile platforms: use native Share API
     try {
       await Share.share(
         Platform.OS === "ios"
@@ -184,8 +220,37 @@ export default function SettingsScreen() {
     } catch (error: any) {
       if (error.message !== "User did not share") {
         console.error("Error sharing invite:", error);
-        Alert.alert("Error", "Unable to share invite link");
+        setInfoModal({
+          visible: true,
+          title: 'Error',
+          message: 'Unable to share invite link',
+          iconName: 'alert-circle',
+          iconColor: '#F44336',
+        });
       }
+    }
+  };
+
+  const handleCopyInviteLink = async () => {
+    const inviteLink = "https://www.zivugmishamayim.com/invite";
+    try {
+      await Clipboard.setStringAsync(inviteLink);
+      setInfoModal({
+        visible: true,
+        title: 'Success',
+        message: 'Invite link copied to clipboard!',
+        iconName: 'checkmark-circle',
+        iconColor: '#4CAF50',
+      });
+    } catch (error) {
+      console.error("Error copying invite link:", error);
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to copy link to clipboard.',
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
     }
   };
 
@@ -199,101 +264,85 @@ export default function SettingsScreen() {
 
   const handleUndoEngagement = () => {
     if (!myEngagement) return;
+    setShowUndoEngagementConfirm(true);
+  };
 
-    const partnerName =
-      myEngagement.user1_profile?.first_name ||
-      myEngagement.user2_profile?.first_name ||
-      "your partner";
-
-    Alert.alert(
-      "Undo Engagement",
-      `Are you sure you want to undo your engagement with ${partnerName}? This will remove your engagement from the public successful matches list.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Undo Engagement",
-          style: "destructive",
-          onPress: async () => {
-            const result = await engagementService.undoEngagement(
-              myEngagement.id,
-            );
-            if (result.success) {
-              setMyEngagement(null);
-              Alert.alert(
-                "Engagement Undone",
-                "Your engagement has been removed.",
-              );
-            } else {
-              Alert.alert("Error", result.error || "Failed to undo engagement");
-            }
-          },
-        },
-      ],
-    );
+  const confirmUndoEngagement = async () => {
+    if (!myEngagement) return;
+    
+    setShowUndoEngagementConfirm(false);
+    const result = await engagementService.undoEngagement(myEngagement.id);
+    
+    if (result.success) {
+      setMyEngagement(null);
+      setInfoModal({
+        visible: true,
+        title: 'Engagement Undone',
+        message: 'Your engagement has been removed.',
+        iconName: 'checkmark-circle',
+        iconColor: '#4CAF50',
+      });
+    } else {
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: result.error || 'Failed to undo engagement',
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
+    }
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      "Delete Account",
-      "Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be permanently removed.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            Alert.alert(
-              "Final Confirmation",
-              "This is your last chance. Are you absolutely sure you want to delete your account?",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Delete Forever",
-                  style: "destructive",
-                  onPress: async () => {
-                    setDeletingAccount(true);
+    setShowDeleteConfirm(true);
+  };
 
-                    try {
-                      const result = await profileService.deleteAccount();
+  const handleFinalDeleteConfirm = () => {
+    setShowDeleteConfirm(false);
+    setShowFinalDeleteConfirm(true);
+  };
 
-                      if (result.success) {
-                        Alert.alert(
-                          "Account Deleted",
-                          "Your account has been permanently deleted.",
-                          [
-                            {
-                              text: "OK",
-                              onPress: async () => {
-                                await signOut();
-                                router.replace("/auth/login");
-                              },
-                            },
-                          ],
-                        );
-                      } else {
-                        setDeletingAccount(false);
-                        Alert.alert(
-                          "Error",
-                          result.error ||
-                            "Failed to delete account. Please try again or contact support.",
-                        );
-                      }
-                    } catch (error) {
-                      setDeletingAccount(false);
-                      console.error("Error deleting account:", error);
-                      Alert.alert(
-                        "Error",
-                        "An unexpected error occurred while deleting your account.",
-                      );
-                    }
-                  },
-                },
-              ],
-            );
+  const confirmDeleteAccount = async () => {
+    setShowFinalDeleteConfirm(false);
+    setDeletingAccount(true);
+
+    try {
+      const result = await profileService.deleteAccount();
+
+      if (result.success) {
+        setDeletingAccount(false);
+        setInfoModal({
+          visible: true,
+          title: 'Account Deleted',
+          message: 'Your account has been permanently deleted.',
+          iconName: 'checkmark-circle',
+          iconColor: '#4CAF50',
+          onClose: async () => {
+            await signOut();
+            router.replace("/auth/login");
           },
-        },
-      ],
-    );
+        });
+      } else {
+        setDeletingAccount(false);
+        setInfoModal({
+          visible: true,
+          title: 'Error',
+          message: result.error || 'Failed to delete account. Please try again or contact support.',
+          iconName: 'alert-circle',
+          iconColor: '#F44336',
+        });
+      }
+    } catch (error) {
+      setDeletingAccount(false);
+      console.error("Error deleting account:", error);
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: 'An unexpected error occurred while deleting your account.',
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
+    }
   };
 
   return (
@@ -485,6 +534,14 @@ export default function SettingsScreen() {
         onClose={() => setShowFeedbackModal(false)}
       />
 
+      {/* Invite Friend Web Share Modal */}
+      <WebShareModal
+        visible={showInviteModal}
+        url="https://www.zivugmishamayim.com/invite"
+        onClose={() => setShowInviteModal(false)}
+        onCopy={handleCopyInviteLink}
+      />
+
       {/* Freeze Profile Confirmation Modal */}
       <Modal
         visible={showFreezeModal}
@@ -546,6 +603,79 @@ export default function SettingsScreen() {
           </View>
         </Modal>
       )}
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmationModal
+        visible={showLogoutConfirm}
+        title="Logout"
+        message="Are you sure you want to logout?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+        iconName="log-out"
+        iconColor="#FF9800"
+      />
+
+      {/* Undo Engagement Confirmation Modal */}
+      {myEngagement && (
+        <ConfirmationModal
+          visible={showUndoEngagementConfirm}
+          title="Undo Engagement"
+          message={`Are you sure you want to undo your engagement with ${
+            myEngagement.user1_profile?.first_name ||
+            myEngagement.user2_profile?.first_name ||
+            "your partner"
+          }? This will remove your engagement from the public successful matches list.`}
+          confirmText="Undo Engagement"
+          cancelText="Cancel"
+          onConfirm={confirmUndoEngagement}
+          onCancel={() => setShowUndoEngagementConfirm(false)}
+          iconName="heart-dislike"
+          iconColor="#9b59b6"
+        />
+      )}
+
+      {/* Delete Account First Confirmation Modal */}
+      <ConfirmationModal
+        visible={showDeleteConfirm}
+        title="Delete Account"
+        message="Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be permanently removed."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleFinalDeleteConfirm}
+        onCancel={() => setShowDeleteConfirm(false)}
+        iconName="trash"
+        iconColor="#F44336"
+      />
+
+      {/* Delete Account Final Confirmation Modal */}
+      <ConfirmationModal
+        visible={showFinalDeleteConfirm}
+        title="Final Confirmation"
+        message="This is your last chance. Are you absolutely sure you want to delete your account?"
+        confirmText="Delete Forever"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteAccount}
+        onCancel={() => setShowFinalDeleteConfirm(false)}
+        iconName="warning"
+        iconColor="#F44336"
+      />
+
+      {/* Info Modal */}
+      <InfoModal
+        visible={infoModal.visible}
+        title={infoModal.title}
+        message={infoModal.message}
+        iconName={infoModal.iconName}
+        iconColor={infoModal.iconColor}
+        onClose={() => {
+          if (infoModal.onClose) {
+            infoModal.onClose();
+          }
+          setInfoModal({ visible: false, title: '', message: '' });
+        }}
+      />
     </SafeAreaView>
   );
 }

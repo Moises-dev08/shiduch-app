@@ -4,7 +4,6 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   StyleSheet,
   Text,
@@ -16,6 +15,7 @@ import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ProfileStatusModal from '../../components/ProfileStatusModal';
 import SuccessModal from '../../components/SuccessModal';
+import ConfirmationModal from '../../components/ConfirmationModal';
 import { WebShareModal } from '../../components/WebShareModal';
 import MatchmakerProfileForm from '../../components/profile/MatchmakerProfileForm';
 import SinglesProfileForm from '../../components/profile/SinglesProfileForm';
@@ -67,6 +67,7 @@ export default function ProfileScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showSwitchConfirmModal, setShowSwitchConfirmModal] = useState(false);
   
   const {
     isSharing,
@@ -163,42 +164,42 @@ export default function ProfileScreen() {
   };
 
   const handleSwitchRole = () => {
-    const targetRole = selectedRole === 'single' ? 'matchmaker' : 'single';
-    const targetLabel = targetRole === 'single' ? 'Single' : 'Matchmaker';
+    setShowSwitchConfirmModal(true);
+  };
 
-    Alert.alert(
-      `Switch to ${targetLabel}?`,
-      `Your current role-specific data will be saved and restored if you switch back.\n\nYour profile will need admin approval again before you can use the app. You will need to fill in any required fields for your new role before submitting.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Switch',
-          style: 'default',
-          onPress: async () => {
-            setIsSwitchingRole(true);
-            try {
-              const result = await profileService.switchRole(targetRole);
-              if (result.success && result.profile) {
-                setExistingProfile(result.profile);
-                setSelectedRole(targetRole);
-                setProfileStatus('pending');
-                setHasSubmitted(true);
-                setRoleSwitched(true);
-                setFormKey((k) => k + 1);
-                queryClient.invalidateQueries({ queryKey: ['my_profile'] });
-                setShowStatusModal(true);
-              } else {
-                Alert.alert('Error', result.error || 'Failed to switch role');
-              }
-            } catch {
-              Alert.alert('Error', 'An unexpected error occurred');
-            } finally {
-              setIsSwitchingRole(false);
-            }
-          },
-        },
-      ]
-    );
+  const handleConfirmSwitchRole = async () => {
+    const targetRole = selectedRole === 'single' ? 'matchmaker' : 'single';
+    setIsSwitchingRole(true);
+    try {
+      const result = await profileService.switchRole(targetRole);
+      if (result.success && result.profile) {
+        setExistingProfile(result.profile);
+        setSelectedRole(targetRole);
+        setProfileStatus('pending');
+        setHasSubmitted(true);
+        setRoleSwitched(true);
+        setFormKey((k) => k + 1);
+        queryClient.invalidateQueries({ queryKey: ['my_profile'] });
+        setShowSwitchConfirmModal(false);
+        setShowStatusModal(true);
+      } else {
+        setShowSwitchConfirmModal(false);
+        setSuccessMessage({
+          title: 'Error',
+          message: result.error || 'Failed to switch role',
+        });
+        setShowSuccessModal(true);
+      }
+    } catch {
+      setShowSwitchConfirmModal(false);
+      setSuccessMessage({
+        title: 'Error',
+        message: 'An unexpected error occurred',
+      });
+      setShowSuccessModal(true);
+    } finally {
+      setIsSwitchingRole(false);
+    }
   };
 
   const transformProfileToFormData = (profile: Profile): any => {
@@ -311,11 +312,19 @@ export default function ProfileScreen() {
           await reloadProfile();
         }
       } else {
-        Alert.alert('Error', result.error || 'Failed to save profile');
+        setSuccessMessage({
+          title: 'Error',
+          message: result.error || 'Failed to save profile',
+        });
+        setShowSuccessModal(true);
       }
     } catch (error) {
       console.error('Error saving profile:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
+      setSuccessMessage({
+        title: 'Error',
+        message: 'An unexpected error occurred',
+      });
+      setShowSuccessModal(true);
     } finally {
       setLoading(false);
     }
@@ -336,14 +345,22 @@ export default function ProfileScreen() {
   const handleShareProfile = async () => {
     try {
       if (!existingProfile || profileStatus !== 'approved') {
-        Alert.alert('Cannot Share', 'Please complete and get your profile approved before sharing.');
+        setSuccessMessage({
+          title: 'Cannot share',
+          message: 'Please complete and get your profile approved before sharing.',
+        });
+        setShowSuccessModal(true);
         return;
       }
 
       await shareProfile(existingProfile);
     } catch (error) {
       console.error('Error sharing profile:', error);
-      Alert.alert('Error', 'Unable to share profile');
+      setSuccessMessage({
+        title: 'Error',
+        message: 'Unable to share profile',
+      });
+      setShowSuccessModal(true);
     }
   };
 
@@ -356,7 +373,7 @@ export default function ProfileScreen() {
       <ProfilePageShell
         profileStatus={profileStatus}
         rejectionReason={rejectionReason}
-        onShare={shareProfile}
+        onShare={handleShareProfile}
         isSharing={isSharing}
         showStatusBanner={hasSubmitted}
       >
@@ -604,6 +621,20 @@ export default function ProfileScreen() {
             setShowSuccessModal(true);
           }
         }}
+      />
+
+      {/* Switch Role Confirmation Modal */}
+      <ConfirmationModal
+        visible={showSwitchConfirmModal}
+        title={`Switch to ${selectedRole === 'single' ? 'Matchmaker' : 'Single'}?`}
+        message={`Your current role-specific data will be saved and restored if you switch back.\n\nYour profile will need admin approval again before you can use the app. You will need to fill in any required fields for your new role before submitting.`}
+        confirmText="Switch"
+        cancelText="Cancel"
+        onConfirm={handleConfirmSwitchRole}
+        onCancel={() => setShowSwitchConfirmModal(false)}
+        loading={isSwitchingRole}
+        iconName="swap-horizontal"
+        iconColor="#1293DA"
       />
     </SafeAreaView>
   );
