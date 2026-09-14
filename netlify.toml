@@ -1,0 +1,22 @@
+[build]
+  # Command to build your Expo web app
+  command = "npx expo export --platform web"
+  # Directory where the built files are
+  publish = "dist"
+
+# Redirect all routes to index.html for client-side routing (important for Expo Router)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Keep the profile share landing page accessible at /profile/* URLs
+[[redirects]]
+  from = "/profile/:id"
+  to = "/web/share-profile-landing.html"
+  status = 200
+  force = true
+
+# Environment variables (optional - add if needed)
+# [build.environment]
+#   NODE_VERSION = "18"
