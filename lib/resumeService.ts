@@ -1,8 +1,9 @@
-import { decode } from 'base64-arraybuffer';
-import { readAsStringAsync, getInfoAsync } from 'expo-file-system/legacy';
+import { getInfoAsync } from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 import { supabase } from './supabase';
+import { uriToBinary } from './uriToBinary';
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
@@ -32,18 +33,21 @@ class ResumeService {
    */
   async pickDocument(): Promise<{ success: boolean; uri?: string; name?: string; type?: string; error?: string }> {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        return {
-          success: false,
-          error: 'Photo library access is needed to attach a resume image.',
-        };
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          return {
+            success: false,
+            error: 'Photo library access is needed to attach a resume image.',
+          };
+        }
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 0.92,
+        base64: Platform.OS === 'web',
       });
 
       if (result.canceled) {
@@ -56,9 +60,9 @@ class ResumeService {
       }
 
       let sizeBytes = asset.fileSize;
-      if (sizeBytes == null) {
+      if (sizeBytes == null && Platform.OS !== 'web') {
         try {
-          const info = await getInfoAsync(asset.uri, { size: true });
+          const info = await getInfoAsync(asset.uri);
           if (info.exists && typeof info.size === 'number') {
             sizeBytes = info.size;
           }
@@ -72,10 +76,14 @@ class ResumeService {
       }
 
       const name = deriveResumeFileName(asset);
+      const uri =
+        Platform.OS === 'web' && asset.base64
+          ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
+          : asset.uri;
 
       return {
         success: true,
-        uri: asset.uri,
+        uri,
         name,
         type: asset.mimeType ?? undefined,
       };
@@ -96,25 +104,18 @@ class ResumeService {
         return { success: false, error: 'Not authenticated' };
       }
 
-      // Read file as base64
-      const base64 = await readAsStringAsync(fileUri, {
-        encoding: 'base64',
-      });
-
-      // Generate unique file path
-      const fileExt = fileName.split('.').pop();
+      const { arrayBuffer, contentType, ext } = await uriToBinary(fileUri);
+      const fileExt = fileName.split('.').pop() || ext;
       const filePath = `${user.id}/resume.${fileExt}`;
 
-      // Delete existing resume if any
       await this.deleteResume();
 
-      // Upload to storage
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from(this.BUCKET_NAME)
-        .upload(filePath, decode(base64), {
+        .upload(filePath, arrayBuffer, {
           contentType: fileName.toLowerCase().endsWith('.pdf')
             ? 'application/pdf'
-            : 'image/*',
+            : contentType || 'image/jpeg',
           upsert: true,
         });
 

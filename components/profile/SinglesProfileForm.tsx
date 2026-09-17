@@ -1,14 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
-import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +13,13 @@ import {
   View,
 } from "react-native";
 import { resumeService } from "../../lib/resumeService";
+import DateOfBirthPicker, {
+  formatLocalDate,
+  parseLocalDate,
+} from "../DateOfBirthPicker";
+import ConfirmationModal from "../ConfirmationModal";
+import InfoModal from "../InfoModal";
+import ProfilePhotoGrid from "./ProfilePhotoGrid";
 
 interface SinglesProfileFormProps {
   initialData?: any;
@@ -435,9 +438,8 @@ export default function SinglesProfileForm({
   };
 
   const [dob, setDob] = useState(
-    initialData?.dob ? new Date(initialData.dob) : getMaxDate(),
+    initialData?.dob ? parseLocalDate(initialData.dob) : getMaxDate(),
   );
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [dobError, setDobError] = useState<string>("");
 
   // Validate age when DOB changes
@@ -608,35 +610,13 @@ export default function SinglesProfileForm({
   const [fieldPrivacy, setFieldPrivacy] = useState<{ [key: string]: boolean }>(
     initialData?.fieldPrivacy || {},
   );
-
-  const pickImage = async () => {
-    if (pictures.length >= 3) {
-      Alert.alert("Limit Reached", "You can only upload up to 3 pictures");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setPictures([...pictures, result.assets[0].uri]);
-    }
-  };
-
-  const removePicture = (index: number) => {
-    Alert.alert("Delete Photo", "Are you sure you want to delete this photo?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => setPictures(pictures.filter((_, i) => i !== index)),
-      },
-    ]);
-  };
+  const [photoRequiredVisible, setPhotoRequiredVisible] = useState(false);
+  const [showDeleteResumeConfirm, setShowDeleteResumeConfirm] = useState(false);
+  const [infoModal, setInfoModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+  }>({ visible: false, title: "", message: "" });
 
   const toggleLanguage = (lang: string) => {
     setSelectedLanguages((prev) =>
@@ -669,10 +649,11 @@ export default function SinglesProfileForm({
 
   const handlePickResume = async () => {
     if (!resumeService) {
-      Alert.alert(
-        "Error",
-        "Resume service is not available. Please try again.",
-      );
+      setInfoModal({
+        visible: true,
+        title: "Error",
+        message: "Resume service is not available. Please try again.",
+      });
       return;
     }
 
@@ -683,7 +664,11 @@ export default function SinglesProfileForm({
 
       if (!pickResult.success) {
         if (pickResult.error && pickResult.error !== "Selection cancelled") {
-          Alert.alert("Error", pickResult.error);
+          setInfoModal({
+            visible: true,
+            title: "Error",
+            message: pickResult.error,
+          });
         }
         return;
       }
@@ -697,69 +682,86 @@ export default function SinglesProfileForm({
         if (uploadResult.success && uploadResult.url) {
           setResumeUrl(uploadResult.url);
           setResumeFileName(pickResult.name);
-          Alert.alert("Success! ✅", "Resume uploaded successfully");
+          setInfoModal({
+            visible: true,
+            title: "Resume uploaded",
+            message: "Resume uploaded successfully",
+          });
         } else {
-          Alert.alert(
-            "Upload Failed",
-            uploadResult.error || "Failed to upload resume",
-          );
+          setInfoModal({
+            visible: true,
+            title: "Upload failed",
+            message: uploadResult.error || "Failed to upload resume",
+          });
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error picking/uploading resume:", error);
-      Alert.alert("Error", error.message || "Failed to upload resume");
+      const message =
+        error instanceof Error ? error.message : "Failed to upload resume";
+      setInfoModal({
+        visible: true,
+        title: "Error",
+        message,
+      });
     } finally {
       setUploadingResume(false);
     }
   };
 
-  const handleDeleteResume = async () => {
-    Alert.alert(
-      "Delete Resume",
-      "Are you sure you want to delete your resume?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            if (!resumeService) {
-              Alert.alert(
-                "Error",
-                "Resume service is not available. Please try again.",
-              );
-              return;
-            }
+  const handleDeleteResume = () => {
+    setShowDeleteResumeConfirm(true);
+  };
 
-            setUploadingResume(true);
+  const confirmDeleteResume = async (): Promise<void> => {
+    setShowDeleteResumeConfirm(false);
+    if (!resumeService) {
+      setInfoModal({
+        visible: true,
+        title: "Error",
+        message: "Resume service is not available. Please try again.",
+      });
+      return;
+    }
 
-            try {
-              const result = await resumeService.deleteResume();
+    setUploadingResume(true);
 
-              if (result.success) {
-                setResumeUrl(undefined);
-                setResumeFileName("");
-                Alert.alert("Deleted", "Resume deleted successfully");
-              } else {
-                Alert.alert("Error", result.error || "Failed to delete resume");
-              }
-            } catch (error: any) {
-              console.error("Error deleting resume:", error);
-              Alert.alert("Error", error.message || "Failed to delete resume");
-            } finally {
-              setUploadingResume(false);
-            }
-          },
-        },
-      ],
-    );
+    try {
+      const result = await resumeService.deleteResume();
+
+      if (result.success) {
+        setResumeUrl(undefined);
+        setResumeFileName("");
+        setInfoModal({
+          visible: true,
+          title: "Deleted",
+          message: "Resume deleted successfully",
+        });
+      } else {
+        setInfoModal({
+          visible: true,
+          title: "Error",
+          message: result.error || "Failed to delete resume",
+        });
+      }
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete resume";
+      setInfoModal({
+        visible: true,
+        title: "Error",
+        message,
+      });
+    } finally {
+      setUploadingResume(false);
+    }
   };
 
   // Snapshot of form values used for change detection
   const buildSnapshot = () => ({
     firstName: firstName.trim(),
     lastName: lastName.trim(),
-    dob: dob.toISOString().split("T")[0],
+    dob: formatLocalDate(dob),
     bio: bio.trim(),
     whatLookingFor: whatLookingFor.trim(),
     phone: phone.trim(),
@@ -842,16 +844,7 @@ export default function SinglesProfileForm({
   const validateAndSubmit = () => {
     // Require at least one photo regardless of privacy setting
     if (pictures.length === 0) {
-      Alert.alert(
-        "Photo Required",
-        picturePrivacy === "none"
-          ? 'A photo is required for identity verification, even with "No Photo" selected. Your photo will only be seen by admins and never shown to other users.'
-          : "Please upload at least one photo to continue.",
-        [
-          { text: "Upload Photo", onPress: pickImage },
-          { text: "Cancel", style: "cancel" },
-        ],
-      );
+      setPhotoRequiredVisible(true);
       return;
     }
 
@@ -970,7 +963,7 @@ export default function SinglesProfileForm({
     const formData = {
       firstName,
       lastName,
-      dob: dob.toISOString().split("T")[0],
+      dob: formatLocalDate(dob),
       bio,
       whatLookingFor,
       phone,
@@ -1209,40 +1202,11 @@ export default function SinglesProfileForm({
           </View>
         )}
 
-        <Text style={styles.pictureGuide}>
-          {pictures.length === 0 &&
-            "Add up to 3 photos. The first will be your main photo."}
-          {pictures.length > 0 &&
-            pictures.length < 3 &&
-            `You can add ${3 - pictures.length} more photo${3 - pictures.length > 1 ? "s" : ""}.`}
-          {pictures.length === 3 && "Maximum photos added."}
-        </Text>
-        <View style={styles.picturesContainer}>
-          {pictures.map((picture, index) => (
-            <View key={index} style={styles.pictureWrapper}>
-              <Image source={{ uri: picture }} style={styles.picture} />
-              {index === 0 && (
-                <View style={styles.mainBadge}>
-                  <Text style={styles.mainBadgeText}>
-                    {picturePrivacy === "none" ? "ADMIN ONLY" : "MAIN"}
-                  </Text>
-                </View>
-              )}
-              <TouchableOpacity
-                style={styles.removePicture}
-                onPress={() => removePicture(index)}
-              >
-                <Ionicons name="close" size={16} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          ))}
-          {pictures.length < 3 && (
-            <TouchableOpacity style={styles.addPicture} onPress={pickImage}>
-              <Ionicons name="camera" size={24} color="#666" />
-              <Text style={styles.addPictureText}>Add Photo</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <ProfilePhotoGrid
+          pictures={pictures}
+          onChange={setPictures}
+          firstPhotoBadge={picturePrivacy === "none" ? "Admin only" : "Main"}
+        />
       </View>
 
       {/* 2. Basic Information */}
@@ -1275,14 +1239,16 @@ export default function SinglesProfileForm({
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Date of Birth *</Text>
           <Text style={styles.helpText}>You must be at least 18 years old</Text>
-          <TouchableOpacity
-            style={styles.dateButton}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Text style={styles.dateText}>{dob.toLocaleDateString()}</Text>
-            <Ionicons name="calendar" size={20} color="#666" />
-          </TouchableOpacity>
-          {dobError ? <Text style={styles.errorText}>{dobError}</Text> : null}
+          <DateOfBirthPicker
+            value={dob}
+            onChange={(selectedDate) => {
+              setDob(selectedDate);
+              validateDOB(selectedDate);
+            }}
+            minDate={getMinDate()}
+            maxDate={getMaxDate()}
+            error={dobError}
+          />
         </View>
 
         <View style={styles.inputGroup}>
@@ -2335,57 +2301,36 @@ export default function SinglesProfileForm({
         </View>
       </Modal>
 
-      {/* Date Picker Modal — unified bottom-sheet for all devices */}
-      {Platform.OS === "ios" ? (
-        <Modal visible={showDatePicker} transparent animationType="slide">
-          <View style={styles.heightPickerModalOverlay}>
-            <View style={styles.heightPickerModalContent}>
-              <View style={styles.modalHeader}>
-                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <Text style={styles.modalTitle}>Select Date of Birth</Text>
-                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                  <Text style={styles.doneText}>Done</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.datePickerContainer}>
-                <DateTimePicker
-                  value={dob}
-                  mode="date"
-                  display="spinner"
-                  onChange={(event, selectedDate) => {
-                    if (selectedDate) {
-                      setDob(selectedDate);
-                      validateDOB(selectedDate);
-                    }
-                  }}
-                  maximumDate={getMaxDate()}
-                  minimumDate={getMinDate()}
-                  style={styles.datePicker}
-                />
-              </View>
-            </View>
-          </View>
-        </Modal>
-      ) : (
-        showDatePicker && (
-          <DateTimePicker
-            value={dob}
-            mode="date"
-            display="default"
-            onChange={(event, selectedDate) => {
-              setShowDatePicker(false);
-              if (selectedDate) {
-                setDob(selectedDate);
-                validateDOB(selectedDate);
-              }
-            }}
-            maximumDate={getMaxDate()}
-            minimumDate={getMinDate()}
-          />
-        )
-      )}
+      <InfoModal
+        visible={photoRequiredVisible}
+        title="Photo required"
+        message={
+          picturePrivacy === "none"
+            ? 'A photo is required for identity verification, even with "No Photo" selected. Your photo will only be seen by admins and never shown to other users.'
+            : "Please upload at least one photo to continue."
+        }
+        iconName="camera"
+        iconColor="#1293DA"
+        onClose={() => setPhotoRequiredVisible(false)}
+      />
+      <InfoModal
+        visible={infoModal.visible}
+        title={infoModal.title}
+        message={infoModal.message}
+        onClose={() => setInfoModal({ visible: false, title: "", message: "" })}
+      />
+      <ConfirmationModal
+        visible={showDeleteResumeConfirm}
+        title="Delete resume"
+        message="Are you sure you want to delete your resume?"
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteResume}
+        onCancel={() => setShowDeleteResumeConfirm(false)}
+        loading={uploadingResume}
+        iconName="trash"
+        iconColor="#F44336"
+      />
     </ScrollView>
   );
 }

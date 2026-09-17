@@ -168,6 +168,16 @@ export default function AdminDashboard() {
             </View>
           </TouchableOpacity>
 
+          <TouchableOpacity 
+            onPress={() => router.push('/admin/sponsors')} 
+            style={styles.actionButton}
+          >
+            <View style={styles.actionButtonContent}>
+              <Ionicons name="megaphone" size={20} color="#666" />
+              <Text style={styles.actionButtonText}>Sponsors</Text>
+            </View>
+          </TouchableOpacity>
+
           {isSuperAdmin && (
             <TouchableOpacity
               onPress={() => router.push('/admin/admins')}
@@ -423,10 +433,13 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   actionButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 72,
+    minWidth: 72,
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
     padding: 12,

@@ -16,6 +16,7 @@ import EngagementCelebration from "../../components/EngagementCelebration";
 import { DesktopSidebar } from "../../components/home/DesktopSidebar";
 import { HomeHeader } from "../../components/home/HomeHeader";
 import ProfileCard from "../../components/home/ProfileCard";
+import SponsoredAdsCarousel from "../../components/home/SponsoredAdsCarousel";
 import NotificationPanel from "../../components/NotificationPanel";
 import { useEngagementCelebrations } from "../../hooks/useEngagementCelebrations";
 import { useHomeProfiles } from "../../hooks/useHomeProfiles";
@@ -551,6 +552,7 @@ export default function HomeScreen() {
               </>
             )}
           </ScrollView>
+          <SponsoredAdsCarousel />
         </View>
       </View>
 

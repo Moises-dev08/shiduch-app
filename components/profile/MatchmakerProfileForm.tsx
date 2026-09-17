@@ -1,12 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
-  Image,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +9,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import DateOfBirthPicker, {
+  formatLocalDate,
+  parseLocalDate,
+} from "../DateOfBirthPicker";
+import InfoModal from "../InfoModal";
+import ProfilePhotoGrid from "./ProfilePhotoGrid";
 
 // Options data (same as Singles form)
 const NATIONALITY_OPTIONS = [
@@ -334,10 +335,20 @@ export default function MatchmakerProfileForm({
   };
 
   const [dob, setDob] = useState(
-    initialData?.dob ? new Date(initialData.dob) : getMaxDate(),
+    initialData?.dob ? parseLocalDate(initialData.dob) : getMaxDate(),
   );
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [dobError, setDobError] = useState<string>("");
+  const [infoModal, setInfoModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    iconName?: keyof typeof Ionicons.glyphMap;
+    iconColor?: string;
+  }>({
+    visible: false,
+    title: "",
+    message: "",
+  });
 
   // Validate age when DOB changes
   const validateDOB = (selectedDate: Date) => {
@@ -432,40 +443,11 @@ export default function MatchmakerProfileForm({
     );
   };
 
-  const pickImage = async () => {
-    if (pictures.length >= 3) {
-      Alert.alert("Limit Reached", "You can only upload up to 3 pictures");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setPictures([...pictures, result.assets[0].uri]);
-    }
-  };
-
-  const removePicture = (index: number) => {
-    Alert.alert("Delete Photo", "Are you sure you want to delete this photo?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => setPictures(pictures.filter((_, i) => i !== index)),
-      },
-    ]);
-  };
-
   // Snapshot of form values used for change detection
   const buildSnapshot = () => ({
     firstName: firstName.trim(),
     lastName: lastName.trim(),
-    dob: dob.toISOString().split("T")[0],
+    dob: formatLocalDate(dob),
     bio: bio.trim(),
     phone: phone.trim(),
     email: email.trim(),
@@ -509,34 +491,36 @@ export default function MatchmakerProfileForm({
   );
 
   const validateAndSubmit = () => {
-    const missingFields = [];
-    if (!firstName.trim()) missingFields.push("First Name");
-    if (!lastName.trim()) missingFields.push("Last Name");
-    if (!bio.trim()) missingFields.push("Bio");
-    if (!phone.trim()) missingFields.push("Phone");
-    if (!locationCountry) missingFields.push("Country");
+    const missingFields: string[] = [];
+    if (!firstName.trim()) missingFields.push("first name");
+    if (!lastName.trim()) missingFields.push("last name");
+    if (!bio.trim()) missingFields.push("bio");
+    if (!phone.trim()) missingFields.push("phone");
+    if (!locationCountry) missingFields.push("country");
     if (locationCountry === "United States" && !locationState)
-      missingFields.push("State");
+      missingFields.push("state");
     if (locationCountry === "United States" && !locationCity.trim())
-      missingFields.push("City");
-    if (selectedLanguages.length === 0) missingFields.push("Languages");
+      missingFields.push("city");
+    if (selectedLanguages.length === 0) missingFields.push("languages");
     if (selectedLanguages.includes("Other") && !languageOther.trim())
-      missingFields.push("Languages (Other)");
-    if (!religiousLevel) missingFields.push("Religious Level");
+      missingFields.push("languages (other)");
+    if (!religiousLevel) missingFields.push("religious level");
     if (religiousLevel === "Other" && !religiousLevelOther.trim())
-      missingFields.push("Religious Level (Other)");
+      missingFields.push("religious level (other)");
     if (selectedCulturalOrigin.length === 0)
-      missingFields.push("Cultural Origin");
+      missingFields.push("cultural origin");
     if (selectedCulturalOrigin.includes("Other") && !culturalOriginOther.trim())
-      missingFields.push("Cultural Origin (Other)");
-    if (picturePrivacy !== "none" && pictures.length === 0)
-      missingFields.push("Pictures");
+      missingFields.push("cultural origin (other)");
+    if (pictures.length === 0) missingFields.push("photo");
 
     if (missingFields.length > 0) {
-      Alert.alert(
-        "Missing Required Fields",
-        `Please fill in: ${missingFields.join(", ")}`,
-      );
+      setInfoModal({
+        visible: true,
+        title: "Missing required fields",
+        message: `Please fill in: ${missingFields.join(", ")}`,
+        iconName: "alert-circle",
+        iconColor: "#FF9800",
+      });
       return;
     }
 
@@ -555,20 +539,26 @@ export default function MatchmakerProfileForm({
     }
 
     if (age < 18) {
-      Alert.alert(
-        "Age Requirement",
-        "You must be at least 18 years old to create an account. Please enter a valid date of birth.",
-        [{ text: "OK" }],
-      );
+      setInfoModal({
+        visible: true,
+        title: "Age requirement",
+        message:
+          "You must be at least 18 years old to create an account. Please enter a valid date of birth.",
+        iconName: "alert-circle",
+        iconColor: "#F44336",
+      });
       return;
     }
 
     if (age > 80) {
-      Alert.alert(
-        "Age Requirement",
-        "You cannot be more than 80 years old. Please enter a valid date of birth.",
-        [{ text: "OK" }],
-      );
+      setInfoModal({
+        visible: true,
+        title: "Age requirement",
+        message:
+          "You cannot be more than 80 years old. Please enter a valid date of birth.",
+        iconName: "alert-circle",
+        iconColor: "#F44336",
+      });
       return;
     }
 
@@ -600,7 +590,7 @@ export default function MatchmakerProfileForm({
     const formData = {
       firstName,
       lastName,
-      dob: dob.toISOString().split("T")[0],
+      dob: formatLocalDate(dob),
       bio,
       phone,
       email: email.trim() || undefined,
@@ -645,8 +635,8 @@ export default function MatchmakerProfileForm({
         <View style={styles.picturePrivacy}>
           <Text style={styles.label}>Picture Privacy *</Text>
           <Text style={styles.helpText}>
-            As a matchmaker, you can choose to show your photo publicly or use a
-            generic avatar.
+            As a matchmaker, you must add at least one photo. You can choose to
+            show it publicly or hide it from other users.
           </Text>
           <View style={styles.radioGroup}>
             <TouchableOpacity
@@ -678,53 +668,23 @@ export default function MatchmakerProfileForm({
                   picturePrivacy === "none" && styles.radioTextSelected,
                 ]}
               >
-                No Photo
+                Hidden from users
               </Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.privacyHelpText}>
-            {picturePrivacy === "none" && "• A generic avatar will be used"}
+            {picturePrivacy === "none" &&
+              "• Your photo is required for admin verification and will not be shown to other users"}
             {picturePrivacy === "always" &&
               "• Your photos will be visible to everyone"}
           </Text>
         </View>
 
-        {picturePrivacy !== "none" && (
-          <>
-            <Text style={styles.pictureGuide}>
-              {pictures.length === 0 &&
-                "Add up to 3 photos. The first will be your main photo."}
-              {pictures.length > 0 &&
-                pictures.length < 3 &&
-                `You can add ${3 - pictures.length} more photo${3 - pictures.length > 1 ? "s" : ""}.`}
-              {pictures.length === 3 && "Maximum photos added."}
-            </Text>
-            <View style={styles.picturesContainer}>
-              {pictures.map((picture, index) => (
-                <View key={index} style={styles.pictureWrapper}>
-                  <Image source={{ uri: picture }} style={styles.picture} />
-                  {index === 0 && (
-                    <View style={styles.mainBadge}>
-                      <Text style={styles.mainBadgeText}>MAIN</Text>
-                    </View>
-                  )}
-                  <TouchableOpacity
-                    style={styles.removePicture}
-                    onPress={() => removePicture(index)}
-                  >
-                    <Ionicons name="close" size={16} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-              {pictures.length < 3 && (
-                <TouchableOpacity style={styles.addPicture} onPress={pickImage}>
-                  <Ionicons name="camera" size={24} color="#666" />
-                  <Text style={styles.addPictureText}>Add Photo</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </>
-        )}
+        <ProfilePhotoGrid
+          pictures={pictures}
+          onChange={setPictures}
+          firstPhotoBadge={picturePrivacy === "none" ? "Admin only" : "Main"}
+        />
       </View>
 
       {/* Basic Information */}
@@ -772,14 +732,16 @@ export default function MatchmakerProfileForm({
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Date of Birth *</Text>
           <Text style={styles.helpText}>You must be at least 18 years old</Text>
-          <TouchableOpacity
-            style={styles.dateButton}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Text style={styles.dateText}>{dob.toLocaleDateString()}</Text>
-            <Ionicons name="calendar" size={20} color="#666" />
-          </TouchableOpacity>
-          {dobError ? <Text style={styles.errorText}>{dobError}</Text> : null}
+          <DateOfBirthPicker
+            value={dob}
+            onChange={(selectedDate) => {
+              setDob(selectedDate);
+              validateDOB(selectedDate);
+            }}
+            minDate={getMinDate()}
+            maxDate={getMaxDate()}
+            error={dobError}
+          />
         </View>
 
         <View style={styles.inputGroup}>
@@ -1027,60 +989,6 @@ export default function MatchmakerProfileForm({
 
       <View style={{ height: 40 }} />
 
-      {/* Date Picker Modal for iOS */}
-      {Platform.OS === "ios" ? (
-        <Modal
-          visible={showDatePicker}
-          animationType="slide"
-          presentationStyle="formSheet"
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>Select Date of Birth</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                <Text style={styles.doneText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.datePickerContainer}>
-              <DateTimePicker
-                value={dob}
-                mode="date"
-                display="spinner"
-                onChange={(event, selectedDate) => {
-                  if (selectedDate) {
-                    setDob(selectedDate);
-                    validateDOB(selectedDate);
-                  }
-                }}
-                maximumDate={getMaxDate()}
-                minimumDate={getMinDate()}
-                style={styles.datePicker}
-              />
-            </View>
-          </View>
-        </Modal>
-      ) : (
-        showDatePicker && (
-          <DateTimePicker
-            value={dob}
-            mode="date"
-            display="default"
-            onChange={(event, selectedDate) => {
-              setShowDatePicker(false);
-              if (selectedDate) {
-                setDob(selectedDate);
-                validateDOB(selectedDate);
-              }
-            }}
-            maximumDate={getMaxDate()}
-            minimumDate={getMinDate()}
-          />
-        )
-      )}
-
       {/* Country Picker Modal */}
       <Modal
         visible={showCountryModal}
@@ -1146,6 +1054,19 @@ export default function MatchmakerProfileForm({
           </ScrollView>
         </View>
       </Modal>
+
+      {infoModal.visible && (
+        <InfoModal
+          visible
+          title={infoModal.title}
+          message={infoModal.message}
+          iconName={infoModal.iconName}
+          iconColor={infoModal.iconColor}
+          onClose={() =>
+            setInfoModal({ visible: false, title: "", message: "" })
+          }
+        />
+      )}
     </ScrollView>
   );
 }

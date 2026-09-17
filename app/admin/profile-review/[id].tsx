@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -16,9 +16,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import SuccessModal from "../../../components/SuccessModal";
 import ConfirmationModal from "../../../components/ConfirmationModal";
 import InfoModal from "../../../components/InfoModal";
+import PictureViewerModal from "../../../components/home/PictureViewerModal";
 import { adminService } from "../../../lib/adminService";
 import { Profile, profileService } from "../../../lib/profileService";
 import { calculateAge } from "../../../lib/utils";
+
+function asPicturePaths(value: unknown): string[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  return value.filter((item): item is string => typeof item === "string");
+}
 
 export default function ProfileReviewPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -36,6 +44,15 @@ export default function ProfileReviewPage() {
   
   // Modal states
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [photoViewer, setPhotoViewer] = useState<{
+    pictures: string[];
+    index: number;
+  } | null>(null);
+  const skipReloadRef = useRef(false);
+
+  const goToAdminHome = (): void => {
+    router.replace("/admin/dashboard");
+  };
   const [infoModal, setInfoModal] = useState<{
     visible: boolean;
     title: string;
@@ -51,12 +68,20 @@ export default function ProfileReviewPage() {
 
   const loadProfile = useCallback(async () => {
     if (!id) {
-      router.back();
+      goToAdminHome();
+      return;
+    }
+
+    if (skipReloadRef.current) {
       return;
     }
 
     setLoading(true);
     const result = await adminService.getPendingProfiles();
+    if (skipReloadRef.current) {
+      setLoading(false);
+      return;
+    }
     if (result.success && result.profiles) {
       const foundProfile = result.profiles.find((p) => p.id === id);
       if (foundProfile) {
@@ -66,7 +91,7 @@ export default function ProfileReviewPage() {
           visible: true,
           title: 'Error',
           message: 'Profile not found',
-          onClose: () => router.back(),
+          onClose: goToAdminHome,
           iconName: 'alert-circle',
           iconColor: '#F44336',
         });
@@ -76,7 +101,7 @@ export default function ProfileReviewPage() {
         visible: true,
         title: 'Error',
         message: result.error || 'Failed to load profile',
-        onClose: () => router.back(),
+        onClose: goToAdminHome,
         iconName: 'alert-circle',
         iconColor: '#F44336',
       });
@@ -104,6 +129,7 @@ export default function ProfileReviewPage() {
     setProcessingApprove(false);
 
     if (result.success) {
+      skipReloadRef.current = true;
       const isUpdate = profile.is_update;
       setSuccessMessage({
         title: "Profile Approved!",
@@ -151,6 +177,7 @@ export default function ProfileReviewPage() {
     setProcessingReject(false);
 
     if (result.success) {
+      skipReloadRef.current = true;
       const isUpdate = profile.is_update;
       setSuccessMessage({
         title: "Profile Rejected",
@@ -173,11 +200,18 @@ export default function ProfileReviewPage() {
 
   const handleSuccessClose = () => {
     setShowSuccessModal(false);
-    router.back();
+    goToAdminHome();
   };
 
   const getImageUrl = (path: string) => {
     return profileService.getImageUrl(path);
+  };
+
+  const openPhotoViewer = (paths: string[], index: number): void => {
+    setPhotoViewer({
+      pictures: paths.map((path) => getImageUrl(path)),
+      index,
+    });
   };
 
   if (loading) {
@@ -197,7 +231,7 @@ export default function ProfileReviewPage() {
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Profile not found</Text>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={goToAdminHome}
             style={styles.backButton}
           >
             <Text style={styles.backButtonText}>Go Back</Text>
@@ -210,7 +244,7 @@ export default function ProfileReviewPage() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={goToAdminHome} accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <View style={styles.titleContainer}>
@@ -445,23 +479,89 @@ export default function ProfileReviewPage() {
             {profile.pending_changes.changes &&
               profile.pending_changes.changes.length > 0 && (
                 <View style={styles.changesList}>
-                  {profile.pending_changes.changes.map((change, index) => (
+                  {profile.pending_changes.changes.map((change, index) => {
+                    const oldPictures = change.field === "pictures"
+                      ? asPicturePaths(change.oldValue)
+                      : null;
+                    const newPictures = change.field === "pictures"
+                      ? asPicturePaths(change.newValue)
+                      : null;
+                    const isPictureChange =
+                      oldPictures !== null && newPictures !== null;
+
+                    return (
                     <View key={index} style={styles.changeItem}>
                       <Text style={styles.changeFieldName}>
                         {change.displayName}:
                       </Text>
+                      {isPictureChange ? (
+                        <View style={styles.pictureChangeCompare}>
+                          <Text style={styles.changeLabel}>Previous photos</Text>
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                          >
+                            {oldPictures.length === 0 ? (
+                              <Text style={styles.noPhotosText}>No photos</Text>
+                            ) : (
+                              oldPictures.map((picture, pictureIndex) => (
+                                <TouchableOpacity
+                                  key={`old-${picture}-${pictureIndex}`}
+                                  onPress={() =>
+                                    openPhotoViewer(oldPictures, pictureIndex)
+                                  }
+                                  accessibilityLabel="View previous photo full screen"
+                                >
+                                  <Image
+                                    source={{ uri: getImageUrl(picture) }}
+                                    style={styles.changePicture}
+                                  />
+                                </TouchableOpacity>
+                              ))
+                            )}
+                          </ScrollView>
+                          <Text style={[styles.changeLabel, styles.changeLabelSpaced]}>
+                            New photos
+                          </Text>
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                          >
+                            {newPictures.length === 0 ? (
+                              <Text style={styles.noPhotosText}>No photos</Text>
+                            ) : (
+                              newPictures.map((picture, pictureIndex) => (
+                                <TouchableOpacity
+                                  key={`new-${picture}-${pictureIndex}`}
+                                  onPress={() =>
+                                    openPhotoViewer(newPictures, pictureIndex)
+                                  }
+                                  accessibilityLabel="View new photo full screen"
+                                >
+                                  <Image
+                                    source={{ uri: getImageUrl(picture) }}
+                                    style={styles.changePicture}
+                                  />
+                                </TouchableOpacity>
+                              ))
+                            )}
+                          </ScrollView>
+                        </View>
+                      ) : (
                       <View style={styles.changeValues}>
                         <Text style={styles.changeOldValue}>
                           <Text style={styles.changeLabel}>From: </Text>
-                          {change.oldValue || "Not set"}
+                          {String(change.oldValue || "Not set")}
                         </Text>
                         <Text style={styles.changeNewValue}>
                           <Text style={styles.changeLabel}>To: </Text>
-                          {change.newValue || "Not set"}
+                          {String(change.newValue || "Not set")}
                         </Text>
                       </View>
+                      )}
                     </View>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
           </View>
@@ -471,15 +571,20 @@ export default function ProfileReviewPage() {
         {profile.pictures && profile.pictures.length > 0 && (
           <View style={styles.picturesSection}>
             <Text style={styles.sectionTitle}>
-              Photos ({profile.pictures.length})
+              Submitted photos ({profile.pictures.length})
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {profile.pictures.map((picture, index) => (
-                <Image
+                <TouchableOpacity
                   key={index}
-                  source={{ uri: getImageUrl(picture) }}
-                  style={styles.profilePicture}
-                />
+                  onPress={() => openPhotoViewer(profile.pictures, index)}
+                  accessibilityLabel="View submitted photo full screen"
+                >
+                  <Image
+                    source={{ uri: getImageUrl(picture) }}
+                    style={styles.profilePicture}
+                  />
+                </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
@@ -789,18 +894,27 @@ export default function ProfileReviewPage() {
         </View>
       </Modal>
 
-      {/* Success Modal */}
-      <SuccessModal
-        visible={showSuccessModal}
-        title={successMessage.title}
-        message={successMessage.message}
-        onClose={handleSuccessClose}
-      />
+      {photoViewer !== null && (
+        <PictureViewerModal
+          visible
+          pictures={photoViewer.pictures}
+          initialIndex={photoViewer.index}
+          onClose={() => setPhotoViewer(null)}
+        />
+      )}
 
-      {/* Approve Confirmation Modal */}
-      {profile && (
+      {showSuccessModal && (
+        <SuccessModal
+          visible
+          title={successMessage.title}
+          message={successMessage.message}
+          onClose={handleSuccessClose}
+        />
+      )}
+
+      {profile && showApproveConfirm && (
         <ConfirmationModal
-          visible={showApproveConfirm}
+          visible
           title="Approve Profile"
           message={
             profile.is_update
@@ -817,20 +931,22 @@ export default function ProfileReviewPage() {
         />
       )}
 
-      {/* Info Modal */}
-      <InfoModal
-        visible={infoModal.visible}
-        title={infoModal.title}
-        message={infoModal.message}
-        iconName={infoModal.iconName}
-        iconColor={infoModal.iconColor}
-        onClose={() => {
-          if (infoModal.onClose) {
-            infoModal.onClose();
-          }
-          setInfoModal({ visible: false, title: '', message: '' });
-        }}
-      />
+      {infoModal.visible && (
+        <InfoModal
+          visible
+          title={infoModal.title}
+          message={infoModal.message}
+          iconName={infoModal.iconName}
+          iconColor={infoModal.iconColor}
+          onClose={() => {
+            const closeAction = infoModal.onClose;
+            setInfoModal({ visible: false, title: '', message: '' });
+            if (closeAction) {
+              closeAction();
+            }
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -968,6 +1084,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#666",
+  },
+  changeLabelSpaced: {
+    marginTop: 12,
+  },
+  pictureChangeCompare: {
+    marginLeft: 8,
+    gap: 8,
+  },
+  changePicture: {
+    width: 96,
+    height: 96,
+    borderRadius: 8,
+    marginRight: 8,
+    marginTop: 6,
+    backgroundColor: "#f0f0f0",
+  },
+  noPhotosText: {
+    fontSize: 13,
+    color: "#999",
+    fontStyle: "italic",
+    marginTop: 6,
   },
   badgeRow: {
     flexDirection: "row",

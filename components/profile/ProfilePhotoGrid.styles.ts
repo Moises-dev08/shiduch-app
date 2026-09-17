@@ -1,0 +1,70 @@
+import { StyleSheet } from 'react-native';
+
+export const styles = StyleSheet.create({
+  pictureGuide: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 12,
+  },
+  picturesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    overflow: 'visible',
+  },
+  pictureWrapper: {
+    position: 'relative',
+    overflow: 'visible',
+    marginTop: 8,
+    marginRight: 8,
+  },
+  picture: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  mainBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    backgroundColor: 'rgba(18, 147, 218, 0.9)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  mainBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  removePicture: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#ff4444',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+    elevation: 20,
+  },
+  addPicture: {
+    width: 80,
+    height: 80,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  addPictureText: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 4,
+  },
+});

@@ -89,6 +89,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    zIndex: 10000,
   },
   modal: {
     backgroundColor: '#fff',

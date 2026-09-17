@@ -111,10 +111,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    zIndex: 10000,
   },
   closeButton: {
     position: 'absolute',
-    top: 60,
+    top: 20,
     right: 20,
     zIndex: 10,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

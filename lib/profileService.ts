@@ -1,7 +1,6 @@
-import { decode } from 'base64-arraybuffer';
-import { readAsStringAsync } from 'expo-file-system/legacy';
 import { notificationService } from './notificationService';
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
+import { isLocalMediaUri, uriToBinary } from './uriToBinary';
 
 export interface ProfileData {
   // Basic required fields
@@ -175,11 +174,7 @@ class ProfileService {
    * Check if URI is a local file that needs uploading
    */
   private isLocalFile(uri: string): boolean {
-    return uri.startsWith('file://') || 
-           uri.startsWith('content://') || 
-           uri.startsWith('ph://') || // iOS Photo Library
-           uri.startsWith('assets-library://') || // iOS Assets
-           !uri.includes('/'); // Relative path
+    return isLocalMediaUri(uri);
   }
 
   /**
@@ -259,46 +254,14 @@ class ProfileService {
     try {
       console.log('Uploading image:', uri);
 
-      // Read the file as base64
-      const base64 = await readAsStringAsync(uri, {
-        encoding: 'base64',
-      });
-
-      console.log('Base64 length:', base64.length);
-
-      // Get file extension and determine content type
-      let ext = 'jpg';
-      let contentType = 'image/jpeg';
-      
-      if (uri.includes('.')) {
-        const uriExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
-        ext = uriExt;
-        
-        // Map extensions to proper MIME types
-        const mimeMap: { [key: string]: string } = {
-          'jpg': 'image/jpeg',
-          'jpeg': 'image/jpeg',
-          'png': 'image/png',
-          'webp': 'image/webp',
-          'heic': 'image/heic',
-          'heif': 'image/heif'
-        };
-        
-        contentType = mimeMap[ext] || 'image/jpeg';
-      }
-
+      const { arrayBuffer, contentType, ext } = await uriToBinary(uri);
       const fileName = `${userId}/picture_${index}_${Date.now()}.${ext}`;
-      console.log('Uploading as:', fileName, 'Type:', contentType);
+      console.log('Uploading as:', fileName, 'Type:', contentType, 'Size:', arrayBuffer.byteLength);
 
-      // Convert base64 to array buffer
-      const arrayBuffer = decode(base64);
-      console.log('ArrayBuffer size:', arrayBuffer.byteLength);
-
-      // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from('profile-pictures')
         .upload(fileName, arrayBuffer, {
-          contentType: contentType,
+          contentType,
           upsert: false,
         });
 
@@ -355,6 +318,7 @@ class ProfileService {
         
         if (picturePaths.length === 0 && profileData.pictures.length > 0) {
           console.error('All images failed to upload!');
+          return { success: false, error: 'Failed to upload photos. Please try again.' };
         }
       }
 
@@ -553,7 +517,6 @@ class ProfileService {
       let picturePaths: string[] = [];
       for (const picture of profileData.pictures) {
         if (this.isLocalFile(picture)) {
-          // This is a local file, need to upload
           console.log('Uploading local file:', picture);
           const index = profileData.pictures.indexOf(picture);
           const uploadedPath = await this.uploadImage(picture, user.id, index);
@@ -561,10 +524,9 @@ class ProfileService {
             picturePaths.push(uploadedPath);
           } else {
             console.error('Failed to upload:', picture);
+            return { success: false, error: 'Failed to upload one or more photos. Please try again.' };
           }
         } else {
-          // This might be a public URL or already a storage path
-          // Convert public URL to storage path if needed
           const storagePath = this.extractStoragePath(picture);
           picturePaths.push(storagePath);
         }
@@ -923,10 +885,19 @@ class ProfileService {
    * Get image URL from storage path
    */
   getImageUrl(path: string): string {
+    if (
+      path.startsWith('http://') ||
+      path.startsWith('https://') ||
+      path.startsWith('data:') ||
+      path.startsWith('blob:')
+    ) {
+      return path;
+    }
+
     const { data } = supabase.storage
       .from('profile-pictures')
       .getPublicUrl(path);
-    
+
     return data.publicUrl;
   }
 
@@ -1151,8 +1122,8 @@ class ProfileService {
       
       changes.push({
         field: 'pictures',
-        oldValue: `${oldPictureCount} image${oldPictureCount !== 1 ? 's' : ''}`,
-        newValue: `${newPictureCount} image${newPictureCount !== 1 ? 's' : ''}`,
+        oldValue: oldPaths,
+        newValue: newPaths,
         displayName: pictureChangeText
       });
     }

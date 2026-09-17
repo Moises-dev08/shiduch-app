@@ -302,13 +302,10 @@ export default function ProfileScreen() {
         
         setSuccessMessage({ title, message });
         setShowSuccessModal(true);
-        
-        // If status is pending after update, ensure status modal will be shown
-        // and immediately update local state to block navigation
+        setShowStatusModal(false);
+
         if (result.profile.status === 'pending') {
           setProfileStatus('pending');
-          setShowStatusModal(true);
-          // Reload profile to ensure we have latest status
           await reloadProfile();
         }
       } else {
@@ -582,13 +579,15 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* Success Modal */}
-      <SuccessModal
-        visible={showSuccessModal}
-        title={successMessage.title}
-        message={successMessage.message}
-        onClose={handleSuccessModalClose}
-        buttonText="Continue"
-      />
+      {showSuccessModal && (
+        <SuccessModal
+          visible
+          title={successMessage.title}
+          message={successMessage.message}
+          onClose={handleSuccessModalClose}
+          buttonText="Continue"
+        />
+      )}
 
       {/* Web Share Modal (Web only) */}
       <WebShareModal
@@ -605,6 +604,7 @@ export default function ProfileScreen() {
         rejectionReason={rejectionReason}
         onClose={() => {
           setShowStatusModal(false);
+          setShowSuccessModal(false);
           if (profileStatus === 'approved') {
             router.replace('/(tabs)');
           }
