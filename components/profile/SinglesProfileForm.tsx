@@ -3,7 +3,6 @@ import { Picker } from "@react-native-picker/picker";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -616,6 +615,8 @@ export default function SinglesProfileForm({
     visible: boolean;
     title: string;
     message: string;
+    iconName?: keyof typeof Ionicons.glyphMap;
+    iconColor?: string;
   }>({ visible: false, title: "", message: "" });
 
   const toggleLanguage = (lang: string) => {
@@ -638,10 +639,13 @@ export default function SinglesProfileForm({
 
   const toggleFieldPrivacy = (fieldName: string, hasValue: boolean) => {
     if (!hasValue) {
-      Alert.alert(
-        "Cannot Mark as Private",
-        'You must provide an answer before marking it as "Ask me"',
-      );
+      setInfoModal({
+        visible: true,
+        title: "Cannot mark as private",
+        message: 'You must provide an answer before marking it as "Ask me"',
+        iconName: "alert-circle",
+        iconColor: "#FF9800",
+      });
       return;
     }
     setFieldPrivacy((prev) => ({ ...prev, [fieldName]: !prev[fieldName] }));
@@ -849,81 +853,84 @@ export default function SinglesProfileForm({
     }
 
     // Validate required fields
-    const missingFields = [];
-    if (!firstName.trim()) missingFields.push("First Name");
-    if (!lastName.trim()) missingFields.push("Last Name");
-    if (!bio.trim()) missingFields.push("Bio");
-    if (!whatLookingFor.trim()) missingFields.push("What are you looking for");
-    if (!phone.trim()) missingFields.push("Phone");
+    const missingFields: string[] = [];
+    if (!firstName.trim()) missingFields.push("first name");
+    if (!lastName.trim()) missingFields.push("last name");
+    if (!bio.trim()) missingFields.push("bio");
+    if (!whatLookingFor.trim()) missingFields.push("what are you looking for");
+    if (!phone.trim()) missingFields.push("phone");
     if (
       !heightFeet ||
       heightFeet === "" ||
       !heightInches ||
       heightInches === ""
     )
-      missingFields.push("Height");
-    if (!locationCountry) missingFields.push("Country");
+      missingFields.push("height");
+    if (!locationCountry) missingFields.push("country");
     if (locationCountry === "United States" && !locationState)
-      missingFields.push("State");
+      missingFields.push("state");
     if (locationCountry === "United States" && !locationCity.trim())
-      missingFields.push("City");
-    if (selectedLanguages.length === 0) missingFields.push("Languages");
+      missingFields.push("city");
+    if (selectedLanguages.length === 0) missingFields.push("languages");
     if (selectedLanguages.includes("Other") && !languageOther.trim())
-      missingFields.push("Languages (Other)");
+      missingFields.push("languages (other)");
     if (selectedNationality.length === 0)
-      missingFields.push("Nationality/Background");
+      missingFields.push("nationality/background");
     if (selectedNationality.includes("Other") && !nationalityOther.trim())
-      missingFields.push("Nationality/Background (Other)");
-    if (!hashkafaType) missingFields.push("Hashkafa Type");
+      missingFields.push("nationality/background (other)");
+    if (!hashkafaType) missingFields.push("hashkafa type");
     if (hashkafaType === "Other" && !hashkafaOther.trim())
-      missingFields.push("Hashkafa Type (Other)");
+      missingFields.push("hashkafa type (other)");
     if (gender === "male") {
-      if (!torahLearning) missingFields.push("Torah Learning");
+      if (!torahLearning) missingFields.push("torah learning");
       if (torahLearning === "Other" && !torahLearningOther.trim())
-        missingFields.push("Torah Learning (Other)");
-      if (!praying) missingFields.push("Praying");
+        missingFields.push("torah learning (other)");
+      if (!praying) missingFields.push("praying");
       if (praying === "Other" && !prayingOther.trim())
-        missingFields.push("Praying (Other)");
+        missingFields.push("praying (other)");
     }
-    if (selectedEducation.length === 0) missingFields.push("Education Level");
+    if (selectedEducation.length === 0) missingFields.push("education level");
     if (selectedEducation.includes("Other") && !educationOther.trim())
-      missingFields.push("Education Level (Other)");
-    if (!postHighSchoolPath) missingFields.push("Post-High School Path");
+      missingFields.push("education level (other)");
+    if (!postHighSchoolPath) missingFields.push("post-high school path");
     if (postHighSchoolPath === "Other" && !postHSOther.trim())
-      missingFields.push("Post-High School Path (Other)");
-    if (!currentOccupationStudy) missingFields.push("Current Occupation/Study");
+      missingFields.push("post-high school path (other)");
+    if (!currentOccupationStudy) missingFields.push("current occupation/study");
     if (currentOccupationStudy === "Other" && !occupationOther.trim())
-      missingFields.push("Current Occupation/Study (Other)");
-    if (!planAfterMarriage) missingFields.push("Plan After Marriage");
+      missingFields.push("current occupation/study (other)");
+    if (!planAfterMarriage) missingFields.push("plan after marriage");
     if (planAfterMarriage === "Other" && !planOther.trim())
-      missingFields.push("Plan After Marriage (Other)");
-    if (!maritalStatus) missingFields.push("Marital Status");
-    if (!dressStyle) missingFields.push("Dress Style");
+      missingFields.push("plan after marriage (other)");
+    if (!maritalStatus) missingFields.push("marital status");
+    if (!dressStyle) missingFields.push("dress style");
     if (dressStyle === "Other" && !dressStyleOther.trim())
-      missingFields.push("Dress Style (Other)");
+      missingFields.push("dress style (other)");
     if (gender === "male" && wearsBlackHat === undefined)
-      missingFields.push("Black Hat");
+      missingFields.push("black hat");
     if (gender === "female" && !headCovering)
-      missingFields.push("Head Covering");
+      missingFields.push("head covering");
     if (
       gender === "female" &&
       headCovering === "Other" &&
       !headCoveringOther.trim()
     )
-      missingFields.push("Head Covering (Other)");
-    if (!smoking) missingFields.push("Smoking");
+      missingFields.push("head covering (other)");
+    if (!smoking) missingFields.push("smoking");
     if (smoking === "Other" && !smokingOther.trim())
-      missingFields.push("Smoking (Other)");
-    if (!alcoholConsumption) missingFields.push("Alcohol Consumption");
+      missingFields.push("smoking (other)");
+    if (!alcoholConsumption) missingFields.push("alcohol consumption");
     if (alcoholConsumption === "Other" && !alcoholOther.trim())
-      missingFields.push("Alcohol Consumption (Other)");
-    if (gender === "male" && isCohen === undefined) missingFields.push("Cohen");
+      missingFields.push("alcohol consumption (other)");
+    if (gender === "male" && isCohen === undefined) missingFields.push("cohen");
 
     if (missingFields.length > 0) {
-      Alert.alert(
-        "Missing Required Fields",
-        `Please fill in: ${missingFields.join(", ")}`,
-      );
+      setInfoModal({
+        visible: true,
+        title: "Missing required fields",
+        message: `Please fill in: ${missingFields.join(", ")}`,
+        iconName: "alert-circle",
+        iconColor: "#FF9800",
+      });
       return;
     }
 
@@ -942,20 +949,26 @@ export default function SinglesProfileForm({
     }
 
     if (age < 18) {
-      Alert.alert(
-        "Age Requirement",
-        "You must be at least 18 years old to create an account. Please enter a valid date of birth.",
-        [{ text: "OK" }],
-      );
+      setInfoModal({
+        visible: true,
+        title: "Age requirement",
+        message:
+          "You must be at least 18 years old to create an account. Please enter a valid date of birth.",
+        iconName: "alert-circle",
+        iconColor: "#F44336",
+      });
       return;
     }
 
     if (age > 80) {
-      Alert.alert(
-        "Age Requirement",
-        "You cannot be more than 80 years old. Please enter a valid date of birth.",
-        [{ text: "OK" }],
-      );
+      setInfoModal({
+        visible: true,
+        title: "Age requirement",
+        message:
+          "You cannot be more than 80 years old. Please enter a valid date of birth.",
+        iconName: "alert-circle",
+        iconColor: "#F44336",
+      });
       return;
     }
 
@@ -2103,8 +2116,15 @@ export default function SinglesProfileForm({
                   resumeUrl,
                   resumeFileName || "resume",
                 );
-                if (!result.success)
-                  Alert.alert("Error", result.error || "Failed to open resume");
+                if (!result.success) {
+                  setInfoModal({
+                    visible: true,
+                    title: "Error",
+                    message: result.error || "Failed to open resume",
+                    iconName: "alert-circle",
+                    iconColor: "#F44336",
+                  });
+                }
               }}
               activeOpacity={0.7}
             >
@@ -2317,6 +2337,8 @@ export default function SinglesProfileForm({
         visible={infoModal.visible}
         title={infoModal.title}
         message={infoModal.message}
+        iconName={infoModal.iconName}
+        iconColor={infoModal.iconColor}
         onClose={() => setInfoModal({ visible: false, title: "", message: "" })}
       />
       <ConfirmationModal
