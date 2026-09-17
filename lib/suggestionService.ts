@@ -328,16 +328,35 @@ class SuggestionService {
         if (_rtsResp === "accepted") {
           if (
             updatedSuggestion.profile_one_status === "accepted" &&
-            updatedSuggestion.profile_two_status === "accepted" &&
-            suggester?.user_id &&
-            suggester.id !== _rtsPid
+            updatedSuggestion.profile_two_status === "accepted"
           ) {
-            await notificationService.sendNotification(
-              suggester.user_id,
-              "🎉 Both accepted your suggestion!",
-              `${p1?.first_name} ${p1?.last_name} and ${p2?.first_name} ${p2?.last_name} both accepted your match suggestion!`,
-              { type: "suggestion_both_accepted", suggestionId: _rtsId },
-            );
+            const bothAcceptedBody = `${p1?.first_name} ${p1?.last_name} and ${p2?.first_name} ${p2?.last_name} both accepted the match suggestion!`;
+            await Promise.allSettled([
+              suggester?.user_id && suggester.id !== _rtsPid
+                ? notificationService.sendNotification(
+                    suggester.user_id,
+                    "Both accepted your suggestion!",
+                    bothAcceptedBody,
+                    { type: "suggestion_both_accepted", suggestionId: _rtsId },
+                  )
+                : Promise.resolve(),
+              p1?.user_id
+                ? notificationService.sendNotification(
+                    p1.user_id,
+                    "You received a match!",
+                    `You and ${p2?.first_name ?? ""} ${p2?.last_name ?? ""} both accepted — open Connect to continue.`,
+                    { type: "suggestion_both_accepted", suggestionId: _rtsId },
+                  )
+                : Promise.resolve(),
+              p2?.user_id
+                ? notificationService.sendNotification(
+                    p2.user_id,
+                    "You received a match!",
+                    `You and ${p1?.first_name ?? ""} ${p1?.last_name ?? ""} both accepted — open Connect to continue.`,
+                    { type: "suggestion_both_accepted", suggestionId: _rtsId },
+                  )
+                : Promise.resolve(),
+            ]);
           }
         } else {
           const rejectingProfile = _rtsIsP1 ? p1 : p2;
@@ -640,18 +659,39 @@ class SuggestionService {
 
         if (
           fullSuggestion.profile_one_status === "accepted" &&
-          fullSuggestion.profile_two_status === "accepted" &&
-          suggester?.user_id &&
-          suggester.id !== _awcPid
+          fullSuggestion.profile_two_status === "accepted"
         ) {
-          notifs.push(
-            notificationService.sendNotification(
-              suggester.user_id,
-              "🎉 Both accepted your suggestion!",
-              `${p1?.first_name} ${p1?.last_name} and ${p2?.first_name} ${p2?.last_name} both accepted your match suggestion!`,
-              { type: "suggestion_both_accepted", suggestionId: _awcSgId },
-            ),
-          );
+          const bothAcceptedBody = `${p1?.first_name} ${p1?.last_name} and ${p2?.first_name} ${p2?.last_name} both accepted the match suggestion!`;
+          if (suggester?.user_id && suggester.id !== _awcPid) {
+            notifs.push(
+              notificationService.sendNotification(
+                suggester.user_id,
+                "Both accepted your suggestion!",
+                bothAcceptedBody,
+                { type: "suggestion_both_accepted", suggestionId: _awcSgId },
+              ),
+            );
+          }
+          if (p1?.user_id) {
+            notifs.push(
+              notificationService.sendNotification(
+                p1.user_id,
+                "You received a match!",
+                `You and ${p2?.first_name ?? ""} ${p2?.last_name ?? ""} both accepted — open Connect to continue.`,
+                { type: "suggestion_both_accepted", suggestionId: _awcSgId },
+              ),
+            );
+          }
+          if (p2?.user_id) {
+            notifs.push(
+              notificationService.sendNotification(
+                p2.user_id,
+                "You received a match!",
+                `You and ${p1?.first_name ?? ""} ${p1?.last_name ?? ""} both accepted — open Connect to continue.`,
+                { type: "suggestion_both_accepted", suggestionId: _awcSgId },
+              ),
+            );
+          }
         } else if (suggester?.user_id && suggester.id !== _awcPid) {
           // Only one side has accepted so far — notify the suggester of this individual acceptance
           const acceptingProfile = _awcIsP1 ? p1 : p2;

@@ -38,6 +38,8 @@ export default function SettingsScreen() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [isProfileActive, setIsProfileActive] = useState(true);
   const [loadingProfileStatus, setLoadingProfileStatus] = useState(true);
+  const [notifyMatchEmail, setNotifyMatchEmail] = useState(true);
+  const [updatingMatchEmail, setUpdatingMatchEmail] = useState(false);
   const [profileInfo, setProfileInfo] = useState<{
     firstName: string;
     lastName: string;
@@ -75,6 +77,7 @@ export default function SettingsScreen() {
         const result = await profileService.getProfile();
         if (result.success && result.profile) {
           setIsProfileActive(result.profile.is_active);
+          setNotifyMatchEmail(result.profile.notify_match_email !== false);
           setProfileInfo({
             firstName: result.profile.first_name || "",
             lastName: result.profile.last_name || "",
@@ -142,6 +145,24 @@ export default function SettingsScreen() {
     } else {
       // Unfreeze directly without modal
       handleUnfreezeProfile();
+    }
+  };
+
+  const handleToggleMatchEmail = async (): Promise<void> => {
+    const next = !notifyMatchEmail;
+    setUpdatingMatchEmail(true);
+    const result = await profileService.setNotifyMatchEmail(next);
+    setUpdatingMatchEmail(false);
+    if (result.success) {
+      setNotifyMatchEmail(next);
+    } else {
+      setInfoModal({
+        visible: true,
+        title: 'Error',
+        message: result.error || 'Failed to update email preference',
+        iconName: 'alert-circle',
+        iconColor: '#F44336',
+      });
     }
   };
 
@@ -421,6 +442,45 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#666" />
           </TouchableOpacity>
+
+          {Platform.OS === "web" && (
+            <TouchableOpacity
+              style={styles.settingsItem}
+              onPress={handleToggleMatchEmail}
+              disabled={loadingProfileStatus || updatingMatchEmail}
+            >
+              <View style={styles.settingsItemLeft}>
+                {updatingMatchEmail ? (
+                  <ActivityIndicator size="small" color="#1293DA" />
+                ) : (
+                  <Ionicons
+                    name={notifyMatchEmail ? "mail" : "mail-outline"}
+                    size={24}
+                    color="#1293DA"
+                  />
+                )}
+                <View style={styles.settingsItemTextWrap}>
+                  <Text
+                    style={[
+                      styles.settingsItemTextNoMargin,
+                      (loadingProfileStatus || updatingMatchEmail) &&
+                        styles.disabledText,
+                    ]}
+                  >
+                    Email me when I get a match
+                  </Text>
+                  <Text style={styles.settingsItemHint}>
+                    {notifyMatchEmail ? "On" : "Off"} — uses your account email
+                  </Text>
+                </View>
+              </View>
+              <Ionicons
+                name={notifyMatchEmail ? "toggle" : "toggle-outline"}
+                size={36}
+                color={notifyMatchEmail ? "#1293DA" : "#ccc"}
+              />
+            </TouchableOpacity>
+          )}
 
           {/* Support Section */}
           <Text style={styles.sectionTitle}>Support</Text>
@@ -752,6 +812,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
     marginLeft: 12,
+  },
+  settingsItemTextNoMargin: {
+    fontSize: 16,
+    color: "#333",
+  },
+  settingsItemTextWrap: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  settingsItemHint: {
+    fontSize: 13,
+    color: "#888",
+    marginTop: 2,
   },
   disabledText: {
     opacity: 0.5,

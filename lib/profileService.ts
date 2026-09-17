@@ -140,6 +140,7 @@ export interface Profile {
   approved_at?: string;
   matchmaker_id?: string;
   is_active: boolean;
+  notify_match_email?: boolean;
   resume_url?: string;
   email?: string;
   whatsapp?: string;
@@ -899,6 +900,35 @@ class ProfileService {
       .getPublicUrl(path);
 
     return data.publicUrl;
+  }
+
+  /**
+   * Toggle email notifications for new matches (web opt-in).
+   */
+  async setNotifyMatchEmail(
+    enabled: boolean
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ notify_match_email: enabled })
+        .eq('user_id', user.id);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating match email preference:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
   }
 
   /**

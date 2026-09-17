@@ -324,6 +324,7 @@ class IntroService {
       const _resp = response;
       const _profileName = `${profile.first_name} ${profile.last_name}`;
       const _noteToMM = noteToMatchmaker;
+      const _accepterUserId = user.id;
       ;(async () => {
         const [matchmakerResult, requesterResult] = await Promise.all([
           supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requester_middle_person_id).single(),
@@ -343,8 +344,16 @@ class IntroService {
           _resp === 'accepted' && requesterResult.data
             ? notificationService.sendNotification(
                 requesterResult.data.user_id,
-                'Match Accepted!',
+                'You received a match!',
                 `${_profileName} accepted your intro request! Choose how you want to continue.`,
+                { type: 'match_accepted', requestId: _rqId }
+              )
+            : Promise.resolve(),
+          _resp === 'accepted'
+            ? notificationService.sendNotification(
+                _accepterUserId,
+                'You received a match!',
+                'Your intro was accepted — open Connect to choose how you want to continue.',
                 { type: 'match_accepted', requestId: _rqId }
               )
             : Promise.resolve(),
@@ -432,6 +441,7 @@ class IntroService {
       // Fire-and-forget notifications
       const _awcReqId = requestId;
       const _awcName = `${profile.first_name} ${profile.last_name}`;
+      const _awcAccepterUserId = user.id;
       ;(async () => {
         const [matchmakerResult, requesterResult] = await Promise.all([
           supabase.from('profiles').select('user_id, first_name, last_name').eq('id', request.requester_middle_person_id).single(),
@@ -449,11 +459,17 @@ class IntroService {
           requesterResult.data
             ? notificationService.sendNotification(
                 requesterResult.data.user_id,
-                'Match Accepted!',
+                'You received a match!',
                 `${_awcName} accepted your intro request! Choose how you want to continue.`,
                 { type: 'match_accepted', requestId: _awcReqId }
               )
             : Promise.resolve(),
+          notificationService.sendNotification(
+            _awcAccepterUserId,
+            'You received a match!',
+            'Your intro was accepted — open Connect to choose how you want to continue.',
+            { type: 'match_accepted', requestId: _awcReqId }
+          ),
         ]);
       })().catch((e) => console.error('Error sending acceptWithContinuation notifications:', e));
 
