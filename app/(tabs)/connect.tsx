@@ -28,6 +28,7 @@ import { useWebTabVisible } from "../../hooks/useWebTabVisible";
 import { engagementService } from "../../lib/engagementService";
 import { infoRequestService } from "../../lib/infoRequestService";
 import { introService } from "../../lib/introService";
+import { webPageLayout } from "../../styles/webPageLayout";
 import { notificationService } from "../../lib/notificationService";
 import { Profile, profileService } from "../../lib/profileService";
 import { suggestionService } from "../../lib/suggestionService";
@@ -751,6 +752,7 @@ export default function ConnectScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={[styles.pageBody, webPageLayout.centeredListContent]}>
       {/* Header - Desktop version has tabs */}
       {isDesktop ? (
         <ConnectHeader
@@ -1691,6 +1693,7 @@ export default function ConnectScreen() {
             </>
           )}
       </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -1699,6 +1702,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8f9fa",
+  },
+  pageBody: {
+    flex: 1,
+    width: "100%",
   },
   engagementActionCard: {
     backgroundColor: "#fff",

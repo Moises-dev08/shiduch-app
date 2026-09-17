@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { notificationService } from '../../lib/notificationService';
 import { useUnreadNotificationsCount } from '../../hooks/useUnreadNotificationsCount';
+import { webPageLayout } from '../../styles/webPageLayout';
 
 interface AppNotification {
   id: string;
@@ -222,6 +223,7 @@ export default function NotificationsScreen() {
         </View>
       ) : (
         <FlatList
+          style={webPageLayout.centeredListContent}
           data={notifications}
           keyExtractor={item => item.id}
           renderItem={renderItem}

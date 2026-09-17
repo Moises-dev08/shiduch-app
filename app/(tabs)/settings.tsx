@@ -28,6 +28,7 @@ import {
   EngagementWithProfiles,
 } from "../../lib/engagementService";
 import { profileService } from "../../lib/profileService";
+import { webPageLayout } from "../../styles/webPageLayout";
 
 export default function SettingsScreen() {
   const [showFreezeModal, setShowFreezeModal] = useState(false);
@@ -385,7 +386,7 @@ export default function SettingsScreen() {
         <View style={styles.placeholder} />
       </View>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
+        <View style={[styles.content, webPageLayout.centeredContent]}>
           {/* General Section */}
           <Text style={styles.sectionTitle}>General</Text>
 
@@ -772,8 +773,8 @@ const styles = StyleSheet.create({
     width: 40, // Same width as back button to center title
   },
   content: {
-    flex: 1,
     padding: 20,
+    width: "100%",
   },
   sectionTitle: {
     fontSize: 14,

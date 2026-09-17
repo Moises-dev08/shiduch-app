@@ -25,6 +25,7 @@ import {
   sponsorService,
   SponsoredAd,
 } from '../../lib/sponsorService';
+import { webPageLayout } from '../../styles/webPageLayout';
 import { styles } from './sponsors.styles';
 
 interface AdFormState {
@@ -256,6 +257,7 @@ export default function AdminSponsorsScreen(): React.ReactElement {
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={webPageLayout.centeredListScrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }

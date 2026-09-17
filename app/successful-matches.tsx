@@ -15,6 +15,7 @@ import {
   engagementService,
   EngagementWithProfiles,
 } from "../lib/engagementService";
+import { webPageLayout } from "../styles/webPageLayout";
 
 export default function SuccessfulMatchesScreen() {
   const [engagements, setEngagements] = useState<EngagementWithProfiles[]>([]);
@@ -97,7 +98,7 @@ export default function SuccessfulMatchesScreen() {
 
       {/* Statistics Card — only shown when there is at least one engagement */}
       {engagements.length > 0 && (
-        <View style={styles.statsCard}>
+        <View style={[styles.statsCard, webPageLayout.centeredListContent]}>
           <View style={styles.statsContent}>
             <Ionicons name="heart" size={40} color="#ff4d4d" />
             <View style={styles.statsTextContainer}>
@@ -117,6 +118,7 @@ export default function SuccessfulMatchesScreen() {
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={webPageLayout.centeredListScrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -227,6 +229,7 @@ const styles = StyleSheet.create({
     margin: 16,
     padding: 20,
     borderRadius: 16,
+    width: "100%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

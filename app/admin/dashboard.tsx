@@ -18,6 +18,7 @@ import { Profile } from '../../lib/profileService';
 import { reportService } from '../../lib/reportService';
 import { supabase } from '../../lib/supabase';
 import { calculateAge } from '../../lib/utils';
+import { webPageLayout } from '../../styles/webPageLayout';
 
 export default function AdminDashboard() {
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
@@ -254,6 +255,7 @@ export default function AdminDashboard() {
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={webPageLayout.centeredListScrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }

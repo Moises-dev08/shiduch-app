@@ -8,6 +8,7 @@ import { AppTextInput } from '../components/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { profileService } from '../lib/profileService';
+import { webPageLayout } from '../styles/webPageLayout';
 import { FilterState } from '../types/homeTypes';
 
 // Import options from profile form
@@ -521,7 +522,11 @@ export default function FiltersScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={webPageLayout.centeredScrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* See First (matchmaker only) */}
         {currentUserRole === 'matchmaker' && renderSection('See First', 'seeFirst', (
           <View style={styles.chipRow}>
@@ -1276,20 +1281,22 @@ export default function FiltersScreen() {
         )}
       </ScrollView>
 
-      <View style={styles.actions}>
-        <TouchableOpacity 
-          style={styles.clearButton}
-          onPress={clearAll}
-        >
-          <Text style={styles.clearButtonText}>Clear All</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.applyButton}
-          onPress={applyFilters}
-        >
-          <Text style={styles.applyButtonText}>Apply Filters</Text>
-        </TouchableOpacity>
+      <View style={styles.actionsBar}>
+        <View style={[styles.actions, webPageLayout.centeredContent]}>
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={clearAll}
+          >
+            <Text style={styles.clearButtonText}>Clear All</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.applyButton}
+            onPress={applyFilters}
+          >
+            <Text style={styles.applyButtonText}>Apply Filters</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Modal Picker */}
@@ -1539,13 +1546,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
+  actionsBar: {
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
   actions: {
     flexDirection: 'row',
     padding: 16,
     gap: 12,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    width: '100%',
   },
   clearButton: {
     flex: 1,

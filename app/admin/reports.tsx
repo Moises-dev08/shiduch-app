@@ -15,6 +15,7 @@ import ConfirmationModal from '../../components/ConfirmationModal';
 import InfoModal from '../../components/InfoModal';
 import PromptModal from '../../components/PromptModal';
 import { ProfileReport, reportService } from '../../lib/reportService';
+import { webPageLayout } from '../../styles/webPageLayout';
 
 export default function AdminReportsScreen() {
   const [reports, setReports] = useState<ProfileReport[]>([]);
@@ -228,6 +229,7 @@ export default function AdminReportsScreen() {
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={webPageLayout.centeredListScrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }

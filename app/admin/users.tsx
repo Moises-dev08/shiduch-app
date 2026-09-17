@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { adminService } from '../../lib/adminService';
 import { Profile, profileService } from '../../lib/profileService';
 import { calculateAge } from '../../lib/utils';
+import { webPageLayout } from '../../styles/webPageLayout';
 
 export default function AdminUsers() {
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
@@ -181,6 +182,7 @@ export default function AdminUsers() {
         <ScrollView
           keyboardShouldPersistTaps="handled"
           style={styles.scrollView}
+          contentContainerStyle={webPageLayout.centeredListScrollContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
