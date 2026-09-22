@@ -61,14 +61,14 @@ export default function SponsoredAdModal({
         <TouchableOpacity
           style={styles.closeButton}
           onPress={onClose}
-          accessibilityLabel="Close sponsored ad"
+          accessibilityLabel="Close ad"
         >
           <Ionicons name="close" size={26} color="#fff" />
         </TouchableOpacity>
 
         <View style={styles.content}>
           <View style={styles.sponsoredChip}>
-            <Text style={styles.sponsoredChipText}>Sponsored</Text>
+            <Text style={styles.sponsoredChipText}>Ad</Text>
           </View>
           <Image
             source={{ uri: getSponsorImageUrl(ad.image_path) }}

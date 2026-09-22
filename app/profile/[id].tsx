@@ -8,30 +8,27 @@ const PENDING_PROFILE_DEEP_LINK_KEY = 'pendingProfileDeepLink';
 
 /**
  * Entry point for the shiduchimapp://profile/<id> deep link.
- * Redirects to profile-details so privacy settings and the full UI are respected.
- * If the user is not logged in, stashes the target id so navigation resumes
- * after they sign in (see PendingDeepLinkResumer in app/_layout.tsx).
+ * Logged-in users go to the full profile. Guests get the public preview.
  */
 export default function ProfileDeepLinkRedirect() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session, loading } = useAuth();
 
   useEffect(() => {
-    if (loading) return; // wait for auth to resolve
+    if (loading) return;
 
-    if (!session) {
-      if (id) {
-        AsyncStorage.setItem(PENDING_PROFILE_DEEP_LINK_KEY, id).catch(() => {});
-      }
-      router.replace('/auth/login');
+    if (!id) {
+      router.replace('/(tabs)');
       return;
     }
 
-    if (id) {
-      router.replace({ pathname: '/profile-details', params: { profileId: id } });
-    } else {
-      router.replace('/(tabs)');
+    if (!session) {
+      router.replace(`/public-profile/${id}`);
+      return;
     }
+
+    AsyncStorage.removeItem(PENDING_PROFILE_DEEP_LINK_KEY).catch(() => {});
+    router.replace({ pathname: '/profile-details', params: { profileId: id } });
   }, [loading, session, id]);
 
   return (

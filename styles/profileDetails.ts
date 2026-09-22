@@ -134,6 +134,7 @@ export const profileDetailsStyles = StyleSheet.create({
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: "#e0e0e0",
+    justifyContent: "center",
   },
   inlineActionsSection: {
     padding: 16,

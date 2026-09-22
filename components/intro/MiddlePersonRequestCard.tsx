@@ -1,4 +1,5 @@
 import { profileService } from "@/lib/profileService";
+import { getVisibleProfileImageUrl } from "@/lib/profilePictureVisibility";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
@@ -138,27 +139,8 @@ export default function MiddlePersonRequestCard({
 
   const categoryInfo = getCategoryInfo();
 
-  const getRequesterPicture = () => {
-    const pictures = requester?.pictures;
-    const picturePath =
-      Array.isArray(pictures) && pictures.length > 0
-        ? pictures[0]
-        : typeof pictures === "string"
-          ? pictures
-          : null;
-    return picturePath ? profileService.getImageUrl(picturePath) : null;
-  };
-
-  const getRequestedPicture = () => {
-    const pictures = requested?.pictures;
-    const picturePath =
-      Array.isArray(pictures) && pictures.length > 0
-        ? pictures[0]
-        : typeof pictures === "string"
-          ? pictures
-          : null;
-    return picturePath ? profileService.getImageUrl(picturePath) : null;
-  };
+  const getRequesterPicture = () => getVisibleProfileImageUrl(requester);
+  const getRequestedPicture = () => getVisibleProfileImageUrl(requested);
 
   return (
     <View style={styles.card}>

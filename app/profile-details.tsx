@@ -15,7 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import AskForInfoModal from "../components/AskForInfoModal";
 import { WebShareModal } from "../components/WebShareModal";
 import PictureViewerModal from "../components/home/PictureViewerModal";
@@ -248,8 +248,13 @@ async function fetchProfileDetails(profileId: string) {
 export default function ProfileDetailsScreen() {
   const params = useLocalSearchParams();
   const routerInstance = useRouter();
+  const insets = useSafeAreaInsets();
   const profileId = (params.profileId || params.id) as string;
   const hideActions = params.hideActions === "true"; // Hide actions when viewing from suggestions
+
+  const actionsBottomPadding =
+    Math.max(insets.bottom, Platform.OS === "web" ? 24 : 0) +
+    (Platform.OS === "web" ? 12 : 16);
 
   // Robust back navigation handler
   const handleGoBack = () => {
@@ -1212,13 +1217,22 @@ export default function ProfileDetailsScreen() {
         )}
 
         {/* Bottom padding for action buttons */}
-        <View style={{ height: hideActions ? 20 : 100 }} />
+        <View style={{ height: hideActions ? 20 : 120 }} />
       </ScrollView>
 
       {/* Action Buttons (hidden when navigating from suggestion/intro cards) */}
       {!hideActions && profile && currentUserProfile && (
-        <View style={styles.actionsContainer}>
-          {/* Setup button - for both singles and matchmakers */}
+        <View
+          style={[
+            styles.actionsContainer,
+            {
+              paddingBottom: actionsBottomPadding,
+              maxWidth: Platform.OS === "web" ? 560 : undefined,
+              width: "100%",
+              alignSelf: "center",
+            },
+          ]}
+        >          {/* Setup button - for both singles and matchmakers */}
           <TouchableOpacity
             style={[styles.actionButton, styles.setupButton]}
             onPress={handleSetup}

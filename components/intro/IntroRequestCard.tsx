@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import EngagementButton from "../../components/EngagementButton";
 import { IntroRequest, introService } from "../../lib/introService";
+import { getVisibleProfileImageUrl } from "../../lib/profilePictureVisibility";
 import { profileService } from "../../lib/profileService";
 import ContinuationChoiceModal from "./ContinuationChoiceModal";
 
@@ -99,10 +100,7 @@ export default function IntroRequestCardNew({
   const matchmakerProfile = request.requester_middle_person;
 
   const getProfileImage = (profile: any) => {
-    if (Array.isArray(profile?.pictures) && profile.pictures.length > 0) {
-      return profileService.getImageUrl(profile.pictures[0]);
-    }
-    return null;
+    return getVisibleProfileImageUrl(profile);
   };
 
   const handleViewProfile = () => {

@@ -639,8 +639,8 @@ class IntroService {
           .from('intro_requests')
           .select(`
             *,
-            requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
-            requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+            requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
+            requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
             requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
             requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
           `)
@@ -650,8 +650,8 @@ class IntroService {
           .from('intro_requests')
           .select(`
             *,
-            requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
-            requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+            requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
+            requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
             requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
             requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
           `)
@@ -705,8 +705,8 @@ class IntroService {
         .from('intro_requests')
         .select(`
           *,
-          requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp),
-          requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, gender, phone, email, whatsapp, resume_url),
+          requester_profile:profiles!intro_requests_requester_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp),
+          requested_profile:profiles!intro_requests_requested_profile_id_fkey(id, first_name, last_name, dob, pictures, picture_privacy, gender, phone, email, whatsapp, resume_url),
           requester_middle_person:profiles!intro_requests_requester_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp),
           requested_middle_person:profiles!intro_requests_requested_middle_person_id_fkey(id, first_name, last_name, phone, email, whatsapp)
         `)

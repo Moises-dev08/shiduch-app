@@ -83,7 +83,7 @@ export default function AdminSponsorsScreen(): React.ReactElement {
       setInfoModal({
         visible: true,
         title: 'Error',
-        message: result.error || 'Failed to load sponsored ads',
+        message: result.error || 'Failed to load ads',
         iconName: 'alert-circle',
         iconColor: '#F44336',
       });
@@ -164,7 +164,7 @@ export default function AdminSponsorsScreen(): React.ReactElement {
       setInfoModal({
         visible: true,
         title: 'Picture required',
-        message: 'Please add a picture for this sponsored ad.',
+        message: 'Please add a picture for this ad.',
         iconName: 'image',
         iconColor: '#FF9800',
       });
@@ -196,7 +196,7 @@ export default function AdminSponsorsScreen(): React.ReactElement {
       setInfoModal({
         visible: true,
         title: 'Error',
-        message: result.error || 'Failed to save sponsored ad',
+        message: result.error || 'Failed to save ad',
         iconName: 'alert-circle',
         iconColor: '#F44336',
       });
@@ -206,7 +206,7 @@ export default function AdminSponsorsScreen(): React.ReactElement {
   const handleDelete = (ad: SponsoredAd): void => {
     setConfirmModal({
       visible: true,
-      title: 'Remove sponsored ad',
+      title: 'Remove ad',
       message: `Remove "${ad.title}"? It will no longer appear on the home page.`,
       onConfirm: async () => {
         setConfirmModal((current) => ({ ...current, visible: false }));
@@ -217,7 +217,7 @@ export default function AdminSponsorsScreen(): React.ReactElement {
           setInfoModal({
             visible: true,
             title: 'Error',
-            message: result.error || 'Failed to remove sponsored ad',
+            message: result.error || 'Failed to remove ad',
             iconName: 'alert-circle',
             iconColor: '#F44336',
           });
@@ -231,7 +231,7 @@ export default function AdminSponsorsScreen(): React.ReactElement {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#1293DA" />
-          <Text style={styles.loadingText}>Loading sponsored ads...</Text>
+          <Text style={styles.loadingText}>Loading ads...</Text>
         </View>
       </SafeAreaView>
     );
@@ -244,7 +244,7 @@ export default function AdminSponsorsScreen(): React.ReactElement {
           <Ionicons name="arrow-back" size={24} color="#666" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>Sponsored ads</Text>
+          <Text style={styles.title}>Ads</Text>
           <Text style={styles.subtitle}>
             {ads.length} {ads.length === 1 ? 'ad' : 'ads'}
           </Text>
@@ -265,9 +265,9 @@ export default function AdminSponsorsScreen(): React.ReactElement {
         {ads.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="megaphone-outline" size={72} color="#ccc" />
-            <Text style={styles.emptyTitle}>No sponsored ads</Text>
+            <Text style={styles.emptyTitle}>No ads yet</Text>
             <Text style={styles.emptyText}>
-              Add a sponsor with a picture, CTA, and duration to show it on the home page.
+              Add an ad with a picture, CTA, and duration to show it on the home page.
             </Text>
           </View>
         ) : (
@@ -347,7 +347,7 @@ export default function AdminSponsorsScreen(): React.ReactElement {
           <View style={styles.formSheet}>
             <View style={styles.formHeader}>
               <Text style={styles.formTitle}>
-                {editingAd ? 'Edit sponsored ad' : 'Add sponsored ad'}
+                {editingAd ? 'Edit ad' : 'Add ad'}
               </Text>
               <TouchableOpacity onPress={closeForm} accessibilityLabel="Close form">
                 <Ionicons name="close" size={24} color="#666" />
@@ -378,7 +378,7 @@ export default function AdminSponsorsScreen(): React.ReactElement {
                 style={styles.input}
                 value={form.title}
                 onChangeText={(title) => setForm((current) => ({ ...current, title }))}
-                placeholder="Sponsor name"
+                placeholder="Ad title"
                 placeholderTextColor="#aaa"
               />
 
@@ -426,7 +426,7 @@ export default function AdminSponsorsScreen(): React.ReactElement {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.saveButtonText}>
-                    {editingAd ? 'Save changes' : 'Add sponsored ad'}
+                    {editingAd ? 'Save changes' : 'Add ad'}
                   </Text>
                 )}
               </TouchableOpacity>

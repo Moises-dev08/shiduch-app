@@ -154,17 +154,14 @@ async function handleDeepLink(url: string) {
     return;
   }
 
-  // Shared profile: https://www.zivugmishamayim.com/profile/<id> (Universal Links) or shiduchimapp://profile/<id>
+  // Shared profile: https://www.zivugmishamayim.com/profile/<id> or shiduchimapp://profile/<id>
   const profileId = extractProfileIdFromShareUrl(url);
   if (profileId) {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       router.replace({ pathname: '/profile-details', params: { profileId } });
     } else {
-      try {
-        await AsyncStorage.setItem(PENDING_PROFILE_DEEP_LINK_KEY, profileId);
-      } catch {}
-      router.replace('/auth/login');
+      router.replace(`/public-profile/${profileId}`);
     }
   }
 }
@@ -243,6 +240,8 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="filters" options={{ headerShown: false }} />
           <Stack.Screen name="profile" options={{ headerShown: false, presentation: 'modal' }} />
+          <Stack.Screen name="public-profile/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="profile-details" options={{ headerShown: false }} />
         </Stack>
       </WebAppShell>
     </AuthProvider>

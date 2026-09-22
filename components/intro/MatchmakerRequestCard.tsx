@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { IntroRequest, introService } from "../../lib/introService";
+import { getVisibleProfileImageUrl } from "../../lib/profilePictureVisibility";
 import { profileService } from "../../lib/profileService";
 
 interface MatchmakerRequestCardProps {
@@ -44,10 +45,7 @@ export default function MatchmakerRequestCard({
   const requestedProfile = request.requested_profile;
 
   const getProfileImage = (profile: any) => {
-    if (Array.isArray(profile?.pictures) && profile.pictures.length > 0) {
-      return profileService.getImageUrl(profile.pictures[0]);
-    }
-    return null;
+    return getVisibleProfileImageUrl(profile);
   };
 
   const handleViewProfile = (profileId: string) => {

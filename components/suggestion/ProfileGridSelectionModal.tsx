@@ -512,8 +512,11 @@ export default function ProfileGridSelectionModal({
   // Transform database profile to Profile type
   const transformProfile = useCallback(
     (dbProfile: DatabaseProfile): Profile => {
+      const picturePrivacy = dbProfile.picture_privacy || "none";
       const firstPicture =
-        Array.isArray(dbProfile.pictures) && dbProfile.pictures.length > 0
+        picturePrivacy !== "none" &&
+        Array.isArray(dbProfile.pictures) &&
+        dbProfile.pictures.length > 0
           ? dbProfile.pictures[0]
           : "";
 
@@ -523,14 +526,14 @@ export default function ProfileGridSelectionModal({
         last_name: dbProfile.last_name,
         name: `${dbProfile.first_name} ${dbProfile.last_name}`,
         picture: firstPicture ? profileService.getImageUrl(firstPicture) : "",
-        pictures: dbProfile.pictures || [],
+        pictures: picturePrivacy !== "none" ? dbProfile.pictures || [] : [],
         location: "",
         bio: "",
         role: dbProfile.role,
         gender: dbProfile.gender,
         dob: dbProfile.dob,
         hashkafa_type: dbProfile.hashkafa_type,
-        picturePrivacy: dbProfile.picture_privacy || "none",
+        picturePrivacy,
       };
     },
     [],

@@ -10,11 +10,16 @@
  *
  * Deep-link parsing accepts both www and apex hostnames.
  */
-export const PROFILE_SHARE_WEB_BASE = 'https://www.zivugmishamayim.com';
+export const PROFILE_SHARE_WEB_BASE = 'https://app.zivugmishamayim.com';
+export const APP_WEB_BASE = 'https://app.zivugmishamayim.com';
 export const APP_PROFILE_SCHEME = 'shiduchimapp';
 
 export function getProfileHttpsShareUrl(profileId: string): string {
   return `${PROFILE_SHARE_WEB_BASE}/profile/${profileId}`;
+}
+
+export function getPublicProfileAppUrl(profileId: string): string {
+  return `${APP_WEB_BASE}/public-profile/${profileId}`;
 }
 
 export function getProfileDeepLinkUrl(profileId: string): string {
@@ -31,8 +36,12 @@ export function extractProfileIdFromShareUrl(url: string): string | null {
 
     const parsed = new URL(url);
     const host = parsed.hostname.replace(/^www\./i, '').toLowerCase();
-    if (host !== 'zivugmishamayim.com') return null;
-    const pathMatch = parsed.pathname.match(/\/profile\/([^/]+)/i);
+    if (host !== 'zivugmishamayim.com' && host !== 'app.zivugmishamayim.com') {
+      return null;
+    }
+    const pathMatch = parsed.pathname.match(
+      /\/(?:profile|public-profile)\/([^/]+)/i
+    );
     return pathMatch?.[1] ?? null;
   } catch {
     return null;

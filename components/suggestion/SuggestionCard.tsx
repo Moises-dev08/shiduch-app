@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { getVisibleProfileImageUrl } from "../../lib/profilePictureVisibility";
 import { profileService } from "../../lib/profileService";
 import { Suggestion, suggestionService } from "../../lib/suggestionService";
 import EngagementButton from "../EngagementButton";
@@ -228,10 +229,7 @@ export default function SuggestionCard({
   };
 
   const getProfileImage = (profile: any) => {
-    if (Array.isArray(profile?.pictures) && profile.pictures.length > 0) {
-      return profileService.getImageUrl(profile.pictures[0]);
-    }
-    return null;
+    return getVisibleProfileImageUrl(profile);
   };
 
   const renderStatus = () => {

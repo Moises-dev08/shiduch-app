@@ -175,7 +175,7 @@ export default function AdminDashboard() {
           >
             <View style={styles.actionButtonContent}>
               <Ionicons name="megaphone" size={20} color="#666" />
-              <Text style={styles.actionButtonText}>Sponsors</Text>
+              <Text style={styles.actionButtonText}>Ads</Text>
             </View>
           </TouchableOpacity>
 

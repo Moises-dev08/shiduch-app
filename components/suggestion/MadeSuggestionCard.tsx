@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { getVisibleProfileImageUrl } from "../../lib/profilePictureVisibility";
 import { profileService } from "../../lib/profileService";
 import { Suggestion } from "../../lib/suggestionService";
 import { calculateAge } from "../../lib/utils";
@@ -104,10 +105,7 @@ export default function MadeSuggestionCard({
   );
 
   const getProfileImage = (profile: any) => {
-    const pictures = profile.pictures;
-    return Array.isArray(pictures) && pictures.length > 0
-      ? profileService.getImageUrl(pictures[0])
-      : null;
+    return getVisibleProfileImageUrl(profile);
   };
 
   const renderResponseStatus = (status: string) => {
