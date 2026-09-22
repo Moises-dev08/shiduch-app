@@ -5,12 +5,13 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getVisibleProfileImageUrl } from '../../lib/profilePictureVisibility';
 import { profileService } from '../../lib/profileService';
 import { supabase } from '../../lib/supabase';
@@ -76,9 +77,14 @@ function formatYesNo(value: boolean | null | undefined): string | null {
 
 export default function PublicProfileScreen(): React.ReactElement {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<PublicProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const scrollBottomPadding =
+    Math.max(insets.bottom, Platform.OS === 'web' ? 48 : 16) +
+    (Platform.OS === 'web' ? 72 : 40);
 
   useEffect(() => {
     const load = async (): Promise<void> => {
@@ -215,7 +221,10 @@ export default function PublicProfileScreen(): React.ReactElement {
         <Text style={styles.headerTitle}>Profile</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.profileHeader}>
           <View style={styles.profileImageWrap}>
             {imageUrl ? (

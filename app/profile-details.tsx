@@ -1217,7 +1217,15 @@ export default function ProfileDetailsScreen() {
         )}
 
         {/* Bottom padding for action buttons */}
-        <View style={{ height: hideActions ? 20 : 120 }} />
+        <View
+          style={{
+            height: hideActions
+              ? 20
+              : Platform.OS === "web"
+                ? 160
+                : 120,
+          }}
+        />
       </ScrollView>
 
       {/* Action Buttons (hidden when navigating from suggestion/intro cards) */}

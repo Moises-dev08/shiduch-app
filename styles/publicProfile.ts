@@ -26,7 +26,7 @@ export const publicProfileStyles = StyleSheet.create({
     textAlign: 'center',
   },
   content: {
-    paddingBottom: 40,
+    paddingBottom: 120,
     maxWidth: Platform.OS === 'web' ? 560 : undefined,
     width: '100%',
     alignSelf: 'center',
