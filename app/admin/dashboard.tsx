@@ -3,6 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Image,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -14,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import InfoModal from '../../components/InfoModal';
 import { adminService } from '../../lib/adminService';
+import { getAdminProfileImageUrl } from '../../lib/profilePictureVisibility';
 import { Profile } from '../../lib/profileService';
 import { reportService } from '../../lib/reportService';
 import { supabase } from '../../lib/supabase';
@@ -276,6 +278,16 @@ export default function AdminDashboard() {
               onPress={() => handleViewProfile(profile)}
             >
               <View style={styles.profileHeader}>
+                {(() => {
+                  const avatarUrl = getAdminProfileImageUrl(profile);
+                  return avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+                  ) : (
+                    <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                      <Ionicons name="person" size={28} color="#ccc" />
+                    </View>
+                  );
+                })()}
                 <View style={styles.profileInfo}>
                   <Text style={styles.profileName}>
                     {profile.first_name} {profile.last_name}
@@ -512,6 +524,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginRight: 12,
+    backgroundColor: '#eee',
+  },
+  avatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   profileInfo: {
     flex: 1,

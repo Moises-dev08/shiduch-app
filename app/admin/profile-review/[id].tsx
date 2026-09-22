@@ -18,6 +18,10 @@ import ConfirmationModal from "../../../components/ConfirmationModal";
 import InfoModal from "../../../components/InfoModal";
 import PictureViewerModal from "../../../components/home/PictureViewerModal";
 import { adminService } from "../../../lib/adminService";
+import {
+  getAdminProfileImageUrls,
+  getPicturePrivacyAdminLabel,
+} from "../../../lib/profilePictureVisibility";
 import { Profile, profileService } from "../../../lib/profileService";
 import { calculateAge } from "../../../lib/utils";
 
@@ -77,30 +81,18 @@ export default function ProfileReviewPage() {
     }
 
     setLoading(true);
-    const result = await adminService.getPendingProfiles();
+    const result = await adminService.getProfileForReview(id);
     if (skipReloadRef.current) {
       setLoading(false);
       return;
     }
-    if (result.success && result.profiles) {
-      const foundProfile = result.profiles.find((p) => p.id === id);
-      if (foundProfile) {
-        setProfile(foundProfile);
-      } else {
-        setInfoModal({
-          visible: true,
-          title: 'Error',
-          message: 'Profile not found',
-          onClose: goToAdminHome,
-          iconName: 'alert-circle',
-          iconColor: '#F44336',
-        });
-      }
+    if (result.success && result.profile) {
+      setProfile(result.profile);
     } else {
       setInfoModal({
         visible: true,
         title: 'Error',
-        message: result.error || 'Failed to load profile',
+        message: result.error || 'Profile not found',
         onClose: goToAdminHome,
         iconName: 'alert-circle',
         iconColor: '#F44336',
@@ -241,6 +233,11 @@ export default function ProfileReviewPage() {
     );
   }
 
+  const adminPhotoUrls = getAdminProfileImageUrls(profile);
+  const picturePrivacyLabel = getPicturePrivacyAdminLabel(
+    profile.picture_privacy
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -273,6 +270,44 @@ export default function ProfileReviewPage() {
       </View>
 
       <ScrollView style={styles.content}>
+        {/* Photos — always visible to admins, including "No photo" / hidden privacy */}
+        <View style={styles.picturesSection}>
+          <Text style={styles.sectionTitle}>
+            Submitted photos ({adminPhotoUrls.length})
+          </Text>
+          <Text style={styles.privacyNote}>{picturePrivacyLabel}</Text>
+          {adminPhotoUrls.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {adminPhotoUrls.map((pictureUrl, index) => (
+                <TouchableOpacity
+                  key={`${pictureUrl}-${index}`}
+                  onPress={() =>
+                    openPhotoViewer(
+                      Array.isArray(profile.pictures)
+                        ? profile.pictures.filter(
+                            (path): path is string => typeof path === 'string'
+                          )
+                        : [],
+                      index
+                    )
+                  }
+                  accessibilityLabel="View submitted photo full screen"
+                >
+                  <Image
+                    source={{ uri: pictureUrl }}
+                    style={styles.profilePicture}
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.noPhotosBox}>
+              <Ionicons name="image-outline" size={36} color="#ccc" />
+              <Text style={styles.noPhotosText}>No photos uploaded</Text>
+            </View>
+          )}
+        </View>
+
         {/* Profile Type Info */}
         {profile.is_update && profile.last_approved_at && (
           <View style={styles.infoBanner}>
@@ -564,29 +599,6 @@ export default function ProfileReviewPage() {
                   })}
                 </View>
               )}
-          </View>
-        )}
-
-        {/* Pictures */}
-        {profile.pictures && profile.pictures.length > 0 && (
-          <View style={styles.picturesSection}>
-            <Text style={styles.sectionTitle}>
-              Submitted photos ({profile.pictures.length})
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {profile.pictures.map((picture, index) => (
-                <TouchableOpacity
-                  key={index}
-                  onPress={() => openPhotoViewer(profile.pictures, index)}
-                  accessibilityLabel="View submitted photo full screen"
-                >
-                  <Image
-                    source={{ uri: getImageUrl(picture) }}
-                    style={styles.profilePicture}
-                  />
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
           </View>
         )}
 
@@ -1249,12 +1261,21 @@ const styles = StyleSheet.create({
   },
   picturesSection: {
     marginBottom: 20,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    padding: 16,
   },
   profilePicture: {
     width: 150,
     height: 150,
     borderRadius: 8,
     marginRight: 12,
+  },
+  noPhotosBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
+    gap: 8,
   },
   detailSection: {
     backgroundColor: "#fff",

@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Image,
     Modal,
     RefreshControl,
     ScrollView,
@@ -15,6 +16,10 @@ import { AppTextInput } from '../../components/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SuccessModal from '../../components/SuccessModal';
 import { adminService } from '../../lib/adminService';
+import {
+  getAdminProfileImageUrls,
+  getPicturePrivacyAdminLabel,
+} from '../../lib/profilePictureVisibility';
 import { Profile } from '../../lib/profileService';
 
 export default function UserDetailsScreen() {
@@ -213,6 +218,27 @@ export default function UserDetailsScreen() {
             <Text style={styles.alertText}>Reason: {profile.suspension_reason}</Text>
           </View>
         )}
+
+        {/* Photos — always visible to admins */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Photos</Text>
+          <Text style={styles.privacyNote}>
+            {getPicturePrivacyAdminLabel(profile.picture_privacy)}
+          </Text>
+          {getAdminProfileImageUrls(profile).length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {getAdminProfileImageUrls(profile).map((uri, index) => (
+                <Image
+                  key={`${uri}-${index}`}
+                  source={{ uri }}
+                  style={styles.photo}
+                />
+              ))}
+            </ScrollView>
+          ) : (
+            <Text style={styles.detailText}>No photos uploaded</Text>
+          )}
+        </View>
 
         {/* Basic Info */}
         <View style={styles.section}>
@@ -461,6 +487,19 @@ const styles = StyleSheet.create({
   },
   sectionHeader: { fontSize: 16, fontWeight: 'bold', marginBottom: 12, color: '#333' },
   detailText: { fontSize: 14, marginBottom: 8, color: '#444' },
+  privacyNote: {
+    fontSize: 13,
+    color: '#666',
+    fontStyle: 'italic',
+    marginBottom: 12,
+  },
+  photo: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    marginRight: 10,
+    backgroundColor: '#eee',
+  },
 
   actionButton: {
     flexDirection: 'row',

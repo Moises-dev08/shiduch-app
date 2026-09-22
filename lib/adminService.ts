@@ -136,6 +136,43 @@ class AdminService {
   }
 
   /**
+   * Load one profile for admin review (includes photos even when privacy is "none").
+   */
+  async getProfileForReview(
+    profileId: string
+  ): Promise<{ success: boolean; profile?: Profile; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', profileId)
+        .single();
+
+      if (error || !data) {
+        return { success: false, error: error?.message || 'Profile not found' };
+      }
+
+      const hasApprovedAt = data.approved_at !== null;
+      const timeDiff =
+        new Date(data.updated_at).getTime() - new Date(data.created_at).getTime();
+      const hoursDiff = timeDiff / (1000 * 60 * 60);
+      const isUpdate = hasApprovedAt || hoursDiff > 1;
+
+      return {
+        success: true,
+        profile: {
+          ...data,
+          is_update: isUpdate,
+          last_approved_at: data.approved_at,
+        } as Profile,
+      };
+    } catch (error) {
+      console.error('Error fetching profile for review:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  /**
    * Approve a profile
    */
   async approveProfile(profileId: string): Promise<{ success: boolean; error?: string }> {
