@@ -252,9 +252,12 @@ export default function ProfileDetailsScreen() {
   const profileId = (params.profileId || params.id) as string;
   const hideActions = params.hideActions === "true"; // Hide actions when viewing from suggestions
 
+  // Android Chrome (and similar mobile browsers) reserve a large bottom chrome /
+  // toolbar that safe-area insets often report as 0 on web — pad generously.
   const actionsBottomPadding =
-    Math.max(insets.bottom, Platform.OS === "web" ? 24 : 0) +
-    (Platform.OS === "web" ? 12 : 16);
+    Platform.OS === "web"
+      ? Math.max(insets.bottom, 96) + 32
+      : Math.max(insets.bottom, 16);
 
   // Robust back navigation handler
   const handleGoBack = () => {
@@ -1222,7 +1225,7 @@ export default function ProfileDetailsScreen() {
             height: hideActions
               ? 20
               : Platform.OS === "web"
-                ? 160
+                ? 200
                 : 120,
           }}
         />
@@ -1235,12 +1238,13 @@ export default function ProfileDetailsScreen() {
             styles.actionsContainer,
             {
               paddingBottom: actionsBottomPadding,
+              paddingTop: Platform.OS === "web" ? 20 : 16,
               maxWidth: Platform.OS === "web" ? 560 : undefined,
               width: "100%",
               alignSelf: "center",
             },
           ]}
-        >          {/* Setup button - for both singles and matchmakers */}
+        >
           <TouchableOpacity
             style={[styles.actionButton, styles.setupButton]}
             onPress={handleSetup}
