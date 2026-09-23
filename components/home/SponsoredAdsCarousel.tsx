@@ -20,7 +20,8 @@ import {
 } from '../../lib/sponsorService';
 import { CARD_GAP, CARD_WIDTH, styles } from './SponsoredAdsCarousel.styles';
 
-const HIDDEN_KEY = 'sponsored_carousel_hidden';
+/** Previous builds stored hide across visits. Clear it so ads return after a reload. */
+const LEGACY_HIDDEN_KEY = 'sponsored_carousel_hidden';
 const SNAP_INTERVAL = CARD_WIDTH + CARD_GAP;
 const AUTO_ROTATE_MS = 3000;
 
@@ -41,15 +42,7 @@ export default function SponsoredAdsCarousel(): React.ReactElement | null {
   }, []);
 
   useEffect(() => {
-    const loadHidden = async (): Promise<void> => {
-      try {
-        const stored = await AsyncStorage.getItem(HIDDEN_KEY);
-        setHidden(stored === 'true');
-      } catch (error) {
-        console.error('Error reading ads carousel preference:', error);
-      }
-    };
-    void loadHidden();
+    AsyncStorage.removeItem(LEGACY_HIDDEN_KEY).catch(() => {});
   }, []);
 
   useFocusEffect(
@@ -59,6 +52,10 @@ export default function SponsoredAdsCarousel(): React.ReactElement | null {
         setReady(true);
       };
       void load();
+      return () => {
+        // Hide lasts only while this screen is open.
+        setHidden(false);
+      };
     }, [loadAds])
   );
 
@@ -84,14 +81,8 @@ export default function SponsoredAdsCarousel(): React.ReactElement | null {
     return () => clearInterval(timer);
   }, [ads.length, hidden, isPaused]);
 
-  const toggleHidden = async (): Promise<void> => {
-    const next = !hidden;
-    setHidden(next);
-    try {
-      await AsyncStorage.setItem(HIDDEN_KEY, next ? 'true' : 'false');
-    } catch (error) {
-      console.error('Error saving ads carousel preference:', error);
-    }
+  const toggleHidden = (): void => {
+    setHidden((current) => !current);
   };
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
