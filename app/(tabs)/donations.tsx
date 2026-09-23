@@ -2,7 +2,8 @@ import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { donationsStyles as styles } from "./donations.styles";
+import { donationsStyles as styles } from "../../styles/donations";
+import { webPageLayout } from "../../styles/webPageLayout";
 
 const NONPROFIT_NAME = "Zivug Mishamayim";
 const DONATE_WEB_URL = "https://www.zivugmishamayim.com/donate";
@@ -69,7 +70,10 @@ export default function DonationsScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={webPageLayout.centeredScrollContent}
+      >
         <View style={styles.header}>
           <View style={styles.headerIcon}>
             <FontAwesome5 name="donate" size={32} color="#1293DA" />

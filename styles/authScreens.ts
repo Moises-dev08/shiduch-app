@@ -5,16 +5,17 @@ const isWeb = Platform.OS === "web";
 /** Shared brand-auth layout bits that differ on web vs native. */
 export const authBrandLayout = StyleSheet.create({
   logo: {
-    width: isWeb ? 280 : 400,
-    height: isWeb ? 250 : 360,
-    marginBottom: isWeb ? 8 : -16,
+    width: isWeb ? 230 : 400,
+    height: isWeb ? 180 : 360,
+    marginBottom: isWeb ? 0 : -16,
     maxWidth: "100%",
   },
   content: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: isWeb ? "flex-start" : "center",
     paddingHorizontal: isWeb ? 24 : 28,
-    paddingVertical: isWeb ? 32 : 20,
+    paddingTop: isWeb ? 12 : 20,
+    paddingBottom: isWeb ? 24 : 20,
     width: "100%",
   },
   scrollContent: {

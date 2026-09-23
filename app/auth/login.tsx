@@ -80,7 +80,7 @@ export default function LoginScreen(): React.JSX.Element {
     >
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <AuthFormShell style={authBrandLayout.content}>
           <DismissKeyboard style={styles.shellInner}>
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: "center",
-    marginBottom: 36,
+    marginBottom: Platform.OS === "web" ? 16 : 36,
   },
   title: {
     fontSize: 28,
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   form: {
-    marginBottom: 28,
+    marginBottom: Platform.OS === "web" ? 16 : 28,
   },
   inputContainer: {
     flexDirection: "row",

@@ -172,6 +172,5 @@ export const donationsStyles = StyleSheet.create({
     color: "#999",
     textAlign: "center",
     lineHeight: 18,
-    flex: 1,
   },
 });
