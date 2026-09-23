@@ -167,8 +167,19 @@ export default function HowItWorksCarousel({
             </TouchableOpacity>
           )}
           <View style={{ flex: 1 }} />
-          <TouchableOpacity onPress={handleNext} style={styles.navButton}>
-            <Text style={styles.navButtonText}>
+          <TouchableOpacity
+            onPress={handleNext}
+            style={[
+              styles.navButton,
+              currentIndex === slides.length - 1 && styles.getStartedButton,
+            ]}
+          >
+            <Text
+              style={[
+                styles.navButtonText,
+                currentIndex === slides.length - 1 && styles.getStartedButtonText,
+              ]}
+            >
               {currentIndex === slides.length - 1 ? "Get Started" : "Next"}
             </Text>
             <Ionicons
@@ -178,7 +189,7 @@ export default function HowItWorksCarousel({
                   : "arrow-forward"
               }
               size={24}
-              color="#007AFF"
+              color={currentIndex === slides.length - 1 ? "#fff" : "#007AFF"}
             />
           </TouchableOpacity>
         </View>
@@ -283,9 +294,17 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 12,
   },
+  getStartedButton: {
+    backgroundColor: "#1293DA",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+  },
   navButtonText: {
     fontSize: 16,
     color: "#007AFF",
     fontWeight: "600",
+  },
+  getStartedButtonText: {
+    color: "#fff",
   },
 });

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { ReactNode, useState } from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { calculateAge } from "../../lib/utils";
 import { Profile } from "../../types/homeTypes";
 
@@ -113,8 +113,10 @@ const styles = StyleSheet.create({
   },
   profileImage: {
     width: "100%",
-    height: 200,
     backgroundColor: "#f0f0f0",
+    ...(Platform.OS === "web"
+      ? { aspectRatio: 3 / 4 }
+      : { height: 200 }),
   },
   placeholderImage: {
     justifyContent: "center",
