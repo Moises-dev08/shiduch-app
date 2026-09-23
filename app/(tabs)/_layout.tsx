@@ -1,8 +1,9 @@
-import { Ionicons } from "@expo/vector-icons";
+import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { Tabs, usePathname } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import { Alert, AppState } from "react-native";
+import { Alert, AppState, Platform, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNotificationCount } from "../../hooks/useNotificationCount";
 import { profileService } from "../../lib/profileService";
 import { supabase } from "../../lib/supabase";
@@ -13,7 +14,14 @@ const MY_PROFILE_QUERY_KEY = ["my_profile"] as const;
 export default function TabLayout() {
   const queryClient = useQueryClient();
   const pathname = usePathname();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { counts, refresh: refreshNotifications } = useNotificationCount();
+
+  // Phone browsers overlay the layout viewport with their own toolbar, and
+  // safe-area insets are often 0 on web, so the tab bar sits underneath it.
+  const isMobileWeb = Platform.OS === "web" && width < 768;
+  const mobileWebBottomInset = isMobileWeb ? Math.max(insets.bottom, 72) : 0;
 
   const prevStatusRef = useRef<"pending" | "approved" | "rejected" | null>(null);
 
@@ -181,6 +189,13 @@ export default function TabLayout() {
           backgroundColor: "#fff",
           borderTopWidth: 1,
           borderTopColor: "#e0e0e0",
+          display: "flex",
+          ...(isMobileWeb
+            ? {
+                height: 56 + mobileWebBottomInset,
+                paddingBottom: mobileWebBottomInset,
+              }
+            : {}),
         },
       }}
     >
@@ -234,6 +249,27 @@ export default function TabLayout() {
         }}
       />
 
+      <Tabs.Screen
+        name="donations"
+        options={{
+          title: "Donations",
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome5
+              name="donate"
+              size={size - 2}
+              color={isTabDisabled ? "#ccc" : color}
+            />
+          ),
+          tabBarLabelStyle: isTabDisabled ? { color: "#ccc" } : {},
+        }}
+        listeners={{
+          tabPress: (e) => {
+            if (!handleTabPress("donations")) {
+              e.preventDefault();
+            }
+          },
+        }}
+      />
       <Tabs.Screen
         name="notifications"
         options={{
