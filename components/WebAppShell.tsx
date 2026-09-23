@@ -1,6 +1,7 @@
 import { usePathname } from "expo-router";
 import React from "react";
 import { Platform, View } from "react-native";
+import { useWebViewportHeight } from "../hooks/useWebViewportHeight";
 import { webAppShellStyles as styles } from "./WebAppShell.styles";
 
 interface WebAppShellProps {
@@ -23,13 +24,21 @@ function getInnerStyle(pathname: string) {
  */
 export function WebAppShell({ children }: WebAppShellProps): React.JSX.Element {
   const pathname = usePathname();
+  const viewportHeight = useWebViewportHeight();
 
   if (Platform.OS !== "web") {
     return <>{children}</>;
   }
 
   return (
-    <View style={styles.root}>
+    <View
+      style={[
+        styles.root,
+        viewportHeight != null
+          ? { height: viewportHeight, maxHeight: viewportHeight }
+          : null,
+      ]}
+    >
       <View style={getInnerStyle(pathname)}>{children}</View>
     </View>
   );

@@ -2,13 +2,25 @@ import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { Tabs, usePathname } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import { Alert, AppState, Platform } from "react-native";
+import { Alert, AppState, Platform, type ViewStyle } from "react-native";
 import { useNotificationCount } from "../../hooks/useNotificationCount";
 import { profileService } from "../../lib/profileService";
 import { supabase } from "../../lib/supabase";
 
 /** Same key as profile.tsx / connect.tsx so tab gating never lags behind cached profile. */
 const MY_PROFILE_QUERY_KEY = ["my_profile"] as const;
+
+/**
+ * Android Chrome draws the page under the gesture bar. Keep the 49px icon row
+ * and let the bar grow by the safe-area inset so Home / Connect / Donations /
+ * Profile stay above that bar. With a 0 inset this is still 64px tall.
+ */
+const webTabBarStyle = {
+  paddingBottom: "max(15px, env(safe-area-inset-bottom, 0px))",
+  height: "calc(49px + max(15px, env(safe-area-inset-bottom, 0px)))",
+  flexShrink: 0,
+  zIndex: 2,
+} as ViewStyle;
 
 export default function TabLayout() {
   const queryClient = useQueryClient();
@@ -181,7 +193,7 @@ export default function TabLayout() {
           backgroundColor: "#fff",
           borderTopWidth: 1,
           borderTopColor: "#e0e0e0",
-          ...(Platform.OS === "web" ? { paddingBottom: 15, height: 64 } : {}),
+          ...(Platform.OS === "web" ? webTabBarStyle : {}),
         },
       }}
     >
