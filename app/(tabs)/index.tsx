@@ -27,10 +27,13 @@ import { useWebTabVisible } from "../../hooks/useWebTabVisible";
 import { supabase } from "../../lib/supabase";
 import { Profile } from "../../types/homeTypes";
 
+/** Web desktop home photos are 40% shorter than the default 3:4 web card. */
+const DESKTOP_PHOTO_ASPECT_RATIO = (3 / 4) / 0.6;
+
 export default function HomeScreen() {
   const isTabVisible = useWebTabVisible();
   const { cardWidthPercent } = useProfileGridLayout();
-  const { isDesktop } = useResponsiveLayout();
+  const { isDesktop, isWeb } = useResponsiveLayout();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -535,6 +538,9 @@ export default function HomeScreen() {
                       profile={profile}
                       onPress={handleProfilePress}
                       cardWidthPercent={cardWidthPercent}
+                      photoAspectRatio={
+                        isWeb && isDesktop ? DESKTOP_PHOTO_ASPECT_RATIO : undefined
+                      }
                     />
                   ))}
                 </View>

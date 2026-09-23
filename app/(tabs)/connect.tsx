@@ -28,7 +28,6 @@ import { useWebTabVisible } from "../../hooks/useWebTabVisible";
 import { engagementService } from "../../lib/engagementService";
 import { infoRequestService } from "../../lib/infoRequestService";
 import { introService } from "../../lib/introService";
-import { webPageLayout } from "../../styles/webPageLayout";
 import { notificationService } from "../../lib/notificationService";
 import { Profile, profileService } from "../../lib/profileService";
 import { suggestionService } from "../../lib/suggestionService";
@@ -752,7 +751,7 @@ export default function ConnectScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={[styles.pageBody, webPageLayout.centeredListContent]}>
+      <View style={styles.pageBody}>
       {/* Header - Desktop version has tabs */}
       {isDesktop ? (
         <ConnectHeader

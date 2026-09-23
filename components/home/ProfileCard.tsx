@@ -12,6 +12,8 @@ interface ProfileCardProps {
   renderOverlay?: ReactNode;
   /** Override default card width (used for responsive web grids). */
   cardWidthPercent?: number;
+  /** Width / height of the photo. Overrides the default web or native photo size. */
+  photoAspectRatio?: number;
 }
 
 export default function ProfileCard({
@@ -20,6 +22,7 @@ export default function ProfileCard({
   renderAction,
   renderOverlay,
   cardWidthPercent,
+  photoAspectRatio,
 }: ProfileCardProps) {
   const [imageError, setImageError] = useState(false);
   const showImage =
@@ -31,6 +34,10 @@ export default function ProfileCard({
   const isBlurred = profile.picturePrivacy === "private";
   const isOneTimeViewed = profile.picturePrivacy === "one_time" && profile.picturesViewed;
   const age = calculateAge(profile.dob);
+  const photoStyle =
+    photoAspectRatio != null
+      ? [styles.profileImage, { aspectRatio: photoAspectRatio }]
+      : styles.profileImage;
 
   return (
     <TouchableOpacity
@@ -45,7 +52,7 @@ export default function ProfileCard({
         <View style={styles.imageContainer}>
           <Image
             source={{ uri: profile.picture }}
-            style={styles.profileImage}
+            style={photoStyle}
             onError={() => setImageError(true)}
             blurRadius={isBlurred ? 15 : isOneTimeViewed ? 15 : 0}
           />
@@ -73,7 +80,7 @@ export default function ProfileCard({
           )}
         </View>
       ) : (
-        <View style={[styles.profileImage, styles.placeholderImage]}>
+        <View style={[photoStyle, styles.placeholderImage]}>
           <Ionicons name="person" size={40} color="#ccc" />
           <View style={styles.nameBadge}>
             <Text style={styles.nameText} numberOfLines={1}>
