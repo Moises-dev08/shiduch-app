@@ -59,7 +59,10 @@ exports.handler = async (event) => {
       description =
         (profile.bio && String(profile.bio).trim().slice(0, 160)) ||
         (location ? `View ${name || 'this profile'} from ${location} on Zivug Mishamayim.` : description);
-      if (profile.picture_privacy !== 'none' && Array.isArray(profile.pictures) && profile.pictures[0]) {
+      // Only a public photo may appear in WhatsApp / iMessage previews.
+      // Private, one-time, and hidden photos stay off the link card.
+      const photoIsPublic = profile.picture_privacy === 'always';
+      if (photoIsPublic && Array.isArray(profile.pictures) && profile.pictures[0]) {
         image = publicImageUrl(profile.pictures[0]) || DEFAULT_IMAGE;
       }
     }
