@@ -69,7 +69,8 @@ exports.handler = async (event) => {
   }
 
   const publicUrl = id ? `${APP_WEB_BASE}/public-profile/${id}` : APP_WEB_BASE;
-  const shareUrl = id ? `${SITE_ORIGIN}/profile/${id}` : SITE_ORIGIN;
+  // Must match PROFILE_SHARE_PREVIEW_VERSION in lib/profileShareUrls.ts
+  const shareUrl = id ? `${SITE_ORIGIN}/profile/${id}?v=2` : SITE_ORIGIN;
   const safeTitle = escapeHtml(title);
   const safeDescription = escapeHtml(description);
   const safeImage = escapeHtml(image);
@@ -110,7 +111,7 @@ exports.handler = async (event) => {
     statusCode: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'public, max-age=300',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
     },
     body: html,
   };

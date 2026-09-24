@@ -14,8 +14,14 @@ export const PROFILE_SHARE_WEB_BASE = 'https://app.zivugmishamayim.com';
 export const APP_WEB_BASE = 'https://app.zivugmishamayim.com';
 export const APP_PROFILE_SCHEME = 'shiduchimapp';
 
+/**
+ * Bumps the link WhatsApp and iMessage scrape, so an old preview that included
+ * a private photo is not reused.
+ */
+export const PROFILE_SHARE_PREVIEW_VERSION = '2';
+
 export function getProfileHttpsShareUrl(profileId: string): string {
-  return `${PROFILE_SHARE_WEB_BASE}/profile/${profileId}`;
+  return `${PROFILE_SHARE_WEB_BASE}/profile/${profileId}?v=${PROFILE_SHARE_PREVIEW_VERSION}`;
 }
 
 export function getPublicProfileAppUrl(profileId: string): string {

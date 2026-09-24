@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Platform,
   ScrollView,
   Text,
@@ -11,7 +12,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PrivacyAwareImage } from '../../components/profile/PrivacyAwareImage';
 import { getVisibleProfileImageUrl } from '../../lib/profilePictureVisibility';
 import { profileService } from '../../lib/profileService';
 import { supabase } from '../../lib/supabase';
@@ -189,17 +189,19 @@ export default function PublicProfileScreen(): React.ReactElement {
   }
 
   const picturePrivacy = profile.picture_privacy || 'none';
-  // A share link must not reveal a clear photo unless the owner chose Public.
-  const isPhotoBlurred =
-    picturePrivacy === 'private' || picturePrivacy === 'one_time';
-  const showPictures = picturePrivacy === 'always' || isPhotoBlurred;
-  const imageUrl = showPictures
-    ? getVisibleProfileImageUrl(profile, { allowPrivateBlurred: true })
-    : null;
+  // A share page must not include the photo file unless the owner chose Public.
+  // A blurred image still exposes the real URL, which WhatsApp uses as the preview.
+  const photoIsPublic = picturePrivacy === 'always';
+  const imageUrl = photoIsPublic ? getVisibleProfileImageUrl(profile) : null;
   const allPictures =
-    showPictures && Array.isArray(profile.pictures)
+    photoIsPublic && Array.isArray(profile.pictures)
       ? profile.pictures.map((pic) => profileService.getImageUrl(pic))
       : [];
+  const photosAreHidden =
+    !photoIsPublic &&
+    picturePrivacy !== 'none' &&
+    Array.isArray(profile.pictures) &&
+    profile.pictures.length > 0;
   const age = profile.dob ? calculateAge(profile.dob) : null;
   const location = [profile.location_city, profile.location_state, profile.location_country]
     .filter(Boolean)
@@ -227,23 +229,17 @@ export default function PublicProfileScreen(): React.ReactElement {
         <View style={styles.profileHeader}>
           <View style={styles.profileImageWrap}>
             {imageUrl ? (
-              <>
-                <PrivacyAwareImage
-                  uri={imageUrl}
-                  imageStyle={styles.profileImage}
-                  blurred={isPhotoBlurred}
-                  blurRadius={20}
-                  borderRadius={50}
-                />
-                {isPhotoBlurred && (
-                  <View style={styles.imageBlurOverlay}>
-                    <Ionicons name="lock-closed" size={28} color="#fff" />
-                  </View>
-                )}
-              </>
+              <Image
+                source={{ uri: imageUrl }}
+                style={styles.profileImage}
+              />
             ) : (
               <View style={[styles.profileImage, styles.photoPlaceholder]}>
-                <Ionicons name="person" size={50} color="#ccc" />
+                <Ionicons
+                  name={photosAreHidden ? 'lock-closed' : 'person'}
+                  size={photosAreHidden ? 28 : 50}
+                  color={photosAreHidden ? '#1293DA' : '#ccc'}
+                />
               </View>
             )}
           </View>
@@ -258,35 +254,26 @@ export default function PublicProfileScreen(): React.ReactElement {
           </View>
         </View>
 
-        {allPictures.length > 0 && (
+        {(allPictures.length > 0 || photosAreHidden) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Pictures</Text>
-            <View style={styles.picturesGrid}>
-              {allPictures.slice(0, 3).map((picture, index) => (
-                <View key={`${picture}-${index}`} style={styles.pictureThumbnail}>
-                  <PrivacyAwareImage
-                    uri={picture}
-                    imageStyle={styles.thumbnailImage}
-                    blurred={isPhotoBlurred}
-                    blurRadius={15}
-                    borderRadius={10}
-                  />
-                  {isPhotoBlurred && (
-                    <View style={styles.blurOverlay}>
-                      <Ionicons name="lock-closed" size={20} color="#fff" />
-                    </View>
-                  )}
-                </View>
-              ))}
-            </View>
-            {picturePrivacy === 'private' && (
+            {allPictures.length > 0 ? (
+              <View style={styles.picturesGrid}>
+                {allPictures.slice(0, 3).map((picture, index) => (
+                  <View key={`${picture}-${index}`} style={styles.pictureThumbnail}>
+                    <Image
+                      source={{ uri: picture }}
+                      style={styles.thumbnailImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : (
               <Text style={styles.pictureNote}>
-                Photos are private. Join to request access.
-              </Text>
-            )}
-            {picturePrivacy === 'one_time' && (
-              <Text style={styles.pictureNote}>
-                Photos can be viewed once in the app. Join to see them.
+                {picturePrivacy === 'one_time'
+                  ? 'Photos can be viewed once in the app. Join to see them.'
+                  : 'Photos are private. Join to request access.'}
               </Text>
             )}
           </View>
