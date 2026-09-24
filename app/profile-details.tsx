@@ -5,7 +5,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -19,6 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import AskForInfoModal from "../components/AskForInfoModal";
 import { WebShareModal } from "../components/WebShareModal";
 import PictureViewerModal from "../components/home/PictureViewerModal";
+import { PrivacyAwareImage } from "../components/profile/PrivacyAwareImage";
 import ReportProfileModal from "../components/home/ReportProfileModal";
 import ContinuationChoiceModal from "../components/intro/ContinuationChoiceModal";
 import MiddlePersonSelectionModal from "../components/intro/MiddlePersonSelectionModal";
@@ -855,18 +855,17 @@ export default function ProfileDetailsScreen() {
             ) : (
               // Public, Private, or One-time - show image
               <>
-                <Image
-                  source={{ uri: profile.picture }}
-                  style={styles.profileImage}
-                  onError={() => setImageError(true)}
-                  blurRadius={
-                    profile.picturePrivacy === "private"
-                      ? 20
-                      : profile.picturePrivacy === "one_time" &&
-                          hasPicturesBeenViewed
-                        ? 20
-                        : 0
+                <PrivacyAwareImage
+                  uri={profile.picture}
+                  imageStyle={styles.profileImage}
+                  blurred={
+                    profile.picturePrivacy === "private" ||
+                    (profile.picturePrivacy === "one_time" &&
+                      hasPicturesBeenViewed)
                   }
+                  blurRadius={20}
+                  borderRadius={50}
+                  onError={() => setImageError(true)}
                 />
                 {profile.picturePrivacy === "private" && (
                   <TouchableOpacity
@@ -911,18 +910,16 @@ export default function ProfileDetailsScreen() {
                     onPress={() => handlePicturePress(index)}
                     activeOpacity={0.7}
                   >
-                    <Image
-                      source={{ uri: picture }}
-                      style={styles.thumbnailImage}
-                      resizeMode="cover"
-                      blurRadius={
-                        profile.picturePrivacy === "private"
-                          ? 15
-                          : profile.picturePrivacy === "one_time" &&
-                              hasPicturesBeenViewed
-                            ? 15
-                            : 0
+                    <PrivacyAwareImage
+                      uri={picture}
+                      imageStyle={styles.thumbnailImage}
+                      blurred={
+                        profile.picturePrivacy === "private" ||
+                        (profile.picturePrivacy === "one_time" &&
+                          hasPicturesBeenViewed)
                       }
+                      blurRadius={15}
+                      borderRadius={8}
                     />
                     {profile.picturePrivacy === "private" && (
                       <View style={styles.blurOverlay}>

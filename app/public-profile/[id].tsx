@@ -4,7 +4,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Platform,
   ScrollView,
   Text,
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PrivacyAwareImage } from '../../components/profile/PrivacyAwareImage';
 import { getVisibleProfileImageUrl } from '../../lib/profilePictureVisibility';
 import { profileService } from '../../lib/profileService';
 import { supabase } from '../../lib/supabase';
@@ -189,18 +189,17 @@ export default function PublicProfileScreen(): React.ReactElement {
   }
 
   const picturePrivacy = profile.picture_privacy || 'none';
-  const showPictures =
-    picturePrivacy === 'always' ||
-    picturePrivacy === 'private' ||
-    picturePrivacy === 'one_time';
-  const imageUrl = getVisibleProfileImageUrl(profile, {
-    allowPrivateBlurred: true,
-  });
+  // A share link must not reveal a clear photo unless the owner chose Public.
+  const isPhotoBlurred =
+    picturePrivacy === 'private' || picturePrivacy === 'one_time';
+  const showPictures = picturePrivacy === 'always' || isPhotoBlurred;
+  const imageUrl = showPictures
+    ? getVisibleProfileImageUrl(profile, { allowPrivateBlurred: true })
+    : null;
   const allPictures =
     showPictures && Array.isArray(profile.pictures)
       ? profile.pictures.map((pic) => profileService.getImageUrl(pic))
       : [];
-  const isPhotoBlurred = picturePrivacy === 'private';
   const age = profile.dob ? calculateAge(profile.dob) : null;
   const location = [profile.location_city, profile.location_state, profile.location_country]
     .filter(Boolean)
@@ -229,10 +228,12 @@ export default function PublicProfileScreen(): React.ReactElement {
           <View style={styles.profileImageWrap}>
             {imageUrl ? (
               <>
-                <Image
-                  source={{ uri: imageUrl }}
-                  style={styles.profileImage}
-                  blurRadius={isPhotoBlurred ? 20 : 0}
+                <PrivacyAwareImage
+                  uri={imageUrl}
+                  imageStyle={styles.profileImage}
+                  blurred={isPhotoBlurred}
+                  blurRadius={20}
+                  borderRadius={50}
                 />
                 {isPhotoBlurred && (
                   <View style={styles.imageBlurOverlay}>
@@ -263,11 +264,12 @@ export default function PublicProfileScreen(): React.ReactElement {
             <View style={styles.picturesGrid}>
               {allPictures.slice(0, 3).map((picture, index) => (
                 <View key={`${picture}-${index}`} style={styles.pictureThumbnail}>
-                  <Image
-                    source={{ uri: picture }}
-                    style={styles.thumbnailImage}
-                    resizeMode="cover"
-                    blurRadius={isPhotoBlurred ? 15 : 0}
+                  <PrivacyAwareImage
+                    uri={picture}
+                    imageStyle={styles.thumbnailImage}
+                    blurred={isPhotoBlurred}
+                    blurRadius={15}
+                    borderRadius={10}
                   />
                   {isPhotoBlurred && (
                     <View style={styles.blurOverlay}>
@@ -277,9 +279,14 @@ export default function PublicProfileScreen(): React.ReactElement {
                 </View>
               ))}
             </View>
-            {isPhotoBlurred && (
+            {picturePrivacy === 'private' && (
               <Text style={styles.pictureNote}>
                 Photos are private. Join to request access.
+              </Text>
+            )}
+            {picturePrivacy === 'one_time' && (
+              <Text style={styles.pictureNote}>
+                Photos can be viewed once in the app. Join to see them.
               </Text>
             )}
           </View>
