@@ -25,14 +25,16 @@ export default function ProfileCard({
   photoAspectRatio,
 }: ProfileCardProps) {
   const [imageError, setImageError] = useState(false);
+  const isOneTimeViewed =
+    profile.picturePrivacy === "one_time" && !!profile.picturesViewed;
   const showImage =
     !imageError &&
-    profile.picture &&
+    !isOneTimeViewed &&
+    !!profile.picture &&
     (profile.picturePrivacy === "always" ||
       profile.picturePrivacy === "private" ||
       profile.picturePrivacy === "one_time");
   const isBlurred = profile.picturePrivacy === "private";
-  const isOneTimeViewed = profile.picturePrivacy === "one_time" && profile.picturesViewed;
   const age = calculateAge(profile.dob);
   const photoStyle =
     photoAspectRatio != null
@@ -54,17 +56,11 @@ export default function ProfileCard({
             source={{ uri: profile.picture }}
             style={photoStyle}
             onError={() => setImageError(true)}
-            blurRadius={isBlurred ? 15 : isOneTimeViewed ? 15 : 0}
+            blurRadius={isBlurred ? 15 : 0}
           />
           {isBlurred && (
             <View style={styles.blurOverlay}>
               <Ionicons name="lock-closed" size={24} color="#fff" />
-            </View>
-          )}
-          {isOneTimeViewed && (
-            <View style={styles.openedOverlay}>
-              <Ionicons name="eye" size={22} color="#fff" />
-              <Text style={styles.openedText}>Opened</Text>
             </View>
           )}
           <View style={styles.nameBadge}>

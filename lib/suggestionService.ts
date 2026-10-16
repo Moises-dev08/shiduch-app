@@ -378,10 +378,10 @@ class SuggestionService {
             otherProfile?.user_id && otherProfile.id !== _rtsPid
               ? notificationService.sendNotification(
                   otherProfile.user_id,
-                  "Match Suggestion Declined",
+                  "Match suggestion declined",
                   `${rejectingName} declined the match suggestion${_rtsNote ? ": " + _rtsNote : "."}`,
                   {
-                    type: "suggestion_rejected",
+                    type: "suggestion_declined",
                     suggestionId: _rtsId,
                     rejectedBy: _rtsPid,
                   },
@@ -692,17 +692,29 @@ class SuggestionService {
               ),
             );
           }
-        } else if (suggester?.user_id && suggester.id !== _awcPid) {
-          // Only one side has accepted so far — notify the suggester of this individual acceptance
+        } else {
           const acceptingProfile = _awcIsP1 ? p1 : p2;
-          notifs.push(
-            notificationService.sendNotification(
-              suggester.user_id,
-              "Someone accepted your suggestion!",
-              `${acceptingProfile?.first_name ?? ""} ${acceptingProfile?.last_name ?? ""} accepted your match suggestion.`,
-              { type: "suggestion_accepted_one_side", suggestionId: _awcSgId },
-            ),
-          );
+          const waitingProfile = _awcIsP1 ? p2 : p1;
+          if (suggester?.user_id && suggester.id !== _awcPid) {
+            notifs.push(
+              notificationService.sendNotification(
+                suggester.user_id,
+                "Someone accepted your suggestion!",
+                `${acceptingProfile?.first_name ?? ""} ${acceptingProfile?.last_name ?? ""} accepted your match suggestion.`,
+                { type: "suggestion_accepted_one_side", suggestionId: _awcSgId },
+              ),
+            );
+          }
+          if (waitingProfile?.user_id && waitingProfile.id !== _awcPid) {
+            notifs.push(
+              notificationService.sendNotification(
+                waitingProfile.user_id,
+                "A match suggestion is waiting",
+                `${acceptingProfile?.first_name ?? ""} ${acceptingProfile?.last_name ?? ""} already said yes to a match with you.`,
+                { type: "suggestion_other_side_yes", suggestionId: _awcSgId },
+              ),
+            );
+          }
         }
 
         if (_awcChoice === "with_middle_person" && _awcMpId) {

@@ -16,7 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { getVisibleProfileImageUrl } from "../../lib/profilePictureVisibility";
+import { useViewedPictureIds } from "../../hooks/useViewedPictureIds";
 import { profileService } from "../../lib/profileService";
 import { Suggestion, suggestionService } from "../../lib/suggestionService";
 import EngagementButton from "../EngagementButton";
@@ -38,6 +38,7 @@ export default function SuggestionCard({
   isActionNeeded = false,
 }: SuggestionCardProps) {
   const queryClient = useQueryClient();
+  const { imageUrlFor } = useViewedPictureIds();
   const [showLearnMore, setShowLearnMore] = useState(false);
   const [showRejectNote, setShowRejectNote] = useState(false);
   const [rejectNote, setRejectNote] = useState("");
@@ -229,7 +230,7 @@ export default function SuggestionCard({
   };
 
   const getProfileImage = (profile: any) => {
-    return getVisibleProfileImageUrl(profile);
+    return imageUrlFor(profile);
   };
 
   const renderStatus = () => {

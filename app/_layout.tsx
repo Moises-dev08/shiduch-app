@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { router, Stack } from "expo-router";
 import { useEffect, useRef } from "react";
@@ -8,7 +7,7 @@ import { Linking, Platform } from "react-native";
 import { AuthProvider, useAuth } from "../lib/AuthContext";
 import { extractProfileIdFromShareUrl } from "../lib/profileShareUrls";
 import { getNavigationTarget } from "../lib/notificationRoutes";
-import { isNativePushNotificationsSupported } from "../lib/pushNotificationsPlatform";
+import { loadNotificationsModule } from "../lib/pushNotificationsPlatform";
 import { supabase } from "../lib/supabase";
 import { WebAppShell } from "../components/WebAppShell";
 
@@ -29,8 +28,14 @@ const queryClient = new QueryClient({
   },
 });
 
+interface PushNotificationContent {
+  title?: string | null;
+  body?: string | null;
+  data?: Record<string, unknown> | null;
+}
+
 /** Push payloads use the same routing table as NotificationPanel (+ title/body for type disambiguation). */
-function pathFromPushContent(content: Notifications.NotificationContent): string | null {
+function pathFromPushContent(content: PushNotificationContent): string | null {
   const data = content.data as Record<string, any>;
   if (!data?.type || typeof data.type !== "string") return null;
   const title =
@@ -72,9 +77,10 @@ function NotificationHandler() {
 
   // ── Cold-start: capture notification that launched the app from killed state ──
   useEffect(() => {
-    if (!isNativePushNotificationsSupported) return;
+    const notifications = loadNotificationsModule();
+    if (!notifications) return;
 
-    Notifications.getLastNotificationResponseAsync().then((response) => {
+    notifications.getLastNotificationResponseAsync().then((response) => {
       if (!response) return;
       coldStartId.current = response.notification.request.identifier;
       const content = response.notification.request.content;
@@ -101,9 +107,10 @@ function NotificationHandler() {
 
   // ── Foreground / background taps (app already running) ───────────────────
   useEffect(() => {
-    if (!isNativePushNotificationsSupported) return;
+    const notifications = loadNotificationsModule();
+    if (!notifications) return;
 
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    const subscription = notifications.addNotificationResponseReceivedListener((response) => {
       // Skip the cold-start tap — already handled by the effect above
       if (response.notification.request.identifier === coldStartId.current) return;
 

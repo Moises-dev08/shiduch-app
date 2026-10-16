@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useProfileGridLayout } from "../../hooks/useProfileGridLayout";
+import { useViewedPictureIds } from "../../hooks/useViewedPictureIds";
 import { profileService } from "../../lib/profileService";
 import { supabase } from "../../lib/supabase";
 import { calculateAge } from "../../lib/utils";
@@ -47,6 +48,7 @@ export default function MiddlePersonSelectionModal({
   onCancel,
 }: MiddlePersonSelectionModalProps) {
   const { cardWidthPercent } = useProfileGridLayout();
+  const { hasViewed } = useViewedPictureIds();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -497,8 +499,11 @@ export default function MiddlePersonSelectionModal({
                         ? pictures
                         : null;
 
+                  const oneTimeOpened =
+                    picturePrivacy === "one_time" && hasViewed(profile.id);
                   const showImage =
                     firstPicture &&
+                    !oneTimeOpened &&
                     (picturePrivacy === "always" ||
                       picturePrivacy === "private" ||
                       picturePrivacy === "one_time");

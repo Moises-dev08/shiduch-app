@@ -17,7 +17,7 @@ import {
   View,
 } from "react-native";
 import { IntroRequest, introService } from "../../lib/introService";
-import { getVisibleProfileImageUrl } from "../../lib/profilePictureVisibility";
+import { useViewedPictureIds } from "../../hooks/useViewedPictureIds";
 import { profileService } from "../../lib/profileService";
 
 interface MatchmakerRequestCardProps {
@@ -33,6 +33,7 @@ export default function MatchmakerRequestCard({
   request,
   onUpdate,
 }: MatchmakerRequestCardProps) {
+  const { imageUrlFor } = useViewedPictureIds();
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [noteToRequester, setNoteToRequester] = useState("");
   const [noteToRequested, setNoteToRequested] = useState("");
@@ -45,7 +46,7 @@ export default function MatchmakerRequestCard({
   const requestedProfile = request.requested_profile;
 
   const getProfileImage = (profile: any) => {
-    return getVisibleProfileImageUrl(profile);
+    return imageUrlFor(profile);
   };
 
   const handleViewProfile = (profileId: string) => {

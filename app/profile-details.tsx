@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,7 @@ import MiddlePersonSelectionModal from "../components/intro/MiddlePersonSelectio
 import PreviousSuggestionWarningModal from "../components/suggestion/PreviousSuggestionWarningModal";
 import ProfileGridSelectionModal from "../components/suggestion/ProfileGridSelectionModal";
 import { useProfileShare } from "../hooks/useProfileShare";
+import { VIEWED_PICTURE_IDS_QUERY_KEY } from "../hooks/useViewedPictureIds";
 import { PRIVACY_KEY_TO_DB_COLUMN } from "../lib/fieldLabels";
 import { infoRequestService } from "../lib/infoRequestService";
 import { introService } from "../lib/introService";
@@ -138,10 +139,13 @@ async function fetchProfileDetails(profileId: string) {
     if (viewResult.success) hasPicturesBeenViewed = viewResult.hasViewed;
   }
 
+  const oneTimeAlreadyOpened =
+    picturePrivacy === "one_time" && hasPicturesBeenViewed;
   const showPictures =
-    picturePrivacy === "always" ||
-    picturePrivacy === "private" ||
-    picturePrivacy === "one_time";
+    !oneTimeAlreadyOpened &&
+    (picturePrivacy === "always" ||
+      picturePrivacy === "private" ||
+      picturePrivacy === "one_time");
 
   const firstPicture =
     showPictures && data.pictures?.length > 0
@@ -250,6 +254,8 @@ export default function ProfileDetailsScreen() {
   const routerInstance = useRouter();
   const insets = useSafeAreaInsets();
   const profileId = (params.profileId || params.id) as string;
+  const queryClient = useQueryClient();
+  const recordedOneTimeView = useRef(false);
   const hideActions = params.hideActions === "true"; // Hide actions when viewing from suggestions
 
   // Android Chrome (and similar mobile browsers) reserve a large bottom chrome /
@@ -370,6 +376,49 @@ export default function ProfileDetailsScreen() {
     );
   }, [profileQueryData]);
 
+  // Seeing a one-time photo counts as the single view. Keep it on screen for
+  // this visit, then hide it everywhere once the viewer leaves and comes back.
+  useEffect(() => {
+    if (
+      !profile?.id ||
+      profile.picturePrivacy !== "one_time" ||
+      hasPicturesBeenViewed ||
+      !profile.picture ||
+      profile.id === currentUserProfile?.id
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    pictureViewService.recordPictureView(profile.id).then((result) => {
+      if (!result.success || cancelled) return;
+      recordedOneTimeView.current = true;
+      queryClient.setQueryData<string[]>(VIEWED_PICTURE_IDS_QUERY_KEY, (current) => {
+        const ids = current ?? [];
+        return profile.id && ids.includes(profile.id) ? ids : [...ids, profile.id];
+      });
+      queryClient.invalidateQueries({ queryKey: ["home_profiles"] });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    profile?.id,
+    profile?.picturePrivacy,
+    profile?.picture,
+    hasPicturesBeenViewed,
+    currentUserProfile?.id,
+    queryClient,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (!recordedOneTimeView.current || !profileId) return;
+      queryClient.invalidateQueries({ queryKey: ["profile_details", profileId] });
+    };
+  }, [profileId, queryClient]);
+
   // Navigate back if profile could not be loaded
   useEffect(() => {
     if (isError) handleGoBack();
@@ -402,7 +451,12 @@ export default function ProfileDetailsScreen() {
         profile.id,
       );
       if (recordResult.success) {
-        setHasPicturesBeenViewed(true);
+        recordedOneTimeView.current = true;
+        queryClient.setQueryData<string[]>(VIEWED_PICTURE_IDS_QUERY_KEY, (current) => {
+          const ids = current ?? [];
+          return ids.includes(profile.id) ? ids : [...ids, profile.id];
+        });
+        queryClient.invalidateQueries({ queryKey: ["home_profiles"] });
       }
     }
 
@@ -844,6 +898,7 @@ export default function ProfileDetailsScreen() {
         <View style={styles.profileHeader}>
           <View style={styles.imageWrapper}>
             {profile.picturePrivacy === "none" ||
+            (profile.picturePrivacy === "one_time" && hasPicturesBeenViewed) ||
             !profile.picture ||
             imageError ? (
               // No photo - show generic avatar
@@ -858,11 +913,7 @@ export default function ProfileDetailsScreen() {
                 <PrivacyAwareImage
                   uri={profile.picture}
                   imageStyle={styles.profileImage}
-                  blurred={
-                    profile.picturePrivacy === "private" ||
-                    (profile.picturePrivacy === "one_time" &&
-                      hasPicturesBeenViewed)
-                  }
+                  blurred={profile.picturePrivacy === "private"}
                   blurRadius={20}
                   borderRadius={50}
                   onError={() => setImageError(true)}
@@ -877,13 +928,6 @@ export default function ProfileDetailsScreen() {
                     <Text style={styles.seeMoreText}>See More</Text>
                   </TouchableOpacity>
                 )}
-                {profile.picturePrivacy === "one_time" &&
-                  hasPicturesBeenViewed && (
-                    <View style={styles.openedOverlay}>
-                      <Ionicons name="eye" size={28} color="#fff" />
-                      <Text style={styles.openedText}>Opened</Text>
-                    </View>
-                  )}
               </>
             )}
           </View>
@@ -898,6 +942,7 @@ export default function ProfileDetailsScreen() {
 
         {/* Pictures Section */}
         {profile.picturePrivacy !== "none" &&
+          !(profile.picturePrivacy === "one_time" && hasPicturesBeenViewed) &&
           profile.pictures &&
           profile.pictures.length > 0 && (
             <View style={styles.section}>
@@ -913,11 +958,7 @@ export default function ProfileDetailsScreen() {
                     <PrivacyAwareImage
                       uri={picture}
                       imageStyle={styles.thumbnailImage}
-                      blurred={
-                        profile.picturePrivacy === "private" ||
-                        (profile.picturePrivacy === "one_time" &&
-                          hasPicturesBeenViewed)
-                      }
+                      blurred={profile.picturePrivacy === "private"}
                       blurRadius={15}
                       borderRadius={8}
                     />
@@ -926,13 +967,6 @@ export default function ProfileDetailsScreen() {
                         <Ionicons name="lock-closed" size={20} color="#fff" />
                       </View>
                     )}
-                    {profile.picturePrivacy === "one_time" &&
-                      hasPicturesBeenViewed && (
-                        <View style={styles.openedThumbnailOverlay}>
-                          <Ionicons name="eye" size={18} color="#fff" />
-                          <Text style={styles.openedThumbnailText}>Opened</Text>
-                        </View>
-                      )}
                   </TouchableOpacity>
                 ))}
               </View>

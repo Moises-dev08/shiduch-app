@@ -48,8 +48,12 @@ function getIconConfig(type?: string): NotificationIconConfig {
     case 'suggestion_reverted':
       return { name: 'sparkles', color: '#FEE706', bg: '#FFFDE7' };
     case 'suggestion_rejected':
+    case 'suggestion_declined':
+    case 'intro_declined':
       return { name: 'close-circle', color: '#F59E0B', bg: '#FFF8E1' };
     case 'suggestion_both_accepted':
+    case 'intro_both_accepted':
+    case 'suggestion_other_side_yes':
       return { name: 'heart', color: '#4CAF50', bg: '#E8F5E9' };
     case 'matchmaker_selected':
       return { name: 'ribbon', color: '#DAA520', bg: '#FFF8E1' };

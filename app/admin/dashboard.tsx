@@ -181,6 +181,16 @@ export default function AdminDashboard() {
             </View>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            onPress={() => router.push('/admin/announcements')}
+            style={styles.actionButton}
+          >
+            <View style={styles.actionButtonContent}>
+              <Ionicons name="mail" size={20} color="#666" />
+              <Text style={styles.actionButtonText}>Emails</Text>
+            </View>
+          </TouchableOpacity>
+
           {isSuperAdmin && (
             <TouchableOpacity
               onPress={() => router.push('/admin/admins')}

@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
-import { isNativePushNotificationsSupported } from '../lib/pushNotificationsPlatform';
+import { loadNotificationsModule } from '../lib/pushNotificationsPlatform';
 import { supabase } from '../lib/supabase';
 
 const QUERY_KEY = ['unread_count'] as const;
@@ -88,8 +87,9 @@ export function useUnreadNotificationsCount() {
 
   // Keep the app icon badge in sync with the unread count
   useEffect(() => {
-    if (!isNativePushNotificationsSupported) return;
-    Notifications.setBadgeCountAsync(unreadCount).catch(() => {});
+    const notifications = loadNotificationsModule();
+    if (!notifications) return;
+    notifications.setBadgeCountAsync(unreadCount).catch(() => {});
   }, [unreadCount]);
 
   return {

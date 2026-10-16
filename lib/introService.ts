@@ -235,7 +235,7 @@ class IntroService {
             ? notificationService.sendNotification(
                 requestedResult.data.user_id,
                 'New Intro Request',
-                `${_matchmakerName} is facilitating an intro request from ${requesterResult.data.first_name}`,
+                `${_matchmakerName} is facilitating an intro. ${requesterResult.data.first_name} already said yes and asked to be matched with you.`,
                 { type: 'intro_request_from_matchmaker', requestId: _requestId, matchmakerId: _matchmakerId }
               )
             : Promise.resolve(),
@@ -334,11 +334,15 @@ class IntroService {
           matchmakerResult.data
             ? notificationService.sendNotification(
                 matchmakerResult.data.user_id,
-                _resp === 'accepted' ? 'Match Accepted!' : 'Intro Declined',
+                _resp === 'accepted' ? 'Both sides said yes' : 'Intro declined',
                 _resp === 'accepted'
-                  ? `${_profileName} accepted the intro request${_noteToMM ? ': ' + _noteToMM : ''}`
+                  ? `${_profileName} said yes. Both sides have agreed to the intro.`
                   : `${_profileName} declined the intro request${_noteToMM ? ': ' + _noteToMM : ''}`,
-                { type: 'requested_responded', requestId: _rqId, response: _resp }
+                {
+                  type: _resp === 'accepted' ? 'intro_both_accepted' : 'requested_responded',
+                  requestId: _rqId,
+                  response: _resp,
+                }
               )
             : Promise.resolve(),
           _resp === 'accepted' && requesterResult.data
@@ -347,6 +351,14 @@ class IntroService {
                 'You received a match!',
                 `${_profileName} accepted your intro request! Choose how you want to continue.`,
                 { type: 'match_accepted', requestId: _rqId }
+              )
+            : Promise.resolve(),
+          _resp === 'rejected' && requesterResult.data
+            ? notificationService.sendNotification(
+                requesterResult.data.user_id,
+                'A match was declined',
+                `${_profileName} declined the intro request.`,
+                { type: 'intro_declined', requestId: _rqId }
               )
             : Promise.resolve(),
           _resp === 'accepted'
@@ -451,9 +463,9 @@ class IntroService {
           matchmakerResult.data
             ? notificationService.sendNotification(
                 matchmakerResult.data.user_id,
-                'Match Accepted!',
-                `${_awcName} accepted the intro request`,
-                { type: 'requested_responded', requestId: _awcReqId, response: 'accepted' }
+                'Both sides said yes',
+                `${_awcName} said yes. Both sides have agreed to the intro.`,
+                { type: 'intro_both_accepted', requestId: _awcReqId, response: 'accepted' }
               )
             : Promise.resolve(),
           requesterResult.data

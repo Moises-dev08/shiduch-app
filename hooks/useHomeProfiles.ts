@@ -30,10 +30,12 @@ function transformProfile(dbProfile: any, viewedProfileIds: string[]): Profile {
   const fieldPrivacy = dbProfile.field_privacy || {};
   const picturePrivacy = dbProfile.picture_privacy || 'none';
   const hasBeenViewed = viewedProfileIds.includes(dbProfile.id);
+  const oneTimeAlreadyOpened = picturePrivacy === 'one_time' && hasBeenViewed;
   const showPictures =
-    picturePrivacy === 'always' ||
-    picturePrivacy === 'private' ||
-    picturePrivacy === 'one_time';
+    !oneTimeAlreadyOpened &&
+    (picturePrivacy === 'always' ||
+      picturePrivacy === 'private' ||
+      picturePrivacy === 'one_time');
 
   const firstPicture =
     showPictures && dbProfile.pictures?.length > 0
@@ -77,7 +79,8 @@ function transformProfile(dbProfile: any, viewedProfileIds: string[]): Profile {
       ? undefined
       : dbProfile.current_occupation_study,
     picturePrivacy,
-    picturesViewed: picturePrivacy === 'one_time' && hasBeenViewed,
+    picturesViewed: oneTimeAlreadyOpened,
+    createdAt: typeof dbProfile.created_at === 'string' ? dbProfile.created_at : undefined,
     field_privacy: fieldPrivacy,
   };
 }
@@ -331,8 +334,13 @@ export function useHomeProfiles() {
 
     if (photoFiltersActive) {
       filtered = filtered.filter((p) => {
-        const hasVisiblePhoto = p.picture && p.picture.length > 0 && p.picturePrivacy !== 'none';
-        const hasNoPhoto = !p.picture || p.picture.length === 0 || p.picturePrivacy === 'none';
+        const hasVisiblePhoto =
+          !!p.picture &&
+          (p.picturePrivacy === 'always' ||
+            (p.picturePrivacy === 'one_time' && !p.picturesViewed));
+        const hasNoPhoto =
+          p.picturePrivacy === 'none' ||
+          ((!p.picture || p.picture.length === 0) && !p.picturesViewed);
 
         if (filterState.hasPhoto === true && hasVisiblePhoto) return true;
         if (filterState.hasPhoto === false && hasNoPhoto) return true;
@@ -390,26 +398,16 @@ export function useHomeProfiles() {
       });
     }
 
+    const createdTime = (profile: Profile): number => {
+      if (!profile.createdAt) return 0;
+      const time = new Date(profile.createdAt).getTime();
+      return Number.isNaN(time) ? 0 : time;
+    };
+
     if (filterState.sortBy === 'newest') {
-      filtered.sort((a, b) => {
-        const aDate = (allProfiles.find((p) => p.id === a.id) as any)?.created_at
-          ? new Date((allProfiles.find((p) => p.id === a.id) as any).created_at).getTime()
-          : 0;
-        const bDate = (allProfiles.find((p) => p.id === b.id) as any)?.created_at
-          ? new Date((allProfiles.find((p) => p.id === b.id) as any).created_at).getTime()
-          : 0;
-        return bDate - aDate;
-      });
+      filtered.sort((a, b) => createdTime(b) - createdTime(a));
     } else if (filterState.sortBy === 'oldest') {
-      filtered.sort((a, b) => {
-        const aDate = (allProfiles.find((p) => p.id === a.id) as any)?.created_at
-          ? new Date((allProfiles.find((p) => p.id === a.id) as any).created_at).getTime()
-          : 0;
-        const bDate = (allProfiles.find((p) => p.id === b.id) as any)?.created_at
-          ? new Date((allProfiles.find((p) => p.id === b.id) as any).created_at).getTime()
-          : 0;
-        return aDate - bDate;
-      });
+      filtered.sort((a, b) => createdTime(a) - createdTime(b));
     } else if (filterState.sortBy === 'youngest') {
       filtered.sort((a, b) => {
         if (!a.dob || !b.dob) return 0;

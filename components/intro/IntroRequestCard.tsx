@@ -20,7 +20,7 @@ import {
 } from "react-native";
 import EngagementButton from "../../components/EngagementButton";
 import { IntroRequest, introService } from "../../lib/introService";
-import { getVisibleProfileImageUrl } from "../../lib/profilePictureVisibility";
+import { useViewedPictureIds } from "../../hooks/useViewedPictureIds";
 import { profileService } from "../../lib/profileService";
 import ContinuationChoiceModal from "./ContinuationChoiceModal";
 
@@ -46,6 +46,7 @@ export default function IntroRequestCardNew({
   isActionNeeded = false,
 }: IntroRequestCardProps) {
   const queryClient = useQueryClient();
+  const { imageUrlFor } = useViewedPictureIds();
   const [showRejectNote, setShowRejectNote] = useState(false);
   const [rejectNote, setRejectNote] = useState("");
   const [isResponding, setIsResponding] = useState(false);
@@ -100,7 +101,7 @@ export default function IntroRequestCardNew({
   const matchmakerProfile = request.requester_middle_person;
 
   const getProfileImage = (profile: any) => {
-    return getVisibleProfileImageUrl(profile);
+    return imageUrlFor(profile);
   };
 
   const handleViewProfile = () => {

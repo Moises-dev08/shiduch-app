@@ -1,0 +1,196 @@
+import { StyleSheet } from "react-native";
+
+export const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  title: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#222",
+    marginLeft: 12,
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#666",
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  templateRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+  },
+  chipSelected: {
+    borderColor: "#1293DA",
+    backgroundColor: "#E3F2FD",
+  },
+  chipText: {
+    fontSize: 14,
+    color: "#333",
+  },
+  chipTextSelected: {
+    color: "#1293DA",
+    fontWeight: "600",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: "#222",
+    backgroundColor: "#fff",
+  },
+  inputMultiline: {
+    minHeight: 96,
+    textAlignVertical: "top",
+  },
+  fieldGap: {
+    marginTop: 8,
+  },
+  selectedRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 8,
+  },
+  personChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E3F2FD",
+    borderRadius: 16,
+    paddingLeft: 12,
+    paddingRight: 6,
+    paddingVertical: 6,
+    gap: 4,
+  },
+  searchResult: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  searchResultText: {
+    fontSize: 15,
+    color: "#222",
+  },
+  searchResultMeta: {
+    fontSize: 12,
+    color: "#888",
+    marginTop: 2,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: "#1293DA",
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  secondaryButtonText: {
+    color: "#1293DA",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  dangerButton: {
+    borderWidth: 1,
+    borderColor: "#E57373",
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  dangerButtonText: {
+    color: "#C62828",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  primaryButton: {
+    backgroundColor: "#1293DA",
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  primaryButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  campaignCard: {
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  campaignSubject: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#222",
+  },
+  campaignMeta: {
+    fontSize: 13,
+    color: "#666",
+    marginTop: 4,
+  },
+  failureText: {
+    fontSize: 13,
+    color: "#C62828",
+    marginTop: 4,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: "#888",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 16,
+  },
+  modalSave: {
+    backgroundColor: "#1293DA",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+});

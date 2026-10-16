@@ -16,6 +16,8 @@ export interface Profile {
   hasChildren?: boolean;
   picturePrivacy: 'none' | 'always' | 'private' | 'one_time';
   picturesViewed?: boolean;
+  /** Profile row creation time, used by Newest / Oldest sorting. */
+  createdAt?: string;
   
   // New comprehensive fields
   dob?: string; // Date of birth - age is calculated from this

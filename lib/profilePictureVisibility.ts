@@ -3,8 +3,27 @@ import { profileService } from './profileService';
 export type PicturePrivacy = 'none' | 'always' | 'private' | 'one_time' | string;
 
 export interface ProfileWithPictures {
+  id?: string;
   pictures?: string[] | null;
   picture_privacy?: PicturePrivacy | null;
+}
+
+export interface VisiblePictureOptions {
+  /** Blurred private photos may still return a URL for callers that draw a lock overlay. */
+  allowPrivateBlurred?: boolean;
+  /** Viewer already opened this profile's one-time photo. */
+  hasViewedOneTime?: boolean;
+}
+
+/** A photo the viewer can actually see, not a private or already-opened one-time photo. */
+export function isPictureVisibleToViewer(
+  privacy: PicturePrivacy | null | undefined,
+  hasViewedOneTime = false
+): boolean {
+  const value = privacy || 'none';
+  if (value === 'always') return true;
+  if (value === 'one_time') return !hasViewedOneTime;
+  return false;
 }
 
 /**
@@ -13,12 +32,16 @@ export interface ProfileWithPictures {
  */
 export function getVisibleProfileImageUrl(
   profile: ProfileWithPictures | null | undefined,
-  options?: { allowPrivateBlurred?: boolean }
+  options?: VisiblePictureOptions
 ): string | null {
   if (!profile) return null;
 
   const privacy = profile.picture_privacy || 'none';
   if (privacy === 'none') {
+    return null;
+  }
+
+  if (privacy === 'one_time' && options?.hasViewedOneTime) {
     return null;
   }
 

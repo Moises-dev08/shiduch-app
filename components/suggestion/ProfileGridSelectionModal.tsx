@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useProfileGridLayout } from "../../hooks/useProfileGridLayout";
+import { useViewedPictureIds } from "../../hooks/useViewedPictureIds";
 import { profileService } from "../../lib/profileService";
 import { supabase } from "../../lib/supabase";
 import { calculateAge } from "../../lib/utils";
@@ -80,6 +81,7 @@ export default function ProfileGridSelectionModal({
   onCancel,
 }: ProfileGridSelectionModalProps) {
   const { cardWidthPercent } = useProfileGridLayout();
+  const { hasViewed } = useViewedPictureIds();
   const [profiles, setProfiles] = useState<DatabaseProfile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<DatabaseProfile[]>(
     [],
@@ -513,7 +515,10 @@ export default function ProfileGridSelectionModal({
   const transformProfile = useCallback(
     (dbProfile: DatabaseProfile): Profile => {
       const picturePrivacy = dbProfile.picture_privacy || "none";
+      const alreadyViewed =
+        picturePrivacy === "one_time" && hasViewed(dbProfile.id);
       const firstPicture =
+        !alreadyViewed &&
         picturePrivacy !== "none" &&
         Array.isArray(dbProfile.pictures) &&
         dbProfile.pictures.length > 0
@@ -534,9 +539,10 @@ export default function ProfileGridSelectionModal({
         dob: dbProfile.dob,
         hashkafa_type: dbProfile.hashkafa_type,
         picturePrivacy,
+        picturesViewed: alreadyViewed,
       };
     },
-    [],
+    [hasViewed],
   );
 
   const handleSelectProfile = (profile: Profile) => {

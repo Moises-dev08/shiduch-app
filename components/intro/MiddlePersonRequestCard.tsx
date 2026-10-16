@@ -1,5 +1,5 @@
 import { profileService } from "@/lib/profileService";
-import { getVisibleProfileImageUrl } from "@/lib/profilePictureVisibility";
+import { useViewedPictureIds } from "@/hooks/useViewedPictureIds";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
@@ -25,6 +25,7 @@ export default function MiddlePersonRequestCard({
   request,
   currentUserProfileId,
 }: MiddlePersonRequestCardProps) {
+  const { imageUrlFor } = useViewedPictureIds();
   const [showContactInfo, setShowContactInfo] = useState(false);
 
   const requester = request.requester_profile;
@@ -139,8 +140,8 @@ export default function MiddlePersonRequestCard({
 
   const categoryInfo = getCategoryInfo();
 
-  const getRequesterPicture = () => getVisibleProfileImageUrl(requester);
-  const getRequestedPicture = () => getVisibleProfileImageUrl(requested);
+  const getRequesterPicture = () => imageUrlFor(requester);
+  const getRequestedPicture = () => imageUrlFor(requested);
 
   return (
     <View style={styles.card}>

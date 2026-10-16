@@ -60,10 +60,10 @@ export function useResponsiveLayout(): ResponsiveLayout {
   const isLarge = width >= 1024 && width < 1440;
   const isXLarge = width >= 1440;
 
-  // Device type helpers
+  // Device type helpers. The desktop site layout is web-only; native stays on the phone layout.
   const isMobile = isXSmall || isSmall;
   const isTablet = isMedium;
-  const isDesktop = isLarge || isXLarge;
+  const isDesktop = isWeb && (isLarge || isXLarge);
 
   // Suggested layout values
   const gridColumns = isXLarge ? 6 : isLarge ? 5 : isMedium ? 4 : isSmall ? 3 : 2;

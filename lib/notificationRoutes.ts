@@ -79,6 +79,8 @@ export function getNavigationTarget(
       return '/(tabs)/connect?section=action_needed';
 
     case 'suggestion_rejected':
+    case 'suggestion_declined':
+    case 'intro_declined':
     case 'suggestion_reverted':
     case 'engagement_proposal':
     case 'engagement_confirmed':
@@ -86,7 +88,11 @@ export function getNavigationTarget(
       return '/(tabs)/connect';
 
     case 'suggestion_both_accepted':
+    case 'intro_both_accepted':
       return '/(tabs)/connect?section=matches';
+
+    case 'suggestion_other_side_yes':
+      return '/(tabs)/connect?section=action_needed';
 
     case 'suggestion_accepted_one_side':
       return '/(tabs)/connect?category=for_others&forOthersSection=awaiting';

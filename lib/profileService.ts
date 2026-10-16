@@ -433,6 +433,7 @@ class ProfileService {
               `${profileData.firstName} ${profileData.lastName} selected you as their matchmaker`,
               {
                 type: 'matchmaker_selected',
+                purpose: 'facilitator_chosen',
                 profileId: data.id,
                 singleUserId: user.id,
               }
@@ -690,6 +691,7 @@ class ProfileService {
               `${singleProfile.first_name} ${singleProfile.last_name} selected you as their matchmaker`,
               {
                 type: 'matchmaker_selected',
+                purpose: 'facilitator_chosen',
                 profileId: data.id,
                 singleUserId: user.id,
               }
