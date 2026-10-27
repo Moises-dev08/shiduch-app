@@ -8,6 +8,8 @@ import {
 
 export const VIEWED_PICTURE_IDS_QUERY_KEY = ['viewed_picture_ids'] as const;
 
+const NO_VIEWED_IDS: string[] = [];
+
 export function useViewedPictureIds(): {
   viewedIds: string[];
   hasViewed: (profileId: string | undefined) => boolean;
@@ -17,11 +19,15 @@ export function useViewedPictureIds(): {
   markViewed: (profileId: string) => void;
 } {
   const queryClient = useQueryClient();
-  const { data: viewedIds = [] } = useQuery({
+  const { data: viewedIds = NO_VIEWED_IDS } = useQuery({
     queryKey: VIEWED_PICTURE_IDS_QUERY_KEY,
     queryFn: async (): Promise<string[]> => {
       const result = await pictureViewService.getViewedProfiles();
-      return result.success ? result.viewedProfileIds ?? [] : [];
+      const serverIds = result.success ? result.viewedProfileIds ?? [] : [];
+      // Keep ids recorded in this session if an older in-flight fetch returns first.
+      const cached =
+        queryClient.getQueryData<string[]>(VIEWED_PICTURE_IDS_QUERY_KEY) ?? [];
+      return Array.from(new Set([...cached, ...serverIds]));
     },
     staleTime: 30 * 1000,
   });

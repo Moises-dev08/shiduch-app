@@ -14,6 +14,10 @@ import {
 import { AppTextInput } from "../../components/AppTextInput";
 import { AuthFormShell } from "../../components/auth/AuthFormShell";
 import { supabase } from "../../lib/supabase";
+import {
+  clearPasswordRecoveryPending,
+  establishRecoverySessionFromUrl,
+} from "../../lib/passwordRecovery";
 import { authBrandLayout } from "../../styles/authScreens";
 
 export default function ResetPasswordScreen(): React.JSX.Element {
@@ -25,22 +29,86 @@ export default function ResetPasswordScreen(): React.JSX.Element {
   const [verifying, setVerifying] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        Alert.alert(
-          "Invalid or expired link",
-          "Please request a new password reset link.",
-          [
-            {
-              text: "OK",
-              onPress: () => router.replace("/auth/forgot-password"),
+    let active = true;
+    let settled = false;
+
+    const succeed = (): void => {
+      if (!active || settled) return;
+      settled = true;
+      setVerifying(false);
+    };
+
+    const fail = (): void => {
+      if (!active || settled) return;
+      settled = true;
+      setVerifying(false);
+      Alert.alert(
+        "Invalid or expired link",
+        "Please request a new password reset link.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              clearPasswordRecoveryPending();
+              router.replace("/auth/forgot-password");
             },
-          ],
-        );
+          },
+        ],
+      );
+    };
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) return;
+      if (
+        event === "PASSWORD_RECOVERY" ||
+        event === "SIGNED_IN" ||
+        event === "INITIAL_SESSION" ||
+        event === "TOKEN_REFRESHED"
+      ) {
+        succeed();
+      }
+    });
+
+    const run = async (): Promise<void> => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!active) return;
+      if (session) {
+        succeed();
         return;
       }
-      setVerifying(false);
-    });
+
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        const established = await establishRecoverySessionFromUrl(window.location.href);
+        if (!active) return;
+        if (established) {
+          succeed();
+          return;
+        }
+      } else {
+        // Native deep links set the session slightly after this screen mounts.
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        if (!active) return;
+        const {
+          data: { session: laterSession },
+        } = await supabase.auth.getSession();
+        if (laterSession) {
+          succeed();
+          return;
+        }
+      }
+
+      fail();
+    };
+
+    void run();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const togglePasswordVisibility = (): void => setShowPassword((p) => !p);
@@ -74,6 +142,7 @@ export default function ResetPasswordScreen(): React.JSX.Element {
         return;
       }
 
+      clearPasswordRecoveryPending();
       Alert.alert("Success", "Your password has been reset successfully!", [
         {
           text: "OK",
@@ -240,7 +309,12 @@ export default function ResetPasswordScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.footer}>
-          <TouchableOpacity onPress={() => router.replace("/auth/login")}>
+          <TouchableOpacity
+            onPress={() => {
+              clearPasswordRecoveryPending();
+              router.replace("/auth/login");
+            }}
+          >
             <Text style={styles.backToLoginText}>
               <Ionicons name="arrow-back" size={16} color="#1293DA" /> Back to
               login

@@ -3,6 +3,7 @@ import { StyleSheet } from "react-native";
 export const profileDetailsStyles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: "#fff",
   },
   header: {
@@ -28,6 +29,10 @@ export const profileDetailsStyles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    minHeight: 0,
+  },
+  contentContainer: {
+    flexGrow: 0,
   },
   profileHeader: {
     flexDirection: "row",

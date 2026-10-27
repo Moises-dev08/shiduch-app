@@ -10,8 +10,7 @@ const webScaledImage: ViewStyle =
 export const privacyAwareImageStyles = StyleSheet.create({
   clip: {
     overflow: "hidden",
-    width: "100%",
-    height: "100%",
+    alignSelf: "flex-start",
   },
   webBlurClip: {
     ...webBlurClip,

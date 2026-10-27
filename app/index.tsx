@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { adminService } from "../lib/adminService";
 import { useAuth } from "../lib/AuthContext";
+import { shouldOpenPasswordReset } from "../lib/passwordRecovery";
 import { profileService } from "../lib/profileService";
 
 /**
@@ -30,7 +31,16 @@ export default function Index() {
     setRouteError(null);
 
     const checkUserStatus = async () => {
+      const openReset = (): void => {
+        router.replace("/auth/reset-password");
+      };
+
       try {
+        if (shouldOpenPasswordReset()) {
+          openReset();
+          return;
+        }
+
         if (!session) {
           router.replace("/auth/login");
           return;
@@ -38,6 +48,10 @@ export default function Index() {
 
         const isAdmin = await adminService.isAdmin();
         if (cancelled) return;
+        if (shouldOpenPasswordReset()) {
+          openReset();
+          return;
+        }
 
         if (isAdmin) {
           router.replace("/admin/dashboard");
@@ -61,12 +75,20 @@ export default function Index() {
         }
 
         if (profileResult.success && profileResult.profile) {
+          if (shouldOpenPasswordReset()) {
+            openReset();
+            return;
+          }
           if (profileResult.profile.status === "approved") {
             router.replace("/(tabs)");
           } else {
             router.replace("/(tabs)/profile");
           }
         } else {
+          if (shouldOpenPasswordReset()) {
+            openReset();
+            return;
+          }
           // success with no profile row (PGRST116) OR all retries exhausted —
           // go to the profile tab so the user can create / retry there
           router.replace("/(tabs)/profile");

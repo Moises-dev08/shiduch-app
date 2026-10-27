@@ -1,13 +1,53 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 const PAGE_SIZE = 20;
 import { pictureViewService } from '../lib/pictureViewService';
+import { isPictureVisibleToViewer } from '../lib/profilePictureVisibility';
 import { Profile as DBProfile, profileService } from '../lib/profileService';
 import { supabase } from '../lib/supabase';
 import { calculateAge } from '../lib/utils';
 import { FilterState, Profile } from '../types/homeTypes';
 import { useRealtimeProfiles } from './useRealtimeProfiles';
+import { useViewedPictureIds } from './useViewedPictureIds';
+
+/** Hermes rejects some Supabase timestamps that include more than 3 fractional digits. */
+function parseProfileTimestamp(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const normalized = raw.replace(/(\.\d{3})\d+/, '$1');
+  const time = Date.parse(normalized);
+  return Number.isNaN(time) ? null : time;
+}
+
+function timestampToString(value: unknown): string | undefined {
+  if (parseProfileTimestamp(value) == null) return undefined;
+  if (typeof value === 'string') return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'number') return new Date(value).toISOString();
+  return String(value);
+}
+
+/** When the profile appeared in the directory: approval time, then signup time. */
+function directoryTime(profile: Profile): number | null {
+  return parseProfileTimestamp(profile.approvedAt) ?? parseProfileTimestamp(profile.createdAt);
+}
+
+function compareByDirectoryTime(a: Profile, b: Profile, newestFirst: boolean): number {
+  const aTime = directoryTime(a);
+  const bTime = directoryTime(b);
+  if (aTime == null && bTime == null) return a.id.localeCompare(b.id);
+  if (aTime == null) return 1;
+  if (bTime == null) return -1;
+  if (aTime !== bTime) return newestFirst ? bTime - aTime : aTime - bTime;
+  return a.id.localeCompare(b.id);
+}
 
 // Standalone fetch function — defined outside hook so it is stable across renders
 async function fetchHomeData() {
@@ -55,6 +95,8 @@ function transformProfile(dbProfile: any, viewedProfileIds: string[]): Profile {
 
   return {
     id: dbProfile.id,
+    first_name: dbProfile.first_name,
+    last_name: dbProfile.last_name,
     name: `${dbProfile.first_name} ${dbProfile.last_name}`,
     dob: fieldPrivacy.dob ? undefined : dbProfile.dob,
     picture: firstPicture,
@@ -80,13 +122,15 @@ function transformProfile(dbProfile: any, viewedProfileIds: string[]): Profile {
       : dbProfile.current_occupation_study,
     picturePrivacy,
     picturesViewed: oneTimeAlreadyOpened,
-    createdAt: typeof dbProfile.created_at === 'string' ? dbProfile.created_at : undefined,
+    createdAt: timestampToString(dbProfile.created_at),
+    approvedAt: timestampToString(dbProfile.approved_at),
     field_privacy: fieldPrivacy,
   };
 }
 
 export function useHomeProfiles() {
   const queryClient = useQueryClient();
+  const { viewedIds } = useViewedPictureIds();
 
   // ── React Query fetch ────────────────────────────────────────────────────
   const { data, isLoading, refetch } = useQuery({
@@ -145,7 +189,8 @@ export function useHomeProfiles() {
 
     const { data: profilesData, error } = profilesQuery;
     if (!error && profilesData) {
-      const viewedProfileIds = viewedResult.success ? viewedResult.viewedProfileIds : [];
+      const fetchedViewedIds = viewedResult.success ? viewedResult.viewedProfileIds ?? [] : [];
+      const viewedProfileIds = Array.from(new Set([...fetchedViewedIds, ...viewedIds]));
       const adminUserIds = new Set(
         (adminUsersQuery.data ?? []).map((a: { user_id: string }) => a.user_id)
       );
@@ -153,7 +198,7 @@ export function useHomeProfiles() {
       const transformed = nonAdminProfiles.map((p) => transformProfile(p, viewedProfileIds));
       setAllProfiles(transformed);
     }
-  }, [data]);
+  }, [data, viewedIds]);
 
   // ── Filter profiles based on user role / gender ──────────────────────────
   const filterProfilesByUserType = useCallback(
@@ -336,11 +381,12 @@ export function useHomeProfiles() {
       filtered = filtered.filter((p) => {
         const hasVisiblePhoto =
           !!p.picture &&
-          (p.picturePrivacy === 'always' ||
-            (p.picturePrivacy === 'one_time' && !p.picturesViewed));
+          isPictureVisibleToViewer(p.picturePrivacy, !!p.picturesViewed);
         const hasNoPhoto =
           p.picturePrivacy === 'none' ||
-          ((!p.picture || p.picture.length === 0) && !p.picturesViewed);
+          ((!p.picture || p.picture.length === 0) &&
+            p.picturePrivacy !== 'one_time' &&
+            p.picturePrivacy !== 'private');
 
         if (filterState.hasPhoto === true && hasVisiblePhoto) return true;
         if (filterState.hasPhoto === false && hasNoPhoto) return true;
@@ -398,16 +444,10 @@ export function useHomeProfiles() {
       });
     }
 
-    const createdTime = (profile: Profile): number => {
-      if (!profile.createdAt) return 0;
-      const time = new Date(profile.createdAt).getTime();
-      return Number.isNaN(time) ? 0 : time;
-    };
-
     if (filterState.sortBy === 'newest') {
-      filtered.sort((a, b) => createdTime(b) - createdTime(a));
+      filtered.sort((a, b) => compareByDirectoryTime(a, b, true));
     } else if (filterState.sortBy === 'oldest') {
-      filtered.sort((a, b) => createdTime(a) - createdTime(b));
+      filtered.sort((a, b) => compareByDirectoryTime(a, b, false));
     } else if (filterState.sortBy === 'youngest') {
       filtered.sort((a, b) => {
         if (!a.dob || !b.dob) return 0;

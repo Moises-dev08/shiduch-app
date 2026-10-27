@@ -6,9 +6,14 @@ import { useEffect, useRef } from "react";
 import { Linking, Platform } from "react-native";
 import { AuthProvider, useAuth } from "../lib/AuthContext";
 import { extractProfileIdFromShareUrl } from "../lib/profileShareUrls";
+import {
+  establishRecoverySessionFromUrl,
+  parseAuthUrlParams,
+  shouldOpenPasswordReset,
+} from "../lib/passwordRecovery";
 import { getNavigationTarget } from "../lib/notificationRoutes";
 import { loadNotificationsModule } from "../lib/pushNotificationsPlatform";
-import { supabase } from "../lib/supabase";
+import { setPasswordRecoveryPending, supabase } from "../lib/supabase";
 import { WebAppShell } from "../components/WebAppShell";
 
 const PENDING_PROFILE_DEEP_LINK_KEY = 'pendingProfileDeepLink';
@@ -134,31 +139,25 @@ function NotificationHandler() {
   return null;
 }
 
-// Parses both hash (#key=val) and query (?key=val) params from a deep link URL
-function parseDeepLinkParams(url: string): Record<string, string> {
-  const hashIndex = url.indexOf('#');
-  const queryIndex = url.indexOf('?');
-  const params: Record<string, string> = {};
-
-  if (hashIndex !== -1) {
-    new URLSearchParams(url.slice(hashIndex + 1)).forEach((v, k) => { params[k] = v; });
-  }
-  if (queryIndex !== -1) {
-    const end = hashIndex !== -1 ? hashIndex : undefined;
-    new URLSearchParams(url.slice(queryIndex + 1, end)).forEach((v, k) => { params[k] = v; });
-  }
-  return params;
-}
-
 async function handleDeepLink(url: string) {
-  const params = parseDeepLinkParams(url);
+  const params = parseAuthUrlParams(url);
   if (params.type === 'recovery' && params.access_token && params.refresh_token) {
-    await supabase.auth.setSession({
+    const { error } = await supabase.auth.setSession({
       access_token: params.access_token,
       refresh_token: params.refresh_token,
     });
+    if (error) return;
+    setPasswordRecoveryPending(true);
     router.replace('/auth/reset-password');
     return;
+  }
+
+  if (params.code && (params.type === 'recovery' || shouldOpenPasswordReset())) {
+    const established = await establishRecoverySessionFromUrl(url);
+    if (established) {
+      router.replace('/auth/reset-password');
+      return;
+    }
   }
 
   // Shared profile: https://www.zivugmishamayim.com/profile/<id> or shiduchimapp://profile/<id>
@@ -193,6 +192,7 @@ function PendingDeepLinkResumer() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event !== 'SIGNED_IN') return;
+      if (shouldOpenPasswordReset()) return;
       try {
         const pendingId = await AsyncStorage.getItem(PENDING_PROFILE_DEEP_LINK_KEY);
         if (pendingId) {
@@ -219,14 +219,36 @@ function SplashController() {
 
 function PasswordResetHandler() {
   useEffect(() => {
+    const handle = (url: string) => {
+      void handleDeepLink(url);
+    };
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const href = window.location.href;
+      const params = parseAuthUrlParams(href);
+      if (params.type === 'recovery' || params.code || params.access_token) {
+        handle(href);
+      }
+    }
+
     // App opened from closed state via deep link
     Linking.getInitialURL().then((url) => {
-      if (url) handleDeepLink(url);
+      if (url) handle(url);
     });
 
     // App already open and receives a deep link
-    const sub = Linking.addEventListener('url', ({ url }) => handleDeepLink(url));
-    return () => sub.remove();
+    const sub = Linking.addEventListener('url', ({ url }) => handle(url));
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        router.replace('/auth/reset-password');
+      }
+    });
+
+    return () => {
+      sub.remove();
+      subscription.unsubscribe();
+    };
   }, []);
   return null;
 }

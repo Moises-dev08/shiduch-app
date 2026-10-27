@@ -4,7 +4,9 @@ import {
   ImageStyle,
   Platform,
   StyleProp,
+  StyleSheet,
   View,
+  ViewStyle,
 } from "react-native";
 import { privacyAwareImageStyles as styles } from "./PrivacyAwareImage.styles";
 
@@ -35,13 +37,17 @@ export function PrivacyAwareImage({
     <View
       style={[
         styles.clip,
+        imageStyle as StyleProp<ViewStyle>,
         borderRadius > 0 ? { borderRadius } : null,
         blurred ? styles.webBlurClip : null,
       ]}
     >
       <Image
         source={{ uri }}
-        style={[imageStyle, blurred ? styles.webScaledImage : null]}
+        style={[
+          StyleSheet.absoluteFill,
+          blurred ? (styles.webScaledImage as StyleProp<ImageStyle>) : null,
+        ]}
         resizeMode={resizeMode}
         onError={onError}
         blurRadius={blurred && Platform.OS !== "web" ? blurRadius : 0}

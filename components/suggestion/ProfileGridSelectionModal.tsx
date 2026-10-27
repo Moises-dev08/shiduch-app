@@ -517,9 +517,9 @@ export default function ProfileGridSelectionModal({
       const picturePrivacy = dbProfile.picture_privacy || "none";
       const alreadyViewed =
         picturePrivacy === "one_time" && hasViewed(dbProfile.id);
+      const showPictures = !alreadyViewed && picturePrivacy !== "none";
       const firstPicture =
-        !alreadyViewed &&
-        picturePrivacy !== "none" &&
+        showPictures &&
         Array.isArray(dbProfile.pictures) &&
         dbProfile.pictures.length > 0
           ? dbProfile.pictures[0]
@@ -531,7 +531,10 @@ export default function ProfileGridSelectionModal({
         last_name: dbProfile.last_name,
         name: `${dbProfile.first_name} ${dbProfile.last_name}`,
         picture: firstPicture ? profileService.getImageUrl(firstPicture) : "",
-        pictures: picturePrivacy !== "none" ? dbProfile.pictures || [] : [],
+        pictures:
+          showPictures && Array.isArray(dbProfile.pictures)
+            ? dbProfile.pictures.map((pic) => profileService.getImageUrl(pic))
+            : [],
         location: "",
         bio: "",
         role: dbProfile.role,

@@ -14,6 +14,7 @@ import {
 import { AppTextInput } from "../../components/AppTextInput";
 import { AuthFormShell } from "../../components/auth/AuthFormShell";
 import { supabase } from "../../lib/supabase";
+import { PASSWORD_RESET_REDIRECT_URL } from "../../lib/passwordRecovery";
 import { authBrandLayout } from "../../styles/authScreens";
 
 export default function ForgotPasswordScreen(): React.JSX.Element {
@@ -36,7 +37,7 @@ export default function ForgotPasswordScreen(): React.JSX.Element {
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: "shiduchimapp://auth/reset-password",
+        redirectTo: PASSWORD_RESET_REDIRECT_URL,
       });
 
       if (error) {

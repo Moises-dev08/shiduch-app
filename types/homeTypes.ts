@@ -16,8 +16,10 @@ export interface Profile {
   hasChildren?: boolean;
   picturePrivacy: 'none' | 'always' | 'private' | 'one_time';
   picturesViewed?: boolean;
-  /** Profile row creation time, used by Newest / Oldest sorting. */
+  /** Profile row creation time. Fallback for Newest / Oldest when approval time is missing. */
   createdAt?: string;
+  /** When the profile was approved and appeared in the directory. */
+  approvedAt?: string;
   
   // New comprehensive fields
   dob?: string; // Date of birth - age is calculated from this

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { ReactNode, useState } from "react";
 import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useViewedPictureIds } from "../../hooks/useViewedPictureIds";
 import { calculateAge } from "../../lib/utils";
 import { Profile } from "../../types/homeTypes";
 
@@ -25,8 +26,10 @@ export default function ProfileCard({
   photoAspectRatio,
 }: ProfileCardProps) {
   const [imageError, setImageError] = useState(false);
+  const { hasViewed } = useViewedPictureIds();
   const isOneTimeViewed =
-    profile.picturePrivacy === "one_time" && !!profile.picturesViewed;
+    profile.picturePrivacy === "one_time" &&
+    (!!profile.picturesViewed || hasViewed(profile.id));
   const showImage =
     !imageError &&
     !isOneTimeViewed &&

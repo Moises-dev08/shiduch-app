@@ -25,7 +25,7 @@ import MiddlePersonSelectionModal from "../components/intro/MiddlePersonSelectio
 import PreviousSuggestionWarningModal from "../components/suggestion/PreviousSuggestionWarningModal";
 import ProfileGridSelectionModal from "../components/suggestion/ProfileGridSelectionModal";
 import { useProfileShare } from "../hooks/useProfileShare";
-import { VIEWED_PICTURE_IDS_QUERY_KEY } from "../hooks/useViewedPictureIds";
+import { useViewedPictureIds } from "../hooks/useViewedPictureIds";
 import { PRIVACY_KEY_TO_DB_COLUMN } from "../lib/fieldLabels";
 import { infoRequestService } from "../lib/infoRequestService";
 import { introService } from "../lib/introService";
@@ -255,6 +255,7 @@ export default function ProfileDetailsScreen() {
   const insets = useSafeAreaInsets();
   const profileId = (params.profileId || params.id) as string;
   const queryClient = useQueryClient();
+  const { markViewed } = useViewedPictureIds();
   const recordedOneTimeView = useRef(false);
   const hideActions = params.hideActions === "true"; // Hide actions when viewing from suggestions
 
@@ -389,27 +390,19 @@ export default function ProfileDetailsScreen() {
       return;
     }
 
-    let cancelled = false;
-    pictureViewService.recordPictureView(profile.id).then((result) => {
-      if (!result.success || cancelled) return;
+    const profileIdToRecord = profile.id;
+    pictureViewService.recordPictureView(profileIdToRecord).then((result) => {
+      if (!result.success) return;
       recordedOneTimeView.current = true;
-      queryClient.setQueryData<string[]>(VIEWED_PICTURE_IDS_QUERY_KEY, (current) => {
-        const ids = current ?? [];
-        return profile.id && ids.includes(profile.id) ? ids : [...ids, profile.id];
-      });
-      queryClient.invalidateQueries({ queryKey: ["home_profiles"] });
+      markViewed(profileIdToRecord);
     });
-
-    return () => {
-      cancelled = true;
-    };
   }, [
     profile?.id,
     profile?.picturePrivacy,
     profile?.picture,
     hasPicturesBeenViewed,
     currentUserProfile?.id,
-    queryClient,
+    markViewed,
   ]);
 
   useEffect(() => {
@@ -452,11 +445,7 @@ export default function ProfileDetailsScreen() {
       );
       if (recordResult.success) {
         recordedOneTimeView.current = true;
-        queryClient.setQueryData<string[]>(VIEWED_PICTURE_IDS_QUERY_KEY, (current) => {
-          const ids = current ?? [];
-          return ids.includes(profile.id) ? ids : [...ids, profile.id];
-        });
-        queryClient.invalidateQueries({ queryKey: ["home_profiles"] });
+        markViewed(profile.id);
       }
     }
 
@@ -893,7 +882,12 @@ export default function ProfileDetailsScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.imageWrapper}>

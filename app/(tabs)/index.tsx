@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -32,7 +32,7 @@ const DESKTOP_PHOTO_ASPECT_RATIO = (3 / 4) / 0.6;
 
 export default function HomeScreen() {
   const isTabVisible = useWebTabVisible();
-  const { cardWidthPercent } = useProfileGridLayout();
+  const { cardWidthPercent, columns } = useProfileGridLayout();
   const { isDesktop, isWeb } = useResponsiveLayout();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -70,6 +70,14 @@ export default function HomeScreen() {
     setFilterState,
     onRefresh,
   } = useHomeProfiles();
+
+  const profileRows = useMemo(() => {
+    const rows: Profile[][] = [];
+    for (let index = 0; index < visibleProfiles.length; index += columns) {
+      rows.push(visibleProfiles.slice(index, index + columns));
+    }
+    return rows;
+  }, [visibleProfiles, columns]);
 
   // Pick up pending filters when returning from the filters screen
   useFocusEffect(
@@ -501,8 +509,10 @@ export default function HomeScreen() {
           {/* Profiles Grid */}
           <ScrollView
             style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
             scrollEventThrottle={200}
             onScroll={handleScroll}
             refreshControl={
@@ -532,24 +542,29 @@ export default function HomeScreen() {
             ) : (
               <>
                 <View style={styles.profilesGrid}>
-                  {visibleProfiles.map((profile) => (
-                    <ProfileCard
-                      key={profile.id}
-                      profile={profile}
-                      onPress={handleProfilePress}
-                      cardWidthPercent={cardWidthPercent}
-                      photoAspectRatio={
-                        isWeb && isDesktop ? DESKTOP_PHOTO_ASPECT_RATIO : undefined
-                      }
-                    />
+                  {profileRows.map((row, rowIndex) => (
+                    <View key={row[0]?.id ?? `row-${rowIndex}`} style={styles.profileRow}>
+                      {row.map((profile) => (
+                        <ProfileCard
+                          key={profile.id}
+                          profile={profile}
+                          onPress={handleProfilePress}
+                          cardWidthPercent={cardWidthPercent}
+                          photoAspectRatio={
+                            isWeb && isDesktop ? DESKTOP_PHOTO_ASPECT_RATIO : undefined
+                          }
+                        />
+                      ))}
+                      {row.length < columns &&
+                        Array.from({ length: columns - row.length }).map((_, padIndex) => (
+                          <View
+                            key={`pad-${rowIndex}-${padIndex}`}
+                            style={{ width: `${cardWidthPercent}%` }}
+                          />
+                        ))}
+                    </View>
                   ))}
                 </View>
-                {hasMore && (
-                  <View style={styles.loadMoreContainer}>
-                    <ActivityIndicator size="small" color="#1293DA" />
-                    <Text style={styles.loadMoreText}>Loading more…</Text>
-                  </View>
-                )}
                 {!hasMore && filteredProfiles.length > 0 && (
                   <Text style={styles.endOfListText}>
                     Showing all {filteredProfiles.length} profiles
@@ -558,6 +573,15 @@ export default function HomeScreen() {
               </>
             )}
           </ScrollView>
+          {hasMore && !loading && filteredProfiles.length > 0 && (
+            <TouchableOpacity
+              style={styles.loadMoreButton}
+              onPress={loadMore}
+              accessibilityRole="button"
+            >
+              <Text style={styles.loadMoreButtonText}>Load more profiles</Text>
+            </TouchableOpacity>
+          )}
           <SponsoredAdsCarousel />
         </View>
       </View>
@@ -573,10 +597,12 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: "#f9f9f9",
   },
   desktopLayout: {
     flex: 1,
+    minHeight: 0,
     flexDirection: "row",
     gap: 24,
     paddingHorizontal: 32,
@@ -584,18 +610,26 @@ const styles = StyleSheet.create({
   },
   mobileLayout: {
     flex: 1,
+    minHeight: 0,
   },
   mainContent: {
     flex: 1,
+    minHeight: 0,
   },
   scrollView: {
     flex: 1,
+    minHeight: 0,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   profilesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
     padding: 16,
+  },
+  profileRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   loadingContainer: {
     flex: 1,
@@ -627,16 +661,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: 40,
   },
-  loadMoreContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 20,
-    gap: 8,
+  loadMoreButton: {
+    alignSelf: "center",
+    marginVertical: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    backgroundColor: "#1293DA",
   },
-  loadMoreText: {
+  loadMoreButtonText: {
     fontSize: 14,
-    color: "#1293DA",
+    fontWeight: "600",
+    color: "#fff",
   },
   endOfListText: {
     textAlign: "center",
