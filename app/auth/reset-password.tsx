@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   StyleSheet,
   Text,
@@ -27,6 +28,7 @@ export default function ResetPasswordScreen(): React.JSX.Element {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -111,6 +113,12 @@ export default function ResetPasswordScreen(): React.JSX.Element {
     };
   }, []);
 
+  const goToLogin = async (): Promise<void> => {
+    clearPasswordRecoveryPending();
+    await supabase.auth.signOut();
+    router.replace("/auth/login");
+  };
+
   const togglePasswordVisibility = (): void => setShowPassword((p) => !p);
   const toggleConfirmPasswordVisibility = (): void =>
     setShowConfirmPassword((p) => !p);
@@ -143,12 +151,7 @@ export default function ResetPasswordScreen(): React.JSX.Element {
       }
 
       clearPasswordRecoveryPending();
-      Alert.alert("Success", "Your password has been reset successfully!", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(tabs)"),
-        },
-      ]);
+      setShowSuccess(true);
     } catch (error) {
       Alert.alert("Error", "An unexpected error occurred");
       console.error("Password reset error:", error);
@@ -179,6 +182,33 @@ export default function ResetPasswordScreen(): React.JSX.Element {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <Modal
+        visible={showSuccess}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          void goToLogin();
+        }}
+      >
+        <View style={styles.successOverlay}>
+          <View style={styles.successCard}>
+            <Ionicons name="checkmark-circle" size={56} color="#4caf50" />
+            <Text style={styles.successTitle}>Password updated</Text>
+            <Text style={styles.successMessage}>
+              Your password has been reset. Sign in with your new password.
+            </Text>
+            <TouchableOpacity
+              style={[styles.resetButton, styles.successButton]}
+              onPress={() => {
+                void goToLogin();
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.resetButtonText}>Go to login</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       <AuthFormShell style={authBrandLayout.lightContent}>
         <View style={styles.header}>
           <Ionicons name="key" size={60} color="#1293DA" />
@@ -418,5 +448,38 @@ const styles = StyleSheet.create({
     color: "#1293DA",
     fontSize: 16,
     fontWeight: "600",
+  },
+  successOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  successCard: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 28,
+    alignItems: "center",
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#333",
+    marginTop: 12,
+  },
+  successMessage: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 22,
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  successButton: {
+    alignSelf: "stretch",
+    marginTop: 0,
   },
 });
