@@ -348,8 +348,8 @@ class IntroService {
           _resp === 'accepted' && requesterResult.data
             ? notificationService.sendNotification(
                 requesterResult.data.user_id,
-                'You received a match!',
-                `${_profileName} accepted your intro request! Choose how you want to continue.`,
+                'Both sides said yes',
+                `${_profileName} said yes. Both sides have agreed to the intro. Choose how you want to continue.`,
                 { type: 'match_accepted', requestId: _rqId }
               )
             : Promise.resolve(),
@@ -364,8 +364,8 @@ class IntroService {
           _resp === 'accepted'
             ? notificationService.sendNotification(
                 _accepterUserId,
-                'You received a match!',
-                'Your intro was accepted — open Connect to choose how you want to continue.',
+                'Both sides said yes',
+                'Both sides have agreed to the intro. Open Connect to choose how you want to continue.',
                 { type: 'match_accepted', requestId: _rqId }
               )
             : Promise.resolve(),
@@ -471,15 +471,15 @@ class IntroService {
           requesterResult.data
             ? notificationService.sendNotification(
                 requesterResult.data.user_id,
-                'You received a match!',
-                `${_awcName} accepted your intro request! Choose how you want to continue.`,
+                'Both sides said yes',
+                `${_awcName} said yes. Both sides have agreed to the intro. Choose how you want to continue.`,
                 { type: 'match_accepted', requestId: _awcReqId }
               )
             : Promise.resolve(),
           notificationService.sendNotification(
             _awcAccepterUserId,
-            'You received a match!',
-            'Your intro was accepted — open Connect to choose how you want to continue.',
+            'Both sides said yes',
+            'Both sides have agreed to the intro. Open Connect to choose how you want to continue.',
             { type: 'match_accepted', requestId: _awcReqId }
           ),
         ]);

@@ -905,7 +905,7 @@ class ProfileService {
   }
 
   /**
-   * Toggle email notifications for new matches (web opt-in).
+   * Toggle email notifications for match updates. Missing or true means on.
    */
   async setNotifyMatchEmail(
     enabled: boolean

@@ -10,7 +10,7 @@ const APP_URL = "https://app.zivugmishamayim.com/";
 const FROM_ADDRESS = "Zivug Mishamayim <matches@zivugmishamayim.com>";
 
 const MATCH_EMAIL_SUBJECTS: Record<string, string> = {
-  match_accepted: "You received a match",
+  match_accepted: "Both sides said yes",
   suggestion_both_accepted: "Both sides said yes",
   suggestion_declined: "A match was declined",
   suggestion_other_side_yes: "A match suggestion is waiting",
@@ -18,6 +18,7 @@ const MATCH_EMAIL_SUBJECTS: Record<string, string> = {
   intro_both_accepted: "Both sides said yes",
   intro_declined: "A match was declined",
   matchmaker_request: "You have a matchmaking request",
+  matchmaker_responded: "A match was declined",
   matchmaker_selected: "You were asked to make a match",
   info_request: "Someone asked you for information",
 };
@@ -37,6 +38,9 @@ function shouldSendMatchEmail(
   if (type === "matchmaker_selected") {
     const purpose = data?.purpose;
     return purpose == null || purpose === "facilitator_chosen";
+  }
+  if (type === "matchmaker_responded") {
+    return data?.response === "rejected";
   }
   return Object.prototype.hasOwnProperty.call(MATCH_EMAIL_SUBJECTS, type);
 }
@@ -65,7 +69,7 @@ async function sendMatchEmail(
     return;
   }
 
-  if (!profile?.notify_match_email) return;
+  if (profile?.notify_match_email === false) return;
 
   const { data: authData, error: authError } = await adminClient.auth.admin.getUserById(userId);
   if (authError || !authData?.user?.email) {

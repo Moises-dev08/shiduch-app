@@ -444,44 +444,42 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={20} color="#666" />
           </TouchableOpacity>
 
-          {Platform.OS === "web" && (
-            <TouchableOpacity
-              style={styles.settingsItem}
-              onPress={handleToggleMatchEmail}
-              disabled={loadingProfileStatus || updatingMatchEmail}
-            >
-              <View style={styles.settingsItemLeft}>
-                {updatingMatchEmail ? (
-                  <ActivityIndicator size="small" color="#1293DA" />
-                ) : (
-                  <Ionicons
-                    name={notifyMatchEmail ? "mail" : "mail-outline"}
-                    size={24}
-                    color="#1293DA"
-                  />
-                )}
-                <View style={styles.settingsItemTextWrap}>
-                  <Text
-                    style={[
-                      styles.settingsItemTextNoMargin,
-                      (loadingProfileStatus || updatingMatchEmail) &&
-                        styles.disabledText,
-                    ]}
-                  >
-                    Email me when I get a match
-                  </Text>
-                  <Text style={styles.settingsItemHint}>
-                    {notifyMatchEmail ? "On" : "Off"} — uses your account email
-                  </Text>
-                </View>
+          <TouchableOpacity
+            style={styles.settingsItem}
+            onPress={handleToggleMatchEmail}
+            disabled={loadingProfileStatus || updatingMatchEmail}
+          >
+            <View style={styles.settingsItemLeft}>
+              {updatingMatchEmail ? (
+                <ActivityIndicator size="small" color="#1293DA" />
+              ) : (
+                <Ionicons
+                  name={notifyMatchEmail ? "mail" : "mail-outline"}
+                  size={24}
+                  color="#1293DA"
+                />
+              )}
+              <View style={styles.settingsItemTextWrap}>
+                <Text
+                  style={[
+                    styles.settingsItemTextNoMargin,
+                    (loadingProfileStatus || updatingMatchEmail) &&
+                      styles.disabledText,
+                  ]}
+                >
+                  Email me about match updates
+                </Text>
+                <Text style={styles.settingsItemHint}>
+                  {notifyMatchEmail ? "On" : "Off"} — uses your account email
+                </Text>
               </View>
-              <Ionicons
-                name={notifyMatchEmail ? "toggle" : "toggle-outline"}
-                size={36}
-                color={notifyMatchEmail ? "#1293DA" : "#ccc"}
-              />
-            </TouchableOpacity>
-          )}
+            </View>
+            <Ionicons
+              name={notifyMatchEmail ? "toggle" : "toggle-outline"}
+              size={36}
+              color={notifyMatchEmail ? "#1293DA" : "#ccc"}
+            />
+          </TouchableOpacity>
 
           {/* Support Section */}
           <Text style={styles.sectionTitle}>Support</Text>
