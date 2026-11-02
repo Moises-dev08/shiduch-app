@@ -198,6 +198,17 @@ export default function FilterModal({
       minHeightInches: null,
       maxHeightFeet: null,
       maxHeightInches: null,
+      genderFilter: 'all',
+      sortBy: null,
+      hasAskMeFields: false,
+      hasPhoto: null,
+      hasOneTimePhoto: false,
+      hasPrivatePhoto: false,
+      selectedTorahLearning: [],
+      selectedPraying: [],
+      selectedHeadCovering: [],
+      selectedPostHighSchool: [],
+      wearsBlackHat: null,
     });
   };
 

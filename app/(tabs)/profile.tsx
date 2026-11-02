@@ -361,6 +361,16 @@ export default function ProfileScreen() {
     }
   };
 
+  const savedRole =
+    existingProfile?.role === "single" || existingProfile?.role === "matchmaker"
+      ? existingProfile.role
+      : null;
+  const viewerRole = savedRole ?? selectedRole;
+  const viewerGender =
+    existingProfile?.gender === "male" || existingProfile?.gender === "female"
+      ? existingProfile.gender
+      : selectedGender;
+
   if (!isTabVisible) {
     return null;
   }
@@ -388,9 +398,11 @@ export default function ProfileScreen() {
                     : existingProfile?.status === 'pending'
                     ? 'Your profile is under review by our team'
                     : 'Complete your profile to start connecting'
-                  : selectedRole === 'single'
+                  : viewerRole === 'single'
                     ? 'Tell us about yourself'
-                    : 'Matchmaker profile'}
+                    : viewerRole === 'matchmaker'
+                      ? 'Matchmaker profile'
+                      : 'Loading your profile'}
               </Text>
             </View>
             <View style={styles.headerButtons}>
@@ -450,13 +462,13 @@ export default function ProfileScreen() {
             <ActivityIndicator size="large" color="#1293DA" />
             <Text style={styles.loadingText}>Loading profile...</Text>
           </View>
-        ) : selectedRole && selectedGender ? (
-          selectedRole === 'single' ? (
+        ) : viewerRole && viewerGender ? (
+          viewerRole === 'single' ? (
             <SinglesProfileForm
               key={formKey}
               initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
               onSubmit={handleFormSubmit}
-              gender={selectedGender}
+              gender={viewerGender}
               loading={loading}
               roleSwitched={roleSwitched}
             />
@@ -465,7 +477,7 @@ export default function ProfileScreen() {
               key={formKey}
               initialData={existingProfile ? transformProfileToFormData(existingProfile) : undefined}
               onSubmit={handleFormSubmit}
-              gender={selectedGender}
+              gender={viewerGender}
               loading={loading}
               roleSwitched={roleSwitched}
             />

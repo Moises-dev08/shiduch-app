@@ -517,7 +517,7 @@ export default function ProfileGridSelectionModal({
       const picturePrivacy = dbProfile.picture_privacy || "none";
       const alreadyViewed =
         picturePrivacy === "one_time" && hasViewed(dbProfile.id);
-      const showPictures = !alreadyViewed && picturePrivacy !== "none";
+      const showPictures = picturePrivacy !== "none";
       const firstPicture =
         showPictures &&
         Array.isArray(dbProfile.pictures) &&

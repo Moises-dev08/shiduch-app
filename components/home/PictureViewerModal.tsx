@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Dimensions, Image, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Modal, Platform, StyleSheet, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SeenPhotoTile } from '../profile/SeenPhotoTile';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -10,14 +11,19 @@ interface PictureViewerModalProps {
   pictures: string[];
   initialIndex: number;
   onClose: () => void;
+  /** One-time photo this viewer already opened. Show it blurred with a Seen tile. */
+  seen?: boolean;
 }
+
+const seenWebBlur: ViewStyle = { filter: "blur(28px)" } as ViewStyle;
 
 export default function PictureViewerModal({
   visible,
   pictures,
   initialIndex,
   onClose,
-}: PictureViewerModalProps) {
+  seen = false,
+}: PictureViewerModalProps): React.JSX.Element {
   const [currentIndex, setCurrentIndex] = React.useState(initialIndex);
 
   React.useEffect(() => {
@@ -53,11 +59,20 @@ export default function PictureViewerModal({
         </TouchableOpacity>
 
         <View style={styles.imageContainer}>
-          <Image 
-            source={{ uri: pictures[currentIndex] }} 
-            style={styles.image}
-            resizeMode="contain"
-          />
+          <View
+            style={[
+              styles.photoFrame,
+              seen && Platform.OS === "web" ? seenWebBlur : null,
+            ]}
+          >
+            <Image
+              source={{ uri: pictures[currentIndex] }}
+              style={styles.image}
+              resizeMode="contain"
+              blurRadius={seen ? 28 : 0}
+            />
+          </View>
+          {seen ? <SeenPhotoTile /> : null}
         </View>
 
         {pictures.length > 1 && (
@@ -124,11 +139,16 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     flex: 1,
+    position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  image: {
+  photoFrame: {
     width: SCREEN_WIDTH,
+    flex: 1,
+  },
+  image: {
+    width: '100%',
     height: '100%',
   },
   navigation: {

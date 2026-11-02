@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
   Alert,
@@ -22,6 +23,7 @@ import { supabase } from "../../lib/supabase";
 import { authBrandLayout } from "../../styles/authScreens";
 
 export default function LoginScreen(): React.JSX.Element {
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -57,6 +59,7 @@ export default function LoginScreen(): React.JSX.Element {
       }
 
       if (data.session) {
+        queryClient.clear();
         const isAdmin = await adminService.isAdmin();
         if (isAdmin) {
           router.replace("/admin/dashboard");

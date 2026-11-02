@@ -7,11 +7,11 @@ import { isPictureVisibleToViewer } from '../lib/profilePictureVisibility';
 import { Profile as DBProfile, profileService } from '../lib/profileService';
 import { supabase } from '../lib/supabase';
 import { calculateAge } from '../lib/utils';
-import { FilterState, Profile } from '../types/homeTypes';
+import { DirectoryFields, FilterState, Profile } from '../types/homeTypes';
 import { useRealtimeProfiles } from './useRealtimeProfiles';
 import { useViewedPictureIds } from './useViewedPictureIds';
 
-/** Hermes rejects some Supabase timestamps that include more than 3 fractional digits. */
+/** Read a Supabase timestamp without Date.parse. Hermes rejects several of the formats PostgREST returns. */
 function parseProfileTimestamp(value: unknown): number | null {
   if (value == null || value === '') return null;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -21,9 +21,37 @@ function parseProfileTimestamp(value: unknown): number | null {
   }
   const raw = String(value).trim();
   if (!raw) return null;
-  const normalized = raw.replace(/(\.\d{3})\d+/, '$1');
-  const time = Date.parse(normalized);
-  return Number.isNaN(time) ? null : time;
+
+  const match = raw.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?([zZ]|[+-]\d{2}:?\d{2})?$/
+  );
+  if (!match) {
+    const fallback = Date.parse(raw);
+    return Number.isNaN(fallback) ? null : fallback;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const fraction = (match[7] ?? '').slice(0, 3).padEnd(3, '0');
+  const milliseconds = Number(fraction);
+  let offsetMinutes = 0;
+  const zone = match[8];
+  if (zone && zone.toLowerCase() !== 'z') {
+    const sign = zone.startsWith('-') ? -1 : 1;
+    const digits = zone.slice(1).replace(':', '');
+    const zoneHours = Number(digits.slice(0, 2));
+    const zoneMinutes = Number(digits.slice(2, 4) || '0');
+    offsetMinutes = sign * (zoneHours * 60 + zoneMinutes);
+  }
+
+  const utc =
+    Date.UTC(year, month - 1, day, hour, minute, second, milliseconds) -
+    offsetMinutes * 60 * 1000;
+  return Number.isNaN(utc) ? null : utc;
 }
 
 function timestampToString(value: unknown): string | undefined {
@@ -34,18 +62,35 @@ function timestampToString(value: unknown): string | undefined {
   return String(value);
 }
 
-/** When the profile appeared in the directory: approval time, then signup time. */
-function directoryTime(profile: Profile): number | null {
-  return parseProfileTimestamp(profile.approvedAt) ?? parseProfileTimestamp(profile.createdAt);
-}
-
-function compareByDirectoryTime(a: Profile, b: Profile, newestFirst: boolean): number {
-  const aTime = directoryTime(a);
-  const bTime = directoryTime(b);
+/** Newest first uses when the profile was created in the app. */
+function compareByCreatedTime(a: Profile, b: Profile): number {
+  const aTime = parseProfileTimestamp(a.createdAt);
+  const bTime = parseProfileTimestamp(b.createdAt);
   if (aTime == null && bTime == null) return a.id.localeCompare(b.id);
   if (aTime == null) return 1;
   if (bTime == null) return -1;
-  if (aTime !== bTime) return newestFirst ? bTime - aTime : aTime - bTime;
+  if (aTime !== bTime) return aTime > bTime ? -1 : 1;
+  return a.id.localeCompare(b.id);
+}
+
+function ageOf(profile: Profile): number | null {
+  const dob = directoryOf(profile).dob ?? profile.dob;
+  if (!dob) return null;
+  const age = calculateAge(dob);
+  return age > 0 ? age : null;
+}
+
+/** Oldest first is the higher age. Youngest first is the lower age. Missing ages go last. */
+function compareByAge(a: Profile, b: Profile, oldestFirst: boolean): number {
+  const aAge = ageOf(a);
+  const bAge = ageOf(b);
+  if (aAge == null && bAge == null) return a.id.localeCompare(b.id);
+  if (aAge == null) return 1;
+  if (bAge == null) return -1;
+  if (aAge !== bAge) {
+    const youngerFirst = aAge < bAge ? -1 : 1;
+    return oldestFirst ? -youngerFirst : youngerFirst;
+  }
   return a.id.localeCompare(b.id);
 }
 
@@ -72,10 +117,9 @@ function transformProfile(dbProfile: any, viewedProfileIds: string[]): Profile {
   const hasBeenViewed = viewedProfileIds.includes(dbProfile.id);
   const oneTimeAlreadyOpened = picturePrivacy === 'one_time' && hasBeenViewed;
   const showPictures =
-    !oneTimeAlreadyOpened &&
-    (picturePrivacy === 'always' ||
-      picturePrivacy === 'private' ||
-      picturePrivacy === 'one_time');
+    picturePrivacy === 'always' ||
+    picturePrivacy === 'private' ||
+    picturePrivacy === 'one_time';
 
   const firstPicture =
     showPictures && dbProfile.pictures?.length > 0
@@ -125,7 +169,79 @@ function transformProfile(dbProfile: any, viewedProfileIds: string[]): Profile {
     createdAt: timestampToString(dbProfile.created_at),
     approvedAt: timestampToString(dbProfile.approved_at),
     field_privacy: fieldPrivacy,
+    directory: directoryFields(dbProfile),
   };
+}
+
+function storedBoolean(value: unknown): boolean | null {
+  if (value === true || value === false) return value;
+  return null;
+}
+
+function directoryFields(dbProfile: {
+  dob?: string | null;
+  height?: string | null;
+  location_city?: string | null;
+  location_state?: string | null;
+  location_country?: string | null;
+  hashkafa_type?: string | null;
+  nationality?: string[] | null;
+  marital_status?: string | null;
+  has_children?: boolean | null;
+  education_level?: string | null;
+  current_occupation_study?: string | null;
+  torah_learning?: string | null;
+  praying?: string | null;
+  wears_black_hat?: boolean | null;
+  head_covering?: string | null;
+  post_high_school_path?: string | null;
+}): DirectoryFields {
+  return {
+    dob: dbProfile.dob ?? null,
+    height: dbProfile.height ?? null,
+    location_city: dbProfile.location_city ?? null,
+    location_state: dbProfile.location_state ?? null,
+    location_country: dbProfile.location_country ?? null,
+    hashkafa_type: dbProfile.hashkafa_type ?? null,
+    nationality: Array.isArray(dbProfile.nationality) ? dbProfile.nationality : null,
+    marital_status: dbProfile.marital_status ?? null,
+    has_children: storedBoolean(dbProfile.has_children),
+    education_level: dbProfile.education_level ?? null,
+    current_occupation_study: dbProfile.current_occupation_study ?? null,
+    torah_learning: dbProfile.torah_learning ?? null,
+    praying: dbProfile.praying ?? null,
+    wears_black_hat: storedBoolean(dbProfile.wears_black_hat),
+    head_covering: dbProfile.head_covering ?? null,
+    post_high_school_path: dbProfile.post_high_school_path ?? null,
+  };
+}
+
+function directoryOf(profile: Profile): DirectoryFields {
+  return profile.directory ?? {};
+}
+
+function heightInInches(height: string | null | undefined): number | null {
+  if (!height) return null;
+  const match = height.match(/(\d+)\s*'\s*(\d+)/);
+  if (!match) return null;
+  return parseInt(match[1], 10) * 12 + parseInt(match[2], 10);
+}
+
+function answerIncludes(value: string | null | undefined, selected: string[]): boolean {
+  if (!value) return false;
+  const parts = value.split(',').map((part) => part.trim());
+  return selected.some((item) => parts.includes(item));
+}
+
+/** Yes when they said yes or their marital status includes kids. No when they answered otherwise. */
+function hasChildrenAnswer(profile: Profile): boolean | null {
+  const directory = directoryOf(profile);
+  if (directory.has_children === true) return true;
+  if (directory.has_children === false) return false;
+  const status = directory.marital_status ?? '';
+  if (/with kids/i.test(status)) return true;
+  if (status.trim()) return false;
+  return null;
 }
 
 export function useHomeProfiles() {
@@ -222,29 +338,9 @@ export function useHomeProfiles() {
   );
 
   // ── Search helper ─────────────────────────────────────────────────────────
-  const handleSearch = useCallback(
-    (query: string) => {
-      setSearchQuery(query);
-
-      if (!query.trim()) {
-        setFilteredProfiles(filterProfilesByUserType(allProfiles, currentUserProfile));
-        return;
-      }
-
-      const searchLower = query.toLowerCase();
-      const baseFiltered = filterProfilesByUserType(allProfiles, currentUserProfile);
-      setFilteredProfiles(
-        baseFiltered.filter(
-          (profile) =>
-            profile.name.toLowerCase().includes(searchLower) ||
-            (profile.hashkafa_type &&
-              profile.hashkafa_type.toLowerCase().includes(searchLower)) ||
-            profile.location.toLowerCase().includes(searchLower)
-        )
-      );
-    },
-    [allProfiles, currentUserProfile, filterProfilesByUserType]
-  );
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
 
   // ── Full filter + sort effect ─────────────────────────────────────────────
   useEffect(() => {
@@ -268,77 +364,80 @@ export function useHomeProfiles() {
           ? [36, 999]
           : filterState.selectedAgeOption.split('-').map(Number);
       filtered = filtered.filter((p) => {
-        if (!p.dob) return false;
-        const age = calculateAge(p.dob);
+        const dob = directoryOf(p).dob;
+        if (!dob) return false;
+        const age = calculateAge(dob);
         return age >= min && age <= max;
       });
     } else if (filterState.exactAge !== null) {
       filtered = filtered.filter((p) => {
-        if (!p.dob) return false;
-        return calculateAge(p.dob) === filterState.exactAge;
+        const dob = directoryOf(p).dob;
+        if (!dob) return false;
+        return calculateAge(dob) === filterState.exactAge;
       });
     } else if (filterState.minAge !== null || filterState.maxAge !== null) {
       filtered = filtered.filter((p) => {
-        if (!p.dob) return false;
-        const age = calculateAge(p.dob);
+        const dob = directoryOf(p).dob;
+        if (!dob) return false;
+        const age = calculateAge(dob);
         return age >= (filterState.minAge ?? 0) && age <= (filterState.maxAge ?? 999);
       });
     }
 
     if (filterState.selectedCountries.length > 0) {
-      filtered = filtered.filter(
-        (p) => p.location_country && filterState.selectedCountries.includes(p.location_country)
-      );
+      filtered = filtered.filter((p) => {
+        const country = directoryOf(p).location_country;
+        return !!country && filterState.selectedCountries.includes(country);
+      });
     }
     if (filterState.selectedStates.length > 0) {
-      filtered = filtered.filter(
-        (p) => p.location_state && filterState.selectedStates.includes(p.location_state)
-      );
+      filtered = filtered.filter((p) => {
+        const state = directoryOf(p).location_state;
+        return !!state && filterState.selectedStates.includes(state);
+      });
     }
     if (filterState.selectedCities.length > 0) {
       filtered = filtered.filter((p) => {
-        const city = p.location_city?.toLowerCase();
-        return city && filterState.selectedCities.some((c) => city.includes(c.toLowerCase()));
+        const city = directoryOf(p).location_city?.toLowerCase();
+        return !!city && filterState.selectedCities.some((c) => city.includes(c.toLowerCase()));
       });
     }
 
     if (filterState.selectedHashkafa.length > 0) {
-      filtered = filtered.filter(
-        (p) => p.hashkafa_type && filterState.selectedHashkafa.includes(p.hashkafa_type)
-      );
+      filtered = filtered.filter((p) => {
+        const hashkafa = directoryOf(p).hashkafa_type;
+        return !!hashkafa && filterState.selectedHashkafa.includes(hashkafa);
+      });
     }
     if (filterState.selectedNationality.length > 0) {
       filtered = filtered.filter((p) => {
-        if (!p.nationality || !Array.isArray(p.nationality)) return false;
-        return filterState.selectedNationality.some((nat) => p.nationality!.includes(nat));
+        const nationality = directoryOf(p).nationality;
+        if (!nationality) return false;
+        return filterState.selectedNationality.some((nat) => nationality.includes(nat));
       });
     }
     if (filterState.selectedMaritalStatus.length > 0) {
-      filtered = filtered.filter(
-        (p) => p.marital_status && filterState.selectedMaritalStatus.includes(p.marital_status)
-      );
+      filtered = filtered.filter((p) => {
+        const status = directoryOf(p).marital_status;
+        return !!status && filterState.selectedMaritalStatus.includes(status);
+      });
     }
     if (filterState.hasChildren !== null) {
-      filtered = filtered.filter((p) =>
-        filterState.hasChildren === true
-          ? p.hasChildren === true
-          : p.hasChildren === false || p.hasChildren === undefined
+      filtered = filtered.filter(
+        (p) => hasChildrenAnswer(p) === filterState.hasChildren
       );
     }
 
     if (filterState.selectedEducation.length > 0) {
-      filtered = filtered.filter((p) => {
-        if (!p.education_level) return false;
-        const levels = p.education_level.split(',').map((e) => e.trim());
-        return filterState.selectedEducation.some((edu) => levels.includes(edu));
-      });
+      filtered = filtered.filter((p) =>
+        answerIncludes(directoryOf(p).education_level, filterState.selectedEducation)
+      );
     }
     if (filterState.selectedOccupation.length > 0) {
-      filtered = filtered.filter(
-        (p) =>
-          p.current_occupation_study &&
-          filterState.selectedOccupation.includes(p.current_occupation_study)
-      );
+      filtered = filtered.filter((p) => {
+        const occupation = directoryOf(p).current_occupation_study;
+        return !!occupation && filterState.selectedOccupation.includes(occupation);
+      });
     }
 
     if (
@@ -348,10 +447,8 @@ export function useHomeProfiles() {
       filterState.maxHeightInches !== null
     ) {
       filtered = filtered.filter((p) => {
-        if (!p.height) return false;
-        const match = p.height.match(/(\d+)'(\d+)"/);
-        if (!match) return false;
-        const profileTotal = parseInt(match[1]) * 12 + parseInt(match[2]);
+        const profileTotal = heightInInches(directoryOf(p).height);
+        if (profileTotal == null) return false;
         const minTotal =
           filterState.minHeightFeet !== null || filterState.minHeightInches !== null
             ? (filterState.minHeightFeet ?? 0) * 12 + (filterState.minHeightInches ?? 0)
@@ -399,60 +496,42 @@ export function useHomeProfiles() {
 
     if (filterState.selectedTorahLearning.length > 0) {
       filtered = filtered.filter((p) => {
-        const orig = allProfiles.find((op) => op.id === p.id);
-        return (
-          orig &&
-          (orig as any).torah_learning &&
-          filterState.selectedTorahLearning.includes((orig as any).torah_learning)
-        );
+        const value = directoryOf(p).torah_learning;
+        return !!value && filterState.selectedTorahLearning.includes(value);
       });
     }
     if (filterState.selectedPraying.length > 0) {
       filtered = filtered.filter((p) => {
-        const orig = allProfiles.find((op) => op.id === p.id);
-        return (
-          orig &&
-          (orig as any).praying &&
-          filterState.selectedPraying.includes((orig as any).praying)
-        );
+        const value = directoryOf(p).praying;
+        return !!value && filterState.selectedPraying.includes(value);
       });
     }
     if (filterState.wearsBlackHat !== null) {
       filtered = filtered.filter((p) => {
-        const orig = allProfiles.find((op) => op.id === p.id);
-        return orig && (orig as any).wears_black_hat === filterState.wearsBlackHat;
+        if (p.gender !== 'male') return false;
+        const wearsHat = directoryOf(p).wears_black_hat === true;
+        return filterState.wearsBlackHat === true ? wearsHat : !wearsHat;
       });
     }
     if (filterState.selectedHeadCovering.length > 0) {
       filtered = filtered.filter((p) => {
-        const orig = allProfiles.find((op) => op.id === p.id);
-        return (
-          orig &&
-          (orig as any).head_covering &&
-          filterState.selectedHeadCovering.includes((orig as any).head_covering)
-        );
+        const value = directoryOf(p).head_covering;
+        return !!value && filterState.selectedHeadCovering.includes(value);
       });
     }
     if (filterState.selectedPostHighSchool.length > 0) {
       filtered = filtered.filter((p) => {
-        const orig = allProfiles.find((op) => op.id === p.id);
-        return (
-          orig &&
-          (orig as any).post_high_school_path &&
-          filterState.selectedPostHighSchool.includes((orig as any).post_high_school_path)
-        );
+        const value = directoryOf(p).post_high_school_path;
+        return !!value && filterState.selectedPostHighSchool.includes(value);
       });
     }
 
     if (filterState.sortBy === 'newest') {
-      filtered.sort((a, b) => compareByDirectoryTime(a, b, true));
+      filtered.sort(compareByCreatedTime);
     } else if (filterState.sortBy === 'oldest') {
-      filtered.sort((a, b) => compareByDirectoryTime(a, b, false));
+      filtered.sort((a, b) => compareByAge(a, b, true));
     } else if (filterState.sortBy === 'youngest') {
-      filtered.sort((a, b) => {
-        if (!a.dob || !b.dob) return 0;
-        return calculateAge(a.dob) - calculateAge(b.dob);
-      });
+      filtered.sort((a, b) => compareByAge(a, b, false));
     } else if (filterState.sortBy === 'pictures_to_none') {
       const order: Record<string, number> = { always: 0, one_time: 1, private: 2, none: 3 };
       filtered.sort((a, b) => (order[a.picturePrivacy] ?? 3) - (order[b.picturePrivacy] ?? 3));

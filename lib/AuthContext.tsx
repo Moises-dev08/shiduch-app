@@ -2,7 +2,7 @@ import { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { notificationService } from './notificationService';
 import { loadNotificationsModule } from './pushNotificationsPlatform';
-import { supabase } from './supabase';
+import { signOutAndForget, supabase } from './supabase';
 
 interface AuthContextType {
   session: Session | null;
@@ -71,7 +71,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await notifications.setBadgeCountAsync(0).catch(() => {});
       await notifications.dismissAllNotificationsAsync().catch(() => {});
     }
-    await supabase.auth.signOut();
+    await signOutAndForget();
   };
 
   return (

@@ -4,13 +4,16 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  ViewStyle,
 } from "react-native";
+import { SeenPhotoTile } from "../profile/SeenPhotoTile";
 import { useProfileGridLayout } from "../../hooks/useProfileGridLayout";
 import { useViewedPictureIds } from "../../hooks/useViewedPictureIds";
 import { profileService } from "../../lib/profileService";
@@ -19,6 +22,11 @@ import { calculateAge } from "../../lib/utils";
 import MatchmakerFilterModal, {
   MatchmakerFilterState,
 } from "./MatchmakerFilterModal";
+
+const seenWebBlur: ViewStyle = {
+  filter: "blur(28px)",
+  transform: [{ scale: 1.2 }],
+} as ViewStyle;
 
 interface Profile {
   id: string;
@@ -503,7 +511,6 @@ export default function MiddlePersonSelectionModal({
                     picturePrivacy === "one_time" && hasViewed(profile.id);
                   const showImage =
                     firstPicture &&
-                    !oneTimeOpened &&
                     (picturePrivacy === "always" ||
                       picturePrivacy === "private" ||
                       picturePrivacy === "one_time");
@@ -520,13 +527,24 @@ export default function MiddlePersonSelectionModal({
                     >
                       {showImage ? (
                         <View style={styles.imageContainer}>
-                          <Image
-                            source={{
-                              uri: profileService.getImageUrl(firstPicture),
-                            }}
-                            style={styles.profileImage}
-                            blurRadius={isBlurred ? 15 : 0}
-                          />
+                          <View
+                            style={
+                              oneTimeOpened && Platform.OS === "web"
+                                ? seenWebBlur
+                                : undefined
+                            }
+                          >
+                            <Image
+                              source={{
+                                uri: profileService.getImageUrl(firstPicture),
+                              }}
+                              style={styles.profileImage}
+                              blurRadius={
+                                oneTimeOpened ? 28 : isBlurred ? 15 : 0
+                              }
+                            />
+                          </View>
+                          {oneTimeOpened && <SeenPhotoTile />}
                           {isBlurred && (
                             <View style={styles.blurOverlay}>
                               <Ionicons

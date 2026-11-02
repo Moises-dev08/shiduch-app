@@ -4,6 +4,7 @@ import {
   Dimensions,
   Modal,
   ScrollView,
+  type ScrollViewInstance,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -67,7 +68,7 @@ export default function HowItWorksCarousel({
   onClose,
 }: HowItWorksCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
 
   const handleScroll = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;

@@ -12,6 +12,8 @@ const NO_VIEWED_IDS: string[] = [];
 
 export function useViewedPictureIds(): {
   viewedIds: string[];
+  /** False until the saved views have loaded, so a profile is not treated as unseen too early. */
+  isReady: boolean;
   hasViewed: (profileId: string | undefined) => boolean;
   imageUrlFor: (
     profile: ProfileWithPictures | null | undefined
@@ -19,7 +21,7 @@ export function useViewedPictureIds(): {
   markViewed: (profileId: string) => void;
 } {
   const queryClient = useQueryClient();
-  const { data: viewedIds = NO_VIEWED_IDS } = useQuery({
+  const { data: viewedIds = NO_VIEWED_IDS, isSuccess } = useQuery({
     queryKey: VIEWED_PICTURE_IDS_QUERY_KEY,
     queryFn: async (): Promise<string[]> => {
       const result = await pictureViewService.getViewedProfiles();
@@ -57,5 +59,5 @@ export function useViewedPictureIds(): {
     [queryClient]
   );
 
-  return { viewedIds, hasViewed, imageUrlFor, markViewed };
+  return { viewedIds, isReady: isSuccess, hasViewed, imageUrlFor, markViewed };
 }

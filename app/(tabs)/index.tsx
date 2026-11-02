@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  type ScrollViewInstance,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -54,6 +55,7 @@ export default function HomeScreen() {
   const { unreadCount: unreadNotifCount } = useUnreadNotificationsCount();
   const [notificationPanelVisible, setNotificationPanelVisible] =
     useState(false);
+  const listRef = useRef<ScrollViewInstance>(null);
 
   // Profile data and filters
   const {
@@ -78,6 +80,10 @@ export default function HomeScreen() {
     }
     return rows;
   }, [visibleProfiles, columns]);
+
+  useEffect(() => {
+    listRef.current?.scrollTo({ y: 0, animated: false });
+  }, [filterState.sortBy]);
 
   // Pick up pending filters when returning from the filters screen
   useFocusEffect(
@@ -508,6 +514,7 @@ export default function HomeScreen() {
 
           {/* Profiles Grid */}
           <ScrollView
+            ref={listRef}
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}

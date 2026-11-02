@@ -1,9 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { ReactNode, useState } from "react";
-import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from "react-native";
+import { SeenPhotoTile } from "../profile/SeenPhotoTile";
 import { useViewedPictureIds } from "../../hooks/useViewedPictureIds";
 import { calculateAge } from "../../lib/utils";
 import { Profile } from "../../types/homeTypes";
+
+const seenWebBlur: ViewStyle = {
+  filter: "blur(28px)",
+  transform: [{ scale: 1.35 }],
+} as ViewStyle;
 
 interface ProfileCardProps {
   profile: Profile;
@@ -32,12 +38,12 @@ export default function ProfileCard({
     (!!profile.picturesViewed || hasViewed(profile.id));
   const showImage =
     !imageError &&
-    !isOneTimeViewed &&
     !!profile.picture &&
     (profile.picturePrivacy === "always" ||
       profile.picturePrivacy === "private" ||
       profile.picturePrivacy === "one_time");
   const isBlurred = profile.picturePrivacy === "private";
+  const photoBlur = isOneTimeViewed ? 28 : isBlurred ? 15 : 0;
   const age = calculateAge(profile.dob);
   const photoStyle =
     photoAspectRatio != null
@@ -55,17 +61,24 @@ export default function ProfileCard({
     >
       {showImage ? (
         <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: profile.picture }}
-            style={photoStyle}
-            onError={() => setImageError(true)}
-            blurRadius={isBlurred ? 15 : 0}
-          />
+          <View
+            style={
+              isOneTimeViewed && Platform.OS === "web" ? seenWebBlur : undefined
+            }
+          >
+            <Image
+              source={{ uri: profile.picture }}
+              style={photoStyle}
+              onError={() => setImageError(true)}
+              blurRadius={photoBlur}
+            />
+          </View>
           {isBlurred && (
             <View style={styles.blurOverlay}>
               <Ionicons name="lock-closed" size={24} color="#fff" />
             </View>
           )}
+          {isOneTimeViewed && <SeenPhotoTile />}
           <View style={styles.nameBadge}>
             <Text style={styles.nameText} numberOfLines={1}>
               {profile.name}

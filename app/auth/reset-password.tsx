@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { AppTextInput } from "../../components/AppTextInput";
 import { AuthFormShell } from "../../components/auth/AuthFormShell";
-import { supabase } from "../../lib/supabase";
+import { signOutAndForget, supabase } from "../../lib/supabase";
 import {
   clearPasswordRecoveryPending,
   establishRecoverySessionFromUrl,
@@ -115,7 +115,7 @@ export default function ResetPasswordScreen(): React.JSX.Element {
 
   const goToLogin = async (): Promise<void> => {
     clearPasswordRecoveryPending();
-    await supabase.auth.signOut();
+    await signOutAndForget();
     router.replace("/auth/login");
   };
 

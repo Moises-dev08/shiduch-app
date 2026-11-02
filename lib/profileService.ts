@@ -1,4 +1,8 @@
 import { notificationService } from './notificationService';
+
+function storedBoolean(value: boolean | undefined): boolean | null {
+  return value === undefined ? null : value;
+}
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 import { isLocalMediaUri, uriToBinary } from './uriToBinary';
 
@@ -362,7 +366,7 @@ class ProfileService {
           
           // Nationality / Background
           nationality: profileData.nationality || null,
-          is_cohen: profileData.isCohen || null,
+          is_cohen: storedBoolean(profileData.isCohen),
           
           // Hashkafa / Religious
           hashkafa_type: profileData.hashkafaType || null,
@@ -386,7 +390,7 @@ class ProfileService {
           
           // Dress & Appearance
           dress_style: profileData.dressStyle || null,
-          wears_black_hat: profileData.wearsBlackHat || null,
+          wears_black_hat: storedBoolean(profileData.wearsBlackHat),
           head_covering: profileData.headCovering || null,
           
           // Lifestyle
@@ -398,7 +402,7 @@ class ProfileService {
           whatsapp: profileData.whatsapp || null,
           
           // Children
-          has_children: profileData.hasChildren || null,
+          has_children: storedBoolean(profileData.hasChildren),
           
           // Resume (only for singles)
           resume_url: profileData.role === 'single' ? (profileData.resumeUrl || null) : null,
@@ -584,7 +588,7 @@ class ProfileService {
         
         // Nationality / Background
         nationality: profileData.nationality || null,
-        is_cohen: profileData.isCohen || null,
+        is_cohen: storedBoolean(profileData.isCohen),
         
         // Hashkafa / Religious
         hashkafa_type: profileData.hashkafaType || null,
@@ -608,7 +612,7 @@ class ProfileService {
         
         // Dress & Appearance
         dress_style: profileData.dressStyle || null,
-        wears_black_hat: profileData.wearsBlackHat || null,
+        wears_black_hat: storedBoolean(profileData.wearsBlackHat),
         head_covering: profileData.headCovering || null,
         
         // Lifestyle
@@ -620,7 +624,7 @@ class ProfileService {
         whatsapp: profileData.whatsapp || null,
         
         // Children
-        has_children: profileData.hasChildren || null,
+        has_children: storedBoolean(profileData.hasChildren),
         
         // Resume (only for singles)
         resume_url: profileData.role === 'single' ? (profileData.resumeUrl || null) : null,

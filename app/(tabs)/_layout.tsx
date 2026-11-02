@@ -22,6 +22,11 @@ const webTabBarStyle = {
   zIndex: 2,
 } as ViewStyle;
 
+function tabIconColor(color: unknown, disabled: boolean): string {
+  if (disabled) return "#ccc";
+  return typeof color === "string" ? color : "#999";
+}
+
 export default function TabLayout() {
   const queryClient = useQueryClient();
   const pathname = usePathname();
@@ -205,7 +210,7 @@ export default function TabLayout() {
             <Ionicons
               name="home"
               size={size}
-              color={isTabDisabled ? "#ccc" : color}
+              color={tabIconColor(color, isTabDisabled)}
             />
           ),
           tabBarLabelStyle: isTabDisabled ? { color: "#ccc" } : {},
@@ -227,7 +232,7 @@ export default function TabLayout() {
             <Ionicons
               name="heart"
               size={size}
-              color={isTabDisabled ? "#ccc" : color}
+              color={tabIconColor(color, isTabDisabled)}
             />
           ),
           tabBarLabelStyle: isTabDisabled ? { color: "#ccc" } : {},
@@ -255,7 +260,7 @@ export default function TabLayout() {
             <FontAwesome5
               name="donate"
               size={size - 2}
-              color={isTabDisabled ? "#ccc" : color}
+              color={tabIconColor(color, isTabDisabled)}
             />
           ),
           tabBarLabelStyle: isTabDisabled ? { color: "#ccc" } : {},
@@ -279,7 +284,7 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+            <Ionicons name="person" size={size} color={tabIconColor(color, false)} />
           ),
         }}
       />

@@ -16,9 +16,9 @@ export interface Profile {
   hasChildren?: boolean;
   picturePrivacy: 'none' | 'always' | 'private' | 'one_time';
   picturesViewed?: boolean;
-  /** Profile row creation time. Fallback for Newest / Oldest when approval time is missing. */
+  /** When the profile was created. Newest first sorts by this. */
   createdAt?: string;
-  /** When the profile was approved and appeared in the directory. */
+  /** When the profile was approved. */
   approvedAt?: string;
   
   // New comprehensive fields
@@ -65,6 +65,27 @@ export interface Profile {
   // Metadata
   last_active_at?: string;
   field_privacy?: { [key: string]: boolean };
+  /** Saved answers used by directory filters, including fields hidden on the card. */
+  directory?: DirectoryFields;
+}
+
+export interface DirectoryFields {
+  dob?: string | null;
+  height?: string | null;
+  location_city?: string | null;
+  location_state?: string | null;
+  location_country?: string | null;
+  hashkafa_type?: string | null;
+  nationality?: string[] | null;
+  marital_status?: string | null;
+  has_children?: boolean | null;
+  education_level?: string | null;
+  current_occupation_study?: string | null;
+  torah_learning?: string | null;
+  praying?: string | null;
+  wears_black_hat?: boolean | null;
+  head_covering?: string | null;
+  post_high_school_path?: string | null;
 }
 
 export interface FilterState {

@@ -11,11 +11,11 @@ export const webFormScrollProps = {
 export const webTextInputStyle: ViewStyle | undefined = isWebPlatform
   ? ({
       outlineStyle: "none",
-    } as ViewStyle)
+    } as unknown as ViewStyle)
   : undefined;
 
 export const webTextInputStyles = StyleSheet.create({
   base: {
-    ...(isWebPlatform ? ({ outlineStyle: "none" } as ViewStyle) : {}),
+    ...(isWebPlatform ? ({ outlineStyle: "none" } as unknown as ViewStyle) : {}),
   },
 });

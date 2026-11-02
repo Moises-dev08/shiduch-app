@@ -7,7 +7,6 @@
     "icon": "./logo-stores.png",
     "scheme": "shiduchimapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.zivugmishamayim",
@@ -26,7 +25,6 @@
         "backgroundColor": "#1235C8",
         "foregroundImage": "./logo-stores.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.zivugmishamayim",
       "intentFilters": [
@@ -95,11 +93,11 @@
     },
     "extra": {
       "router": {},
+      "privacyPolicyUrl": "https://zivugmishamayim.com/privacy",
       "eas": {
         "projectId": "c6f5ce51-10fc-4c03-9059-63cb696335a3"
       }
     },
-    "owner": "moisholino",
-    "privacyPolicyUrl": "https://zivugmishamayim.com/privacy"
+    "owner": "moisholino"
   }
 }

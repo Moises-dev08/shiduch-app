@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Picker } from '@react-native-picker/picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -22,11 +21,11 @@ const OCCUPATION_OPTIONS_MALE_EXCLUDED = ['Full-time Yeshiva', 'Half learning / 
 const MARITAL_STATUS_OPTIONS = ['Single', 'Divorced', 'Divorced with kids', 'Widow/Widower', 'Widow/Widower with kids'];
 
 // Male-specific filters
-const TORAH_LEARNING_OPTIONS = ['Full time', 'Part time', 'Occasionally', 'Not currently'];
-const PRAYING_OPTIONS = ['3 times a day', 'Twice a day', 'Once a day', 'Regularly', 'Occasionally'];
+const TORAH_LEARNING_OPTIONS = ['Full day', 'Half day', 'Kovea Ittim', 'Attending Torah classes', 'Other'];
+const PRAYING_OPTIONS = ['Three times a day with minyan', 'Three times a day', 'Trying as much as possible', 'Other'];
 
 // Female-specific filters
-const HEAD_COVERING_OPTIONS = ['Wig', 'Scarf/Tichel', 'Hat', 'Combination', 'Not yet decided', 'Other'];
+const HEAD_COVERING_OPTIONS = ['Wig/Sheitel', 'Mitpachat', 'Both', 'Other'];
 const POST_HS_FEMALE_OPTIONS = ['Seminary', 'College', 'Seminary & college', 'Seminary & business', 'Non-traditional (straight to business)', 'Other'];
 
 const COUNTRIES = [
@@ -79,24 +78,31 @@ const AGE_OPTIONS = Array.from({ length: 65 }, (_, i) => i + 18); // 18-82
 const HEIGHT_FEET = Array.from({ length: 5 }, (_, i) => (4 + i).toString()); // 4-8 feet
 const HEIGHT_INCHES = Array.from({ length: 12 }, (_, i) => i.toString()); // 0-11 inches
 
+type FilterPickerValue = string | number | null;
+
+interface FilterPickerOption {
+  label: string;
+  value: FilterPickerValue;
+}
+
 // Modal Picker Component
 interface ModalPickerProps {
   visible: boolean;
   title: string;
-  selectedValue: any;
-  options: { label: string; value: any }[];
-  onSelect: (value: any) => void;
+  selectedValue: FilterPickerValue;
+  options: FilterPickerOption[];
+  onSelect: (value: FilterPickerValue) => void;
   onClose: () => void;
 }
 
-function ModalPicker({ visible, title, selectedValue, options, onSelect, onClose }: ModalPickerProps) {
-  const [tempValue, setTempValue] = useState(selectedValue);
+function ModalPicker({ visible, title, selectedValue, options, onSelect, onClose }: ModalPickerProps): React.JSX.Element {
+  const [tempValue, setTempValue] = useState<FilterPickerValue>(selectedValue);
 
   useEffect(() => {
     setTempValue(selectedValue);
   }, [selectedValue, visible]);
 
-  const handleDone = () => {
+  const handleDone = (): void => {
     onSelect(tempValue);
     onClose();
   };
@@ -119,18 +125,23 @@ function ModalPicker({ visible, title, selectedValue, options, onSelect, onClose
             <Text style={styles.modalDoneText}>Done</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.modalPickerContainer}>
-          <Picker
-            selectedValue={tempValue}
-            onValueChange={setTempValue}
-            style={styles.modalPicker}
-            itemStyle={styles.modalPickerItem}
-          >
-            {options.map((option, index) => (
-              <Picker.Item key={index} label={option.label} value={option.value} />
-            ))}
-          </Picker>
-        </View>
+        <ScrollView style={styles.countryListContainer} keyboardShouldPersistTaps="handled">
+          {options.map((option, index) => {
+            const selected = tempValue === option.value;
+            return (
+              <TouchableOpacity
+                key={`${option.label}-${index}`}
+                style={[styles.countryItem, selected && styles.countryItemSelected]}
+                onPress={() => setTempValue(option.value)}
+              >
+                <Text style={[styles.countryItemText, selected && styles.countryItemTextSelected]}>
+                  {option.label}
+                </Text>
+                {selected ? <Ionicons name="checkmark" size={24} color="#007AFF" /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </SafeAreaView>
     </Modal>
   );
@@ -1427,30 +1438,6 @@ const styles = StyleSheet.create({
   ageDropdownGroup: {
     flex: 1,
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    overflow: 'hidden',
-    minHeight: 56,
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  picker: {
-    height: 56,
-    width: '100%',
-  },
-  pickerItem: {
-    height: 180,
-    fontSize: 20,
-    color: '#333',
-    fontWeight: '500',
-  },
   pickerButton: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1512,20 +1499,6 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: '600',
     textAlign: 'right',
-  },
-  modalPickerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 0,
-  },
-  modalPicker: {
-    width: '100%',
-    height: '100%',
-  },
-  modalPickerItem: {
-    fontSize: 24,
-    height: 200,
-    color: '#333',
   },
   locationSection: {
     paddingHorizontal: 16,

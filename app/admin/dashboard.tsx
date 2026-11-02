@@ -18,7 +18,7 @@ import { adminService } from '../../lib/adminService';
 import { getAdminProfileImageUrl } from '../../lib/profilePictureVisibility';
 import { Profile } from '../../lib/profileService';
 import { reportService } from '../../lib/reportService';
-import { supabase } from '../../lib/supabase';
+import { signOutAndForget, supabase } from '../../lib/supabase';
 import { calculateAge } from '../../lib/utils';
 import { webPageLayout } from '../../styles/webPageLayout';
 
@@ -362,7 +362,7 @@ export default function AdminDashboard() {
         cancelText="Cancel"
         onConfirm={async () => {
           setShowLogoutConfirm(false);
-          await supabase.auth.signOut();
+          await signOutAndForget();
           router.replace('/auth/login');
         }}
         onCancel={() => setShowLogoutConfirm(false)}

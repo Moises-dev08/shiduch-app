@@ -5,6 +5,7 @@ import {
   Alert,
   Modal,
   ScrollView,
+  type ScrollViewInstance,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -56,7 +57,7 @@ export default function ReportProfileModal({
   const [selectedReasons, setSelectedReasons] = useState<ReportReason[]>([]);
   const [additionalDetails, setAdditionalDetails] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
 
   const handleReasonToggle = (reasonId: ReportReason) => {
     setSelectedReasons(prev => {

@@ -36,6 +36,7 @@ export const profileDetailsStyles = StyleSheet.create({
   },
   profileHeader: {
     flexDirection: "row",
+    alignItems: "center",
     padding: 16,
     backgroundColor: "#f9f9f9",
   },
@@ -86,6 +87,7 @@ export const profileDetailsStyles = StyleSheet.create({
     gap: 8,
   },
   pictureThumbnail: {
+    position: "relative",
     width: 100,
     height: 100,
     borderRadius: 8,
@@ -93,8 +95,8 @@ export const profileDetailsStyles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
   },
   thumbnailImage: {
-    width: "100%",
-    height: "100%",
+    width: 100,
+    height: 100,
   },
   bioText: {
     fontSize: 15,
@@ -408,6 +410,9 @@ export const profileDetailsStyles = StyleSheet.create({
   },
   imageWrapper: {
     position: "relative",
+    width: 100,
+    height: 100,
+    overflow: "hidden",
   },
   seeMoreOverlay: {
     position: "absolute",

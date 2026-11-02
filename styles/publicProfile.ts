@@ -147,7 +147,7 @@ export const publicProfileStyles = StyleSheet.create({
     height: '100%',
   },
   blurOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center',
     justifyContent: 'center',

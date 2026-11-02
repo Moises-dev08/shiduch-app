@@ -19,6 +19,7 @@ import AskForInfoModal from "../components/AskForInfoModal";
 import { WebShareModal } from "../components/WebShareModal";
 import PictureViewerModal from "../components/home/PictureViewerModal";
 import { PrivacyAwareImage } from "../components/profile/PrivacyAwareImage";
+import { SeenPhotoTile } from "../components/profile/SeenPhotoTile";
 import ReportProfileModal from "../components/home/ReportProfileModal";
 import ContinuationChoiceModal from "../components/intro/ContinuationChoiceModal";
 import MiddlePersonSelectionModal from "../components/intro/MiddlePersonSelectionModal";
@@ -26,6 +27,7 @@ import PreviousSuggestionWarningModal from "../components/suggestion/PreviousSug
 import ProfileGridSelectionModal from "../components/suggestion/ProfileGridSelectionModal";
 import { useProfileShare } from "../hooks/useProfileShare";
 import { useViewedPictureIds } from "../hooks/useViewedPictureIds";
+import { useAuth } from "../lib/AuthContext";
 import { PRIVACY_KEY_TO_DB_COLUMN } from "../lib/fieldLabels";
 import { infoRequestService } from "../lib/infoRequestService";
 import { introService } from "../lib/introService";
@@ -139,13 +141,10 @@ async function fetchProfileDetails(profileId: string) {
     if (viewResult.success) hasPicturesBeenViewed = viewResult.hasViewed;
   }
 
-  const oneTimeAlreadyOpened =
-    picturePrivacy === "one_time" && hasPicturesBeenViewed;
   const showPictures =
-    !oneTimeAlreadyOpened &&
-    (picturePrivacy === "always" ||
-      picturePrivacy === "private" ||
-      picturePrivacy === "one_time");
+    picturePrivacy === "always" ||
+    picturePrivacy === "private" ||
+    picturePrivacy === "one_time";
 
   const firstPicture =
     showPictures && data.pictures?.length > 0
@@ -255,8 +254,13 @@ export default function ProfileDetailsScreen() {
   const insets = useSafeAreaInsets();
   const profileId = (params.profileId || params.id) as string;
   const queryClient = useQueryClient();
-  const { markViewed } = useViewedPictureIds();
+  const { session } = useAuth();
+  const { hasViewed, markViewed } = useViewedPictureIds();
   const recordedOneTimeView = useRef(false);
+  // After the viewer closes, keep the blurred Seen photo even if a refetch is stale.
+  const appliedSeenAfterClose = useRef(false);
+  // Frozen when the viewer opens so the photo stays clear until Close is pressed.
+  const viewerOpenedSeen = useRef(false);
   const hideActions = params.hideActions === "true"; // Hide actions when viewing from suggestions
 
   // Android Chrome (and similar mobile browsers) reserve a large bottom chrome /
@@ -351,6 +355,7 @@ export default function ProfileDetailsScreen() {
 
   // One-time picture view tracking
   const [hasPicturesBeenViewed, setHasPicturesBeenViewed] = useState(false);
+  const [viewerSeen, setViewerSeen] = useState(false);
 
   // Report and Share states
   const [showReportModal, setShowReportModal] = useState(false);
@@ -370,40 +375,14 @@ export default function ProfileDetailsScreen() {
     setCurrentUserProfile(profileQueryData.currentUserProfile);
     setRawProfileData(profileQueryData.rawData);
     setApprovedFields(profileQueryData.approvedFields ?? []);
-    setHasPicturesBeenViewed(profileQueryData.hasPicturesBeenViewed);
+    if (!appliedSeenAfterClose.current) {
+      setHasPicturesBeenViewed(profileQueryData.hasPicturesBeenViewed);
+    }
     setExistingIntroRequest(profileQueryData.existingIntroRequest ?? null);
     setExistingSuggestionMatch(
       profileQueryData.existingSuggestionMatch ?? false,
     );
   }, [profileQueryData]);
-
-  // Seeing a one-time photo counts as the single view. Keep it on screen for
-  // this visit, then hide it everywhere once the viewer leaves and comes back.
-  useEffect(() => {
-    if (
-      !profile?.id ||
-      profile.picturePrivacy !== "one_time" ||
-      hasPicturesBeenViewed ||
-      !profile.picture ||
-      profile.id === currentUserProfile?.id
-    ) {
-      return;
-    }
-
-    const profileIdToRecord = profile.id;
-    pictureViewService.recordPictureView(profileIdToRecord).then((result) => {
-      if (!result.success) return;
-      recordedOneTimeView.current = true;
-      markViewed(profileIdToRecord);
-    });
-  }, [
-    profile?.id,
-    profile?.picturePrivacy,
-    profile?.picture,
-    hasPicturesBeenViewed,
-    currentUserProfile?.id,
-    markViewed,
-  ]);
 
   useEffect(() => {
     return () => {
@@ -417,40 +396,58 @@ export default function ProfileDetailsScreen() {
     if (isError) handleGoBack();
   }, [isError]);
 
-  const handlePicturePress = async (index: number) => {
-    // Check if pictures are private
+  const oneTimePhotoIsSeen = (): boolean => {
+    if (profile?.picturePrivacy !== "one_time" || !profile.id) return false;
+    if (profile.id === currentUserProfile?.id) return false;
+    return hasPicturesBeenViewed || hasViewed(profile.id);
+  };
+
+  const handlePicturePress = (index: number): void => {
     if (profile?.picturePrivacy === "private") {
       handleAskForInfo("pictures");
       return;
     }
 
-    // For one-time pictures, show alert if already viewed
-    if (profile?.picturePrivacy === "one_time" && hasPicturesBeenViewed) {
+    // A look that is not finished yet stays clear. After Close, later opens use Seen.
+    const alreadySeen = oneTimePhotoIsSeen();
+    viewerOpenedSeen.current = alreadySeen;
+    setViewerSeen(alreadySeen);
+    setSelectedPictureIndex(index);
+    setShowPictureViewer(true);
+  };
+
+  const handlePictureViewerClose = (): void => {
+    setShowPictureViewer(false);
+    if (profile?.picturePrivacy !== "one_time" || !profile.id) return;
+    if (profile.id === currentUserProfile?.id) return;
+    if (viewerOpenedSeen.current) return;
+
+    const viewedProfileId = profile.id;
+    void persistSeenPhoto(viewedProfileId);
+  };
+
+  const persistSeenPhoto = async (viewedProfileId: string): Promise<void> => {
+    const result = await pictureViewService.recordPictureView(viewedProfileId, {
+      viewerProfileId: currentUserProfile?.id,
+      accessToken: session?.access_token,
+    });
+    if (!result.success) {
       Alert.alert(
-        "Pictures Already Viewed",
-        "You have already viewed this profile's pictures. One-time pictures can only be viewed once.",
-        [{ text: "OK" }],
+        "Could not save",
+        result.error || "This photo was not marked as seen.",
       );
       return;
     }
 
-    // Record the view for one-time pictures (before opening)
-    if (
-      profile?.picturePrivacy === "one_time" &&
-      !hasPicturesBeenViewed &&
-      profile.id
-    ) {
-      const recordResult = await pictureViewService.recordPictureView(
-        profile.id,
-      );
-      if (recordResult.success) {
-        recordedOneTimeView.current = true;
-        markViewed(profile.id);
-      }
-    }
-
-    setSelectedPictureIndex(index);
-    setShowPictureViewer(true);
+    appliedSeenAfterClose.current = true;
+    setHasPicturesBeenViewed(true);
+    recordedOneTimeView.current = true;
+    markViewed(viewedProfileId);
+    queryClient.setQueryData<typeof profileQueryData>(
+      ["profile_details", profileId],
+      (current) =>
+        current ? { ...current, hasPicturesBeenViewed: true } : current,
+    );
   };
 
   const handleAskForInfo = async (fieldName: string) => {
@@ -890,9 +887,17 @@ export default function ProfileDetailsScreen() {
       >
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <View style={styles.imageWrapper}>
+          <TouchableOpacity
+            style={styles.imageWrapper}
+            onPress={() => handlePicturePress(0)}
+            activeOpacity={0.85}
+            disabled={
+              profile.picturePrivacy === "none" ||
+              !profile.picture ||
+              imageError
+            }
+          >
             {profile.picturePrivacy === "none" ||
-            (profile.picturePrivacy === "one_time" && hasPicturesBeenViewed) ||
             !profile.picture ||
             imageError ? (
               // No photo - show generic avatar
@@ -907,11 +912,14 @@ export default function ProfileDetailsScreen() {
                 <PrivacyAwareImage
                   uri={profile.picture}
                   imageStyle={styles.profileImage}
-                  blurred={profile.picturePrivacy === "private"}
-                  blurRadius={20}
+                  blurred={
+                    profile.picturePrivacy === "private" || oneTimePhotoIsSeen()
+                  }
+                  blurRadius={oneTimePhotoIsSeen() ? 28 : 20}
                   borderRadius={50}
                   onError={() => setImageError(true)}
                 />
+                {oneTimePhotoIsSeen() && <SeenPhotoTile compact />}
                 {profile.picturePrivacy === "private" && (
                   <TouchableOpacity
                     style={styles.seeMoreOverlay}
@@ -924,7 +932,7 @@ export default function ProfileDetailsScreen() {
                 )}
               </>
             )}
-          </View>
+          </TouchableOpacity>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{profile.name}</Text>
             <Text style={styles.profileAge}>
@@ -936,7 +944,6 @@ export default function ProfileDetailsScreen() {
 
         {/* Pictures Section */}
         {profile.picturePrivacy !== "none" &&
-          !(profile.picturePrivacy === "one_time" && hasPicturesBeenViewed) &&
           profile.pictures &&
           profile.pictures.length > 0 && (
             <View style={styles.section}>
@@ -952,10 +959,14 @@ export default function ProfileDetailsScreen() {
                     <PrivacyAwareImage
                       uri={picture}
                       imageStyle={styles.thumbnailImage}
-                      blurred={profile.picturePrivacy === "private"}
-                      blurRadius={15}
+                      blurred={
+                        profile.picturePrivacy === "private" ||
+                        oneTimePhotoIsSeen()
+                      }
+                      blurRadius={oneTimePhotoIsSeen() ? 28 : 15}
                       borderRadius={8}
                     />
+                    {oneTimePhotoIsSeen() && <SeenPhotoTile compact />}
                     {profile.picturePrivacy === "private" && (
                       <View style={styles.blurOverlay}>
                         <Ionicons name="lock-closed" size={20} color="#fff" />
@@ -1336,7 +1347,8 @@ export default function ProfileDetailsScreen() {
           visible={showPictureViewer}
           pictures={profile.pictures}
           initialIndex={selectedPictureIndex}
-          onClose={() => setShowPictureViewer(false)}
+          seen={viewerSeen}
+          onClose={handlePictureViewerClose}
         />
       )}
 

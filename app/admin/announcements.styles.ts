@@ -182,6 +182,12 @@ export const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
   },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 12,
+  },
   modalActions: {
     flexDirection: "row",
     gap: 8,

@@ -11,7 +11,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  ViewToken,
 } from 'react-native';
 import {
   getSponsorImageUrl,
@@ -93,7 +92,7 @@ export default function SponsoredAdsCarousel(): React.ReactElement | null {
   };
 
   const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    ({ viewableItems }: { viewableItems: { index?: number | null }[] }) => {
       if (viewableItems.length > 0 && viewableItems[0].index != null) {
         const index = viewableItems[0].index;
         setActiveIndex(index);
