@@ -1,4 +1,5 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { uniqueRealtimeTopic } from './realtimeChannel';
 import { supabase } from './supabase';
 
 /**
@@ -21,7 +22,7 @@ class RealtimeService {
     }
 
     const channel = supabase
-      .channel(channelName)
+      .channel(uniqueRealtimeTopic(channelName))
       .on(
         'postgres_changes',
         {
@@ -55,7 +56,7 @@ class RealtimeService {
     }
 
     const channel = supabase
-      .channel(channelName)
+      .channel(uniqueRealtimeTopic(channelName))
       .on(
         'postgres_changes',
         {
@@ -92,7 +93,7 @@ class RealtimeService {
     }
 
     const channel = supabase
-      .channel(channelName)
+      .channel(uniqueRealtimeTopic(channelName))
       .on(
         'postgres_changes',
         {
@@ -168,7 +169,7 @@ class RealtimeService {
     }
 
     const channel = supabase
-      .channel(channelName)
+      .channel(uniqueRealtimeTopic(channelName))
       .on(
         'postgres_changes',
         {
@@ -214,7 +215,7 @@ class RealtimeService {
     }
 
     const channel = supabase
-      .channel(channelName)
+      .channel(uniqueRealtimeTopic(channelName))
       .on('postgres_changes', subscriptionConfig, (payload) => {
         console.log(`${tableName} change detected:`, payload);
         callback(payload);

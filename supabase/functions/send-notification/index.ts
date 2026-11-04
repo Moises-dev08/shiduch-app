@@ -12,7 +12,9 @@ const FROM_ADDRESS = "Zivug Mishamayim <matches@zivugmishamayim.com>";
 const MATCH_EMAIL_SUBJECTS: Record<string, string> = {
   match_accepted: "Both sides said yes",
   suggestion_both_accepted: "Both sides said yes",
+  suggestion: "You have a match suggestion",
   suggestion_declined: "A match was declined",
+  suggestion_rejected: "A match was declined",
   suggestion_other_side_yes: "A match suggestion is waiting",
   intro_request_from_matchmaker: "A match suggestion is waiting",
   intro_both_accepted: "Both sides said yes",
