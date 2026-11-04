@@ -26,7 +26,7 @@ import {
   SponsoredAd,
 } from '../../lib/sponsorService';
 import { webPageLayout } from '../../styles/webPageLayout';
-import { styles } from './sponsors.styles';
+import { styles } from '../../styles/admin/sponsors.styles';
 
 interface AdFormState {
   title: string;

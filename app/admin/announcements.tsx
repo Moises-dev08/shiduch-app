@@ -23,7 +23,7 @@ import {
   emailAnnouncementService,
 } from "../../lib/emailAnnouncementService";
 import { webPageLayout } from "../../styles/webPageLayout";
-import { styles } from "./announcements.styles";
+import { styles } from "../../styles/admin/announcements.styles";
 
 const EMPTY_CONTENT: EmailContent = {
   subject: "",
