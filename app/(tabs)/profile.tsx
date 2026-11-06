@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -22,6 +23,113 @@ import SinglesProfileForm from '../../components/profile/SinglesProfileForm';
 import { ProfilePageShell } from '../../components/profile/ProfilePageShell';
 import { useProfileShare } from '../../hooks/useProfileShare';
 import { FieldPrivacy, Profile, ProfileData, profileService } from '../../lib/profileService';
+
+interface ProfileSetupChooserProps {
+  setupStep: 1 | 2;
+  onSelectRole: (role: "single" | "matchmaker") => void;
+  onSelectGender: (gender: "male" | "female") => void;
+  onBack: () => void;
+}
+
+function ProfileSetupChooser({
+  setupStep,
+  onSelectRole,
+  onSelectGender,
+  onBack,
+}: ProfileSetupChooserProps): React.JSX.Element {
+  return (
+    <SafeAreaView style={styles.roleModalContainer}>
+      <View style={styles.roleModalContent}>
+        <Text style={styles.roleModalTitle}>
+          {setupStep === 1 ? "Welcome!" : "Almost there!"}
+        </Text>
+        <Text style={styles.roleModalSubtitle}>
+          {setupStep === 1
+            ? "Let's get started by setting up your profile"
+            : "Just one more step to get started"}
+        </Text>
+
+        <View style={styles.stepIndicator}>
+          <View style={[styles.stepDot, setupStep === 2 && styles.stepDotComplete]} />
+          <View style={[styles.stepLine, setupStep === 2 && styles.stepLineComplete]} />
+          <View style={[styles.stepDot, setupStep === 1 && styles.stepDotInactive]} />
+        </View>
+
+        <Text style={styles.questionText}>
+          {setupStep === 1 ? "Step 1: What's your role?" : "Step 2: Select your gender:"}
+        </Text>
+
+        {setupStep === 1 && (
+          <>
+            <View style={styles.roleOptions}>
+              <TouchableOpacity
+                style={styles.roleCard}
+                onPress={() => onSelectRole("single")}
+              >
+                <View style={styles.roleIconContainer}>
+                  <Ionicons name="heart" size={40} color="#1293DA" />
+                </View>
+                <Text style={styles.roleTitle}>I&apos;m Single</Text>
+                <Text style={styles.roleDescription}>
+                  Looking to find my match
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.roleCard}
+                onPress={() => onSelectRole("matchmaker")}
+              >
+                <View style={styles.roleIconContainer}>
+                  <Ionicons name="people" size={40} color="#2196F3" />
+                </View>
+                <Text style={styles.roleTitle}>I&apos;m a Matchmaker</Text>
+                <Text style={styles.roleDescription}>
+                  Helping others find their match
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.roleNote}>
+              You can change your role later from your profile page.
+            </Text>
+          </>
+        )}
+
+        {setupStep === 2 && (
+          <>
+            <View style={styles.roleOptions}>
+              <TouchableOpacity
+                style={styles.roleCard}
+                onPress={() => onSelectGender("male")}
+              >
+                <View style={[styles.roleIconContainer, { backgroundColor: "#E3F2FD" }]}>
+                  <Ionicons name="male" size={40} color="#2196F3" />
+                </View>
+                <Text style={styles.roleTitle}>Male</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.roleCard}
+                onPress={() => onSelectGender("female")}
+              >
+                <View style={[styles.roleIconContainer, { backgroundColor: "#E3F2FD" }]}>
+                  <Ionicons name="female" size={40} color="#1293DA" />
+                </View>
+                <Text style={styles.roleTitle}>Female</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+              <Ionicons name="arrow-back" size={20} color="#666" />
+              <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </SafeAreaView>
+  );
+}
+
 export default function ProfileScreen() {
   const isTabVisible = useWebTabVisible();
   const { isDesktop } = useResponsiveLayout();
@@ -375,6 +483,17 @@ export default function ProfileScreen() {
     return null;
   }
 
+  if (showSetupModal && Platform.OS === "web") {
+    return (
+      <ProfileSetupChooser
+        setupStep={setupStep}
+        onSelectRole={handleRoleSelection}
+        onSelectGender={handleGenderSelection}
+        onBack={handleBackToRoleSelection}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ProfilePageShell
@@ -485,109 +604,17 @@ export default function ProfileScreen() {
         ) : null}
       </ProfilePageShell>
 
-      {/* Setup Modal (Role & Gender Selection) */}
       <Modal
         visible={showSetupModal}
         animationType="slide"
         presentationStyle="fullScreen"
       >
-        <SafeAreaView style={styles.roleModalContainer}>
-          <View style={styles.roleModalContent}>
-            {/* Header */}
-            <Text style={styles.roleModalTitle}>
-              {setupStep === 1 ? 'Welcome!' : 'Almost there!'}
-            </Text>
-            <Text style={styles.roleModalSubtitle}>
-              {setupStep === 1 
-                ? "Let's get started by setting up your profile" 
-                : 'Just one more step to get started'}
-            </Text>
-
-            {/* Step Indicator */}
-            <View style={styles.stepIndicator}>
-              <View style={[styles.stepDot, setupStep === 2 && styles.stepDotComplete]} />
-              <View style={[styles.stepLine, setupStep === 2 && styles.stepLineComplete]} />
-              <View style={[styles.stepDot, setupStep === 1 && styles.stepDotInactive]} />
-            </View>
-
-            {/* Question Text */}
-            <Text style={styles.questionText}>
-              {setupStep === 1 ? "Step 1: What's your role?" : 'Step 2: Select your gender:'}
-            </Text>
-
-            {/* Step 1: Role Selection */}
-            {setupStep === 1 && (
-              <>
-                <View style={styles.roleOptions}>
-                  <TouchableOpacity
-                    style={styles.roleCard}
-                    onPress={() => handleRoleSelection('single')}
-                  >
-                    <View style={styles.roleIconContainer}>
-                      <Ionicons name="heart" size={40} color="#1293DA" />
-                    </View>
-                    <Text style={styles.roleTitle}>I&apos;m Single</Text>
-                    <Text style={styles.roleDescription}>
-                      Looking to find my match
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.roleCard}
-                    onPress={() => handleRoleSelection('matchmaker')}
-                  >
-                    <View style={styles.roleIconContainer}>
-                      <Ionicons name="people" size={40} color="#2196F3" />
-                    </View>
-                    <Text style={styles.roleTitle}>I&apos;m a Matchmaker</Text>
-                    <Text style={styles.roleDescription}>
-                      Helping others find their match
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <Text style={styles.roleNote}>
-                  You can change your role later from your profile page.
-                </Text>
-              </>
-            )}
-
-            {/* Step 2: Gender Selection */}
-            {setupStep === 2 && (
-              <>
-                <View style={styles.roleOptions}>
-                  <TouchableOpacity
-                    style={styles.roleCard}
-                    onPress={() => handleGenderSelection('male')}
-                  >
-                    <View style={[styles.roleIconContainer, { backgroundColor: '#E3F2FD' }]}>
-                      <Ionicons name="male" size={40} color="#2196F3" />
-                    </View>
-                    <Text style={styles.roleTitle}>Male</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.roleCard}
-                    onPress={() => handleGenderSelection('female')}
-                  >
-                    <View style={[styles.roleIconContainer, { backgroundColor: '#E3F2FD' }]}>
-                      <Ionicons name="female" size={40} color="#1293DA" />
-                    </View>
-                    <Text style={styles.roleTitle}>Female</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.backButton}
-                  onPress={handleBackToRoleSelection}
-                >
-                  <Ionicons name="arrow-back" size={20} color="#666" />
-                  <Text style={styles.backButtonText}>Back</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </SafeAreaView>
+        <ProfileSetupChooser
+          setupStep={setupStep}
+          onSelectRole={handleRoleSelection}
+          onSelectGender={handleGenderSelection}
+          onBack={handleBackToRoleSelection}
+        />
       </Modal>
 
       {/* Success Modal */}

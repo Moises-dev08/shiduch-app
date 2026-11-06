@@ -276,7 +276,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="notifications"
         options={{
-          href: null,
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: "none" },
         }}
       />
       <Tabs.Screen
@@ -291,7 +292,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          href: null,
+          title: "Settings",
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: "none" },
         }}
       />
     </Tabs>
