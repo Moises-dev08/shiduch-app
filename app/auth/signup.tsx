@@ -5,7 +5,6 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -84,6 +83,87 @@ function isExistingAccountUser(
   return Array.isArray(user?.identities) && user.identities.length === 0;
 }
 
+const MIN_PASSWORD_LENGTH = 6;
+
+function joinRequirements(items: string[]): string {
+  if (items.length <= 1) {
+    return items[0] ?? "";
+  }
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
+  }
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function getPasswordRequirementError(
+  password: string,
+  confirmPassword: string,
+): string | null {
+  const unmet: string[] = [];
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    unmet.push(`at least ${MIN_PASSWORD_LENGTH} characters`);
+  }
+  if (password !== confirmPassword) {
+    unmet.push("both password fields must match");
+  }
+  if (unmet.length === 0) {
+    return null;
+  }
+  return `Password requirements: ${joinRequirements(unmet)}.`;
+}
+
+function getSignupFormError(form: SignupFormData): string | null {
+  const email = form.email.trim();
+  if (!email || !form.password || !form.confirmPassword) {
+    return "Fill in email, password, and confirm password.";
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return "Enter a valid email address.";
+  }
+  return getPasswordRequirementError(form.password, form.confirmPassword);
+}
+
+function passwordErrorFromServer(error: unknown): string | null {
+  const { message, code } = readAuthError(error);
+  const normalized = message.toLowerCase();
+  const isPasswordError =
+    code === "weak_password" ||
+    normalized.includes("password") ||
+    normalized.includes("at least");
+  if (!isPasswordError || message.length === 0) {
+    return null;
+  }
+  return message;
+}
+
+interface PasswordRuleProps {
+  met: boolean;
+  failed: boolean;
+  label: string;
+}
+
+function PasswordRule({
+  met,
+  failed,
+  label,
+}: PasswordRuleProps): React.JSX.Element {
+  const iconName = met
+    ? "checkmark-circle"
+    : failed
+      ? "close-circle"
+      : "radio-button-off";
+  const iconColor = met ? "#FEE706" : "rgba(255,255,255,0.9)";
+
+  return (
+    <View style={styles.requirementItem}>
+      <Ionicons name={iconName} size={16} color={iconColor} />
+      <Text style={[styles.requirementText, met && styles.requirementMet]}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 export default function SignupScreen(): React.JSX.Element {
   const [formData, setFormData] = useState<SignupFormData>({
     email: "",
@@ -94,44 +174,30 @@ export default function SignupScreen(): React.JSX.Element {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [notice, setNotice] = useState<SignupNotice | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleInputChange = (
     field: keyof SignupFormData,
     value: string,
   ): void => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    const nextForm = { ...formData, [field]: value };
+    setFormData(nextForm);
+    setFormError((current) => (current ? getSignupFormError(nextForm) : null));
   };
 
   const togglePasswordVisibility = (): void => setShowPassword((prev) => !prev);
   const toggleConfirmPasswordVisibility = (): void =>
     setShowConfirmPassword((prev) => !prev);
 
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
   const handleSignup = (): void => {
-    const { email, password, confirmPassword } = formData;
-
-    if (!email || !password || !confirmPassword) {
-      Alert.alert("Error", "Please fill in all fields");
-      return;
-    }
-    if (!validateEmail(email.trim())) {
-      Alert.alert("Invalid email", "Please enter a valid email address");
-      return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
-      return;
-    }
-    if (password.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters");
+    const validationError = getSignupFormError(formData);
+    if (validationError) {
+      setFormError(validationError);
       return;
     }
 
+    setFormError(null);
     setShowTermsModal(true);
   };
 
@@ -146,6 +212,11 @@ export default function SignupScreen(): React.JSX.Element {
       });
 
       if (error) {
+        const passwordMessage = passwordErrorFromServer(error);
+        if (passwordMessage) {
+          setFormError(passwordMessage);
+          return;
+        }
         setNotice(
           isExistingAccountError(error)
             ? EXISTING_EMAIL_NOTICE
@@ -173,11 +244,13 @@ export default function SignupScreen(): React.JSX.Element {
       if (session) {
         router.replace("/(tabs)/profile");
       } else if (data.user) {
-        Alert.alert(
-          "Verify your email",
-          "Please check your email to verify your account before logging in.",
-          [{ text: "OK", onPress: () => router.replace("/auth/login") }],
-        );
+        setNotice({
+          title: "Verify your email",
+          message:
+            "Check your email to verify your account before logging in.",
+          buttonText: "Go to login",
+          goToLogin: true,
+        });
       }
     } catch (error) {
       console.error("Signup error:", error);
@@ -304,6 +377,36 @@ export default function SignupScreen(): React.JSX.Element {
                   />
                 </TouchableOpacity>
               </View>
+
+              <View style={styles.passwordRequirements}>
+                <Text style={styles.requirementsTitle}>Password requirements</Text>
+                <PasswordRule
+                  met={formData.password.length >= MIN_PASSWORD_LENGTH}
+                  failed={
+                    formError !== null &&
+                    formData.password.length < MIN_PASSWORD_LENGTH
+                  }
+                  label="At least 6 characters"
+                />
+                <PasswordRule
+                  met={
+                    formData.password.length > 0 &&
+                    formData.password === formData.confirmPassword
+                  }
+                  failed={
+                    formError !== null &&
+                    formData.password !== formData.confirmPassword
+                  }
+                  label="Passwords match"
+                />
+              </View>
+
+              {formError ? (
+                <View style={styles.formError}>
+                  <Ionicons name="alert-circle" size={18} color="#9a3412" />
+                  <Text style={styles.formErrorText}>{formError}</Text>
+                </View>
+              ) : null}
 
               <TouchableOpacity
                 style={[styles.signupButton, loading && styles.buttonDisabled]}
@@ -461,6 +564,45 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     fontSize: 16,
     color: "#282828",
+  },
+  passwordRequirements: {
+    marginBottom: 14,
+    paddingHorizontal: 4,
+  },
+  requirementsTitle: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  requirementItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  requirementText: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 13,
+    marginLeft: 8,
+  },
+  requirementMet: {
+    color: "#FEE706",
+  },
+  formError: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+  formErrorText: {
+    flex: 1,
+    color: "#9a3412",
+    fontSize: 14,
+    lineHeight: 20,
+    marginLeft: 8,
   },
   eyeIcon: {
     padding: 4,
