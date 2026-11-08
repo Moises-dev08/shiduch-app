@@ -16,7 +16,6 @@ import {
 } from "react-native";
 import { AppTextInput } from "../../components/AppTextInput";
 import { AuthFormShell } from "../../components/auth/AuthFormShell";
-import InfoModal from "../../components/InfoModal";
 import TermsModal from "../../components/TermsModal";
 import { supabase } from "../../lib/supabase";
 import { authBrandLayout } from "../../styles/authScreens";
@@ -27,16 +26,55 @@ interface SignupFormData {
   confirmPassword: string;
 }
 
-function isExistingAccountError(message: string, code?: string): boolean {
+interface SignupNotice {
+  title: string;
+  message: string;
+  buttonText: string;
+  goToLogin: boolean;
+}
+
+const EXISTING_EMAIL_NOTICE: SignupNotice = {
+  title: "This email already has an account",
+  message:
+    "Sign in with this email, or enter a different one to create a new account.",
+  buttonText: "Go to login",
+  goToLogin: true,
+};
+
+function readAuthError(error: unknown): {
+  message: string;
+  code: string;
+  status?: number;
+} {
+  if (typeof error !== "object" || error === null) {
+    return { message: "", code: "" };
+  }
+
+  const record = error as {
+    message?: unknown;
+    code?: unknown;
+    status?: unknown;
+  };
+
+  return {
+    message: typeof record.message === "string" ? record.message : "",
+    code: typeof record.code === "string" ? record.code : "",
+    status: typeof record.status === "number" ? record.status : undefined,
+  };
+}
+
+function isExistingAccountError(error: unknown): boolean {
+  const { message, code, status } = readAuthError(error);
   const normalized = message.toLowerCase();
-  const normalizedCode = (code ?? "").toLowerCase();
+  const normalizedCode = code.toLowerCase();
   return (
     normalizedCode === "user_already_exists" ||
     normalizedCode === "email_exists" ||
     normalized.includes("already registered") ||
     normalized.includes("already been registered") ||
     normalized.includes("user already exists") ||
-    normalized.includes("email address is already")
+    normalized.includes("email address is already") ||
+    (status === 422 && normalized.includes("already"))
   );
 }
 
@@ -55,7 +93,7 @@ export default function SignupScreen(): React.JSX.Element {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
-  const [showExistingEmailModal, setShowExistingEmailModal] = useState(false);
+  const [notice, setNotice] = useState<SignupNotice | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleInputChange = (
@@ -108,16 +146,21 @@ export default function SignupScreen(): React.JSX.Element {
       });
 
       if (error) {
-        if (isExistingAccountError(error.message, error.code)) {
-          setShowExistingEmailModal(true);
-          return;
-        }
-        Alert.alert("Signup failed", error.message);
+        setNotice(
+          isExistingAccountError(error)
+            ? EXISTING_EMAIL_NOTICE
+            : {
+                title: "Signup failed",
+                message: error.message || "An unexpected error occurred",
+                buttonText: "OK",
+                goToLogin: false,
+              },
+        );
         return;
       }
 
       if (isExistingAccountUser(data.user)) {
-        setShowExistingEmailModal(true);
+        setNotice(EXISTING_EMAIL_NOTICE);
         return;
       }
 
@@ -137,8 +180,17 @@ export default function SignupScreen(): React.JSX.Element {
         );
       }
     } catch (error) {
-      Alert.alert("Error", "An unexpected error occurred");
       console.error("Signup error:", error);
+      setNotice(
+        isExistingAccountError(error)
+          ? EXISTING_EMAIL_NOTICE
+          : {
+              title: "Signup failed",
+              message: "An unexpected error occurred",
+              buttonText: "OK",
+              goToLogin: false,
+            },
+      );
     } finally {
       setLoading(false);
     }
@@ -281,17 +333,29 @@ export default function SignupScreen(): React.JSX.Element {
         onAccept={handleAcceptTerms}
         onDecline={() => setShowTermsModal(false)}
       />
-      <InfoModal
-        visible={showExistingEmailModal}
-        title="This email already has an account"
-        message="Sign in with this email, or enter a different one to create a new account."
-        buttonText="Go to login"
-        iconName="mail"
-        onClose={() => {
-          setShowExistingEmailModal(false);
-          router.replace("/auth/login");
-        }}
-      />
+      {notice ? (
+        <View style={styles.noticeOverlay}>
+          <View style={styles.noticeCard}>
+            <View style={styles.noticeIcon}>
+              <Ionicons name="mail" size={48} color="#1293DA" />
+            </View>
+            <Text style={styles.noticeTitle}>{notice.title}</Text>
+            <Text style={styles.noticeMessage}>{notice.message}</Text>
+            <TouchableOpacity
+              style={styles.noticeButton}
+              onPress={() => {
+                const shouldGoToLogin = notice.goToLogin;
+                setNotice(null);
+                if (shouldGoToLogin) {
+                  router.replace("/auth/login");
+                }
+              }}
+            >
+              <Text style={styles.noticeButtonText}>{notice.buttonText}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
     </LinearGradient>
   );
 }
@@ -299,6 +363,59 @@ export default function SignupScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   gradient: {
     flex: 1,
+  },
+  noticeOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    ...(Platform.OS === "web" ? { position: "fixed" as const } : null),
+    zIndex: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  noticeCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    alignItems: "center",
+  },
+  noticeIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(18, 147, 218, 0.12)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  noticeTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  noticeMessage: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  noticeButton: {
+    width: "100%",
+    paddingVertical: 14,
+    borderRadius: 8,
+    backgroundColor: "#1293DA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noticeButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
   },
   container: {
     flex: 1,
