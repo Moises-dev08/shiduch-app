@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { AppTextInput } from "../../components/AppTextInput";
 import { AuthFormShell } from "../../components/auth/AuthFormShell";
+import InfoModal from "../../components/InfoModal";
 import TermsModal from "../../components/TermsModal";
 import { supabase } from "../../lib/supabase";
 import { authBrandLayout } from "../../styles/authScreens";
@@ -24,6 +25,25 @@ interface SignupFormData {
   email: string;
   password: string;
   confirmPassword: string;
+}
+
+function isExistingAccountError(message: string, code?: string): boolean {
+  const normalized = message.toLowerCase();
+  const normalizedCode = (code ?? "").toLowerCase();
+  return (
+    normalizedCode === "user_already_exists" ||
+    normalizedCode === "email_exists" ||
+    normalized.includes("already registered") ||
+    normalized.includes("already been registered") ||
+    normalized.includes("user already exists") ||
+    normalized.includes("email address is already")
+  );
+}
+
+function isExistingAccountUser(
+  user: { identities?: unknown[] | null } | null,
+): boolean {
+  return Array.isArray(user?.identities) && user.identities.length === 0;
 }
 
 export default function SignupScreen(): React.JSX.Element {
@@ -35,6 +55,7 @@ export default function SignupScreen(): React.JSX.Element {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showExistingEmailModal, setShowExistingEmailModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleInputChange = (
@@ -87,7 +108,16 @@ export default function SignupScreen(): React.JSX.Element {
       });
 
       if (error) {
+        if (isExistingAccountError(error.message, error.code)) {
+          setShowExistingEmailModal(true);
+          return;
+        }
         Alert.alert("Signup failed", error.message);
+        return;
+      }
+
+      if (isExistingAccountUser(data.user)) {
+        setShowExistingEmailModal(true);
         return;
       }
 
@@ -250,6 +280,17 @@ export default function SignupScreen(): React.JSX.Element {
         visible={showTermsModal}
         onAccept={handleAcceptTerms}
         onDecline={() => setShowTermsModal(false)}
+      />
+      <InfoModal
+        visible={showExistingEmailModal}
+        title="This email already has an account"
+        message="Sign in with this email, or enter a different one to create a new account."
+        buttonText="Go to login"
+        iconName="mail"
+        onClose={() => {
+          setShowExistingEmailModal(false);
+          router.replace("/auth/login");
+        }}
       />
     </LinearGradient>
   );
