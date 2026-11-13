@@ -1,4 +1,5 @@
 import { supabase, supabaseUrl } from "./supabase";
+import { uriToBinary } from "./uriToBinary";
 
 export interface EmailContent {
   subject: string;
@@ -7,6 +8,7 @@ export interface EmailContent {
   postBody: string;
   linkUrl: string;
   linkLabel: string;
+  postImageUrl: string;
 }
 
 export interface EmailAudience {
@@ -86,6 +88,7 @@ function mapTemplate(row: TemplateRow): EmailTemplate {
     postBody: row.post_body ?? "",
     linkUrl: row.link_url ?? "",
     linkLabel: row.link_label ?? "",
+    postImageUrl: "",
     updatedAt: row.updated_at,
   };
 }
@@ -128,6 +131,7 @@ function contentPayload(content: EmailContent): Record<string, string> {
     postBody: content.postBody,
     linkUrl: content.linkUrl,
     linkLabel: content.linkLabel,
+    postImageUrl: content.postImageUrl,
   };
 }
 
@@ -203,6 +207,30 @@ class EmailAnnouncementService {
         })),
       },
     };
+  }
+
+  async uploadPostImage(uri: string): Promise<ServiceResult<{ url: string }>> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Not authenticated" };
+
+    try {
+      const { arrayBuffer, contentType, ext } = await uriToBinary(uri);
+      const bytes = new Uint8Array(arrayBuffer);
+      if (bytes.byteLength === 0) {
+        return { success: false, error: "That picture could not be read. Choose a JPEG or PNG." };
+      }
+      const path = `${user.id}/announcement_${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("profile-pictures").upload(path, bytes, {
+        contentType,
+        upsert: false,
+      });
+      if (error) return { success: false, error: error.message };
+      const { data } = supabase.storage.from("profile-pictures").getPublicUrl(path);
+      return { success: true, data: { url: data.publicUrl } };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "That picture could not be uploaded.";
+      return { success: false, error: message };
+    }
   }
 
   async retry(campaignId: string): Promise<ServiceResult<{ campaignId: string }>> {

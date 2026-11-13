@@ -67,7 +67,7 @@ export async function uriToBinary(uri: string): Promise<BinaryFilePayload> {
     const data = uri.substring(commaIndex + 1);
     const mime = header.split(';')[0] || 'image/jpeg';
     const isBase64 = header.includes('base64');
-    const base64 = isBase64 ? data : btoa(decodeURIComponent(data));
+    const base64 = (isBase64 ? data : btoa(decodeURIComponent(data))).replace(/\s/g, '');
     return {
       arrayBuffer: decode(base64),
       contentType: mime,

@@ -10,6 +10,7 @@ const FROM_ADDRESS = "Zivug Mishamayim <matches@zivugmishamayim.com>";
 const MAX_SUBJECT = 200;
 const MAX_BODY = 8000;
 const MAX_URL = 500;
+const MAX_IMAGE_URL = 2000;
 
 interface EmailContent {
   subject: string;
@@ -18,6 +19,7 @@ interface EmailContent {
   postBody: string;
   linkUrl: string;
   linkLabel: string;
+  postImageUrl: string;
 }
 
 interface AudienceInput {
@@ -71,6 +73,7 @@ function readContent(input: Record<string, unknown>): EmailContent {
     postBody: clip(input.postBody, MAX_BODY),
     linkUrl: clip(input.linkUrl, MAX_URL),
     linkLabel: clip(input.linkLabel, 80),
+    postImageUrl: clip(input.postImageUrl, MAX_IMAGE_URL),
   };
 }
 
@@ -88,7 +91,7 @@ function readAudience(input: Record<string, unknown>): AudienceInput {
 
 function hasContent(content: EmailContent): boolean {
   return Boolean(
-    content.textBody || content.postTitle || content.postBody || content.linkUrl,
+    content.textBody || content.postTitle || content.postBody || content.linkUrl || content.postImageUrl,
   );
 }
 
@@ -107,6 +110,9 @@ function contentError(content: EmailContent, requireSubject: boolean): string | 
   if (content.linkUrl && !isSafeUrl(content.linkUrl)) {
     return "The link must start with http:// or https://.";
   }
+  if (content.postImageUrl && !isSafeUrl(content.postImageUrl)) {
+    return "The post picture must be an http or https image.";
+  }
   return null;
 }
 
@@ -122,9 +128,15 @@ function renderHtml(content: EmailContent, firstName: string): string {
     )
     .join("");
 
+  const image =
+    content.postImageUrl && isSafeUrl(content.postImageUrl)
+      ? `<img src="${escapeHtml(content.postImageUrl)}" alt="" width="512" style="max-width:100%;height:auto;border-radius:8px;display:block;margin:0 0 12px;" />`
+      : "";
+
   const post =
-    content.postTitle || content.postBody
+    content.postTitle || content.postBody || image
       ? `<div style="margin:0 0 20px;padding:16px;background:#f4f8fc;border-radius:10px;">
+          ${image}
           ${content.postTitle ? `<p style="margin:0 0 8px;font-size:18px;font-weight:700;">${escapeHtml(content.postTitle)}</p>` : ""}
           ${content.postBody ? `<p style="margin:0;font-size:16px;line-height:1.5;">${escapeHtml(content.postBody).replace(/\n/g, "<br>")}</p>` : ""}
         </div>`
@@ -525,6 +537,7 @@ Deno.serve(async (req) => {
           postBody: campaign.post_body,
           linkUrl: campaign.link_url,
           linkLabel: campaign.link_label,
+          postImageUrl: clip(savedAudience.postImageUrl, MAX_IMAGE_URL),
         }, drafts);
         return jsonResponse({ campaignId });
       }
@@ -544,7 +557,7 @@ Deno.serve(async (req) => {
           post_body: content.postBody,
           link_url: content.linkUrl,
           link_label: content.linkLabel,
-          audience,
+          audience: { ...audience, postImageUrl: content.postImageUrl },
           recipient_count: recipients.length,
           skipped_no_email: skippedNoEmail,
           status: "sending",

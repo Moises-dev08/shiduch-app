@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Modal,
   ScrollView,
   Text,
@@ -22,6 +23,7 @@ import {
   MemberSearchResult,
   emailAnnouncementService,
 } from "../../lib/emailAnnouncementService";
+import { pickProfileImage } from "../../lib/pickProfileImage";
 import { webPageLayout } from "../../styles/webPageLayout";
 import { styles } from "../../styles/admin/announcements.styles";
 
@@ -32,6 +34,7 @@ const EMPTY_CONTENT: EmailContent = {
   postBody: "",
   linkUrl: "",
   linkLabel: "",
+  postImageUrl: "",
 };
 
 const PRESETS: { label: string; boys: boolean; girls: boolean; matchmakers: boolean }[] = [
@@ -135,6 +138,7 @@ export default function AnnouncementsScreen(): React.ReactElement {
       postBody: template.postBody,
       linkUrl: template.linkUrl,
       linkLabel: template.linkLabel,
+      postImageUrl: template.postImageUrl,
     });
   };
 
@@ -245,6 +249,25 @@ export default function AnnouncementsScreen(): React.ReactElement {
     }
   };
 
+  const addPostPicture = async (): Promise<void> => {
+    try {
+      const uri = await pickProfileImage();
+      if (!uri) return;
+      setBusy(true);
+      const result = await emailAnnouncementService.uploadPostImage(uri);
+      setBusy(false);
+      if (!result.success || !result.data?.url) {
+        showInfo("Picture not added", result.error || "Choose a JPEG or PNG and try again.");
+        return;
+      }
+      updateContent({ postImageUrl: result.data.url });
+    } catch (error) {
+      setBusy(false);
+      const message = error instanceof Error ? error.message : "That picture could not be added.";
+      showInfo("Picture not added", message);
+    }
+  };
+
   const addPerson = (person: MemberSearchResult): void => {
     setPeople((current) =>
       current.some((item) => item.id === person.id) ? current : [...current, person],
@@ -351,6 +374,22 @@ export default function AnnouncementsScreen(): React.ReactElement {
           placeholder="Post"
           multiline
         />
+        <Text style={styles.sectionLabel}>Post picture</Text>
+        {content.postImageUrl ? (
+          <View style={styles.postImageWrap}>
+            <Image source={{ uri: content.postImageUrl }} style={styles.postImage} />
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => updateContent({ postImageUrl: "" })}
+            >
+              <Text style={styles.secondaryButtonText}>Remove picture</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.secondaryButton} onPress={addPostPicture} disabled={busy}>
+            <Text style={styles.secondaryButtonText}>Add picture</Text>
+          </TouchableOpacity>
+        )}
         <Text style={styles.sectionLabel}>Link</Text>
         <TextInput
           style={styles.input}

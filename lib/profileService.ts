@@ -255,44 +255,52 @@ class ProfileService {
   /**
    * Upload a single image to Supabase Storage
    */
-  async uploadImage(uri: string, userId: string, index: number): Promise<string | null> {
+  async uploadImage(uri: string, userId: string, index: number): Promise<{ path: string | null; error: string | null }> {
     try {
-      console.log('Uploading image:', uri);
+      console.log('Uploading image:', uri.substring(0, 80));
 
       const { arrayBuffer, contentType, ext } = await uriToBinary(uri);
+      const bytes = new Uint8Array(arrayBuffer);
+      if (bytes.byteLength === 0) {
+        return { path: null, error: 'This photo could not be read. Choose a JPEG or PNG.' };
+      }
       const fileName = `${userId}/picture_${index}_${Date.now()}.${ext}`;
-      console.log('Uploading as:', fileName, 'Type:', contentType, 'Size:', arrayBuffer.byteLength);
+      console.log('Uploading as:', fileName, 'Type:', contentType, 'Size:', bytes.byteLength);
 
       const { data, error } = await supabase.storage
         .from('profile-pictures')
-        .upload(fileName, arrayBuffer, {
+        .upload(fileName, bytes, {
           contentType,
           upsert: false,
         });
 
       if (error) {
         console.error('Upload error:', error);
-        return null;
+        return { path: null, error: error.message || 'This photo could not be uploaded.' };
       }
 
       console.log('Upload successful:', data);
-      return fileName;
+      return { path: fileName, error: null };
     } catch (error) {
       console.error('Error uploading image:', error);
-      return null;
+      const message = error instanceof Error ? error.message : 'This photo could not be uploaded.';
+      return { path: null, error: message };
     }
   }
 
   /**
    * Upload multiple images
    */
-  async uploadImages(uris: string[], userId: string): Promise<string[]> {
-    const uploadPromises = uris.map((uri, index) => 
-      this.uploadImage(uri, userId, index)
-    );
-    
-    const results = await Promise.all(uploadPromises);
-    return results.filter((path): path is string => path !== null);
+  async uploadImages(uris: string[], userId: string): Promise<{ paths: string[]; error: string | null }> {
+    const paths: string[] = [];
+    for (let index = 0; index < uris.length; index += 1) {
+      const result = await this.uploadImage(uris[index], userId, index);
+      if (!result.path) {
+        return { paths, error: result.error || 'Failed to upload one or more photos. Please try again.' };
+      }
+      paths.push(result.path);
+    }
+    return { paths, error: null };
   }
 
   /**
@@ -314,17 +322,14 @@ class ProfileService {
       let picturePaths: string[] = [];
       if (profileData.pictures.length > 0) {
 
-        picturePaths = await this.uploadImages(profileData.pictures, user.id);
-      
-        
-        if (picturePaths.length !== profileData.pictures.length) {
-          console.warn(`Warning: ${profileData.pictures.length - picturePaths.length} images failed to upload`);
+        const uploaded = await this.uploadImages(profileData.pictures, user.id);
+        if (uploaded.error || uploaded.paths.length !== profileData.pictures.length) {
+          return {
+            success: false,
+            error: uploaded.error || 'Failed to upload photos. Please try again.',
+          };
         }
-        
-        if (picturePaths.length === 0 && profileData.pictures.length > 0) {
-          console.error('All images failed to upload!');
-          return { success: false, error: 'Failed to upload photos. Please try again.' };
-        }
+        picturePaths = uploaded.paths;
       }
 
       // Find matchmaker if email provided (only for single users)
@@ -525,12 +530,15 @@ class ProfileService {
         if (this.isLocalFile(picture)) {
           console.log('Uploading local file:', picture);
           const index = profileData.pictures.indexOf(picture);
-          const uploadedPath = await this.uploadImage(picture, user.id, index);
-          if (uploadedPath) {
-            picturePaths.push(uploadedPath);
+          const uploaded = await this.uploadImage(picture, user.id, index);
+          if (uploaded.path) {
+            picturePaths.push(uploaded.path);
           } else {
-            console.error('Failed to upload:', picture);
-            return { success: false, error: 'Failed to upload one or more photos. Please try again.' };
+            console.error('Failed to upload:', picture.substring(0, 80));
+            return {
+              success: false,
+              error: uploaded.error || 'Failed to upload one or more photos. Please try again.',
+            };
           }
         } else {
           const storagePath = this.extractStoragePath(picture);

@@ -171,6 +171,15 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: "#888",
   },
+  postImageWrap: {
+    gap: 8,
+  },
+  postImage: {
+    width: "100%",
+    height: 180,
+    borderRadius: 10,
+    backgroundColor: "#f0f0f0",
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",

@@ -314,9 +314,108 @@ class AdminService {
     }
   }
   /**
-   * Get all users with optional search and pagination
+   * Every profile an admin can open, including people past the old list limit.
+   * Direct pages are merged with the admin function so a hidden row is not dropped.
    */
   async getAllUsers(query?: string): Promise<{ success: boolean; profiles?: Profile[]; error?: string }> {
+    const [paged, remote] = await Promise.all([
+      this.pageAllProfiles(),
+      this.getAllUsersFromFunction(query),
+    ]);
+
+    const merged = new Map<string, Profile>();
+    for (const profile of remote.profiles ?? []) {
+      merged.set(profile.id, profile);
+    }
+    for (const profile of paged.profiles ?? []) {
+      merged.set(profile.id, profile);
+    }
+
+    if (merged.size === 0) {
+      return {
+        success: false,
+        error: paged.error || remote.error || 'Failed to fetch users',
+      };
+    }
+
+    const needle = query?.trim().toLowerCase() ?? '';
+    const profiles = Array.from(merged.values()).filter((profile) => {
+      if (!needle) return true;
+      const haystack = `${profile.first_name ?? ''} ${profile.last_name ?? ''} ${profile.email ?? ''}`.toLowerCase();
+      return haystack.includes(needle);
+    });
+    profiles.sort((a, b) => {
+      const last = (a.last_name || '').localeCompare(b.last_name || '', undefined, { sensitivity: 'base' });
+      if (last !== 0) return last;
+      return (a.first_name || '').localeCompare(b.first_name || '', undefined, { sensitivity: 'base' });
+    });
+    return { success: true, profiles };
+  }
+
+  async getUserProfile(
+    userId?: string,
+    profileId?: string,
+  ): Promise<{ success: boolean; profile?: Profile; error?: string }> {
+    try {
+      if (profileId) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', profileId)
+          .maybeSingle();
+        if (data) return { success: true, profile: data as Profile };
+        if (error) console.warn('getUserProfile by id:', error.message);
+      }
+
+      if (userId) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (data) return { success: true, profile: data as Profile };
+        if (error) console.warn('getUserProfile by user:', error.message);
+      }
+
+      const all = await this.getAllUsers();
+      const found = all.profiles?.find(
+        (profile) =>
+          (profileId ? profile.id === profileId : false) ||
+          (userId ? profile.user_id === userId : false),
+      );
+      if (found) return { success: true, profile: found };
+      return { success: false, error: 'User not found' };
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  }
+
+  private async pageAllProfiles(): Promise<{ profiles?: Profile[]; error?: string }> {
+    const pageSize = 500;
+    const profiles: Profile[] = [];
+    try {
+      for (let from = 0; from < 20000; from += pageSize) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('id', { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) return { profiles, error: error.message };
+        const rows = (data ?? []) as Profile[];
+        profiles.push(...rows);
+        if (rows.length < pageSize) break;
+      }
+      return { profiles };
+    } catch (error) {
+      console.error('Error paging profiles:', error);
+      return { profiles, error: 'An unexpected error occurred' };
+    }
+  }
+
+  private async getAllUsersFromFunction(
+    query?: string,
+  ): Promise<{ success: boolean; profiles?: Profile[]; error?: string }> {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       

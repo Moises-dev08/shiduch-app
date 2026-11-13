@@ -22,8 +22,15 @@ import {
 } from '../../lib/profilePictureVisibility';
 import { Profile } from '../../lib/profileService';
 
+function firstParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? '';
+  return value ?? '';
+}
+
 export default function UserDetailsScreen() {
-  const { userId } = useLocalSearchParams<{ userId: string }>();
+  const params = useLocalSearchParams<{ userId?: string | string[]; profileId?: string | string[] }>();
+  const userId = firstParam(params.userId);
+  const profileId = firstParam(params.profileId);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,22 +49,19 @@ export default function UserDetailsScreen() {
 
   useEffect(() => {
     adminService.isSuperAdmin().then(setIsSuperAdmin);
-    if (userId) {
+    if (userId || profileId) {
       loadProfile();
+    } else {
+      setLoading(false);
     }
-  }, [userId]);
+  }, [userId, profileId]);
 
   const loadProfile = async () => {
-    if (!userId) return;
+    if (!userId && !profileId) return;
     
     setLoading(true);
-    const result = await adminService.getAllUsers();
-    if (result.success && result.profiles) {
-      const foundProfile = result.profiles.find(p => p.user_id === userId);
-      if (foundProfile) {
-        setProfile(foundProfile);
-      }
-    }
+    const result = await adminService.getUserProfile(userId, profileId);
+    setProfile(result.profile ?? null);
     setLoading(false);
   };
 

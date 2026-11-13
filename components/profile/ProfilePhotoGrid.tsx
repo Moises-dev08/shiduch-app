@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useState } from 'react';
-import { Image, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { pickProfileImage } from '../../lib/pickProfileImage';
 import ConfirmationModal from '../ConfirmationModal';
 import PictureViewerModal from '../home/PictureViewerModal';
@@ -34,9 +35,16 @@ export default function ProfilePhotoGrid({
       return;
     }
 
-    const uri = await pickProfileImage();
-    if (uri) {
-      onChange([...pictures, uri]);
+    try {
+      const uri = await pickProfileImage();
+      if (uri) {
+        onChange([...pictures, uri]);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'This photo could not be added.';
+      setInfoTitle('Photo not added');
+      setInfoMessage(message);
+      setInfoVisible(true);
     }
   };
 
@@ -64,7 +72,7 @@ export default function ProfilePhotoGrid({
               activeOpacity={0.85}
               accessibilityLabel="View photo full screen"
             >
-              <Image source={{ uri: picture }} style={styles.picture} />
+              <Image source={{ uri: picture }} style={styles.picture} contentFit="cover" />
             </TouchableOpacity>
             {index === 0 && (
               <View style={styles.mainBadge} pointerEvents="none">

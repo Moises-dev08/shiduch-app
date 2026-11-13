@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -20,7 +20,6 @@ import { webPageLayout } from '../../styles/webPageLayout';
 
 export default function AdminUsers() {
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,39 +30,25 @@ export default function AdminUsers() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadUsers = async (query = searchQuery) => {
+  const loadUsers = async () => {
     setLoading(true);
-    const result = await adminService.getAllUsers(query);
+    const result = await adminService.getAllUsers();
     if (result.success && result.profiles) {
       setAllProfiles(result.profiles);
-      applyFilter(result.profiles, filter);
     }
     setLoading(false);
   };
 
-  const applyFilter = (profilesToFilter: Profile[], currentFilter: 'all' | 'frozen' | 'suspended') => {
-    let filtered: Profile[] = [];
-    
-    switch (currentFilter) {
-      case 'frozen':
-        filtered = profilesToFilter.filter(p => p.is_active === false);
-        break;
-      case 'suspended':
-        filtered = profilesToFilter.filter(p => p.account_status === 'suspended');
-        break;
-      case 'all':
-      default:
-        filtered = profilesToFilter;
-        break;
-    }
-    
-    setProfiles(filtered);
-  };
-
-  const handleFilterChange = (newFilter: 'all' | 'frozen' | 'suspended') => {
-    setFilter(newFilter);
-    applyFilter(allProfiles, newFilter);
-  };
+  const visibleProfiles = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+    return allProfiles.filter((profile) => {
+      if (filter === 'frozen' && profile.is_active !== false) return false;
+      if (filter === 'suspended' && profile.account_status !== 'suspended') return false;
+      if (!needle) return true;
+      const haystack = `${profile.first_name ?? ''} ${profile.last_name ?? ''} ${profile.email ?? ''}`.toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [allProfiles, filter, searchQuery]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -71,18 +56,14 @@ export default function AdminUsers() {
     setRefreshing(false);
   };
 
-  const handleSearch = (text: string) => {
+  const handleSearch = (text: string): void => {
     setSearchQuery(text);
-    // Debounce could be added here, currently just calling on submit or generic
-    if (text.length === 0) loadUsers('');
   };
 
-  const submitSearch = () => {
-    loadUsers(searchQuery);
-  };
-
-  const handleViewProfile = (profile: Profile) => {
-    router.push(`/admin/user-details?userId=${profile.user_id}`);
+  const handleViewProfile = (profile: Profile): void => {
+    const profileId = encodeURIComponent(profile.id);
+    const userId = encodeURIComponent(profile.user_id ?? '');
+    router.push(`/admin/user-details?profileId=${profileId}&userId=${userId}`);
   };
 
 
@@ -123,11 +104,10 @@ export default function AdminUsers() {
             placeholder="Search name or email..."
             value={searchQuery}
             onChangeText={handleSearch}
-            onSubmitEditing={submitSearch}
             returnKeyType="search"
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => { setSearchQuery(''); loadUsers(''); }}>
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
               <Ionicons name="close-circle" size={20} color="#666" />
             </TouchableOpacity>
           )}
@@ -138,7 +118,7 @@ export default function AdminUsers() {
       <View style={styles.filterContainer}>
         <TouchableOpacity
           style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
-          onPress={() => handleFilterChange('all')}
+          onPress={() => setFilter('all')}
         >
           <Text style={[styles.filterButtonText, filter === 'all' && styles.filterButtonTextActive]}>
             All Users
@@ -146,7 +126,7 @@ export default function AdminUsers() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.filterButton, filter === 'frozen' && styles.filterButtonActive]}
-          onPress={() => handleFilterChange('frozen')}
+          onPress={() => setFilter('frozen')}
         >
           <Ionicons 
             name="eye-off" 
@@ -160,7 +140,7 @@ export default function AdminUsers() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.filterButton, filter === 'suspended' && styles.filterButtonActive]}
-          onPress={() => handleFilterChange('suspended')}
+          onPress={() => setFilter('suspended')}
         >
           <Ionicons 
             name="lock-closed" 
@@ -187,18 +167,19 @@ export default function AdminUsers() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {profiles.length === 0 ? (
+          {visibleProfiles.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No users found.</Text>
             </View>
           ) : (
-            profiles.map((profile) => (
+            visibleProfiles.map((profile, index) => (
               <TouchableOpacity
                 key={profile.id}
                 style={styles.profileCard}
                 onPress={() => handleViewProfile(profile)}
               >
                 <View style={styles.profileRow}>
+                  <Text style={styles.profileNumber}>{index + 1}</Text>
                   {profile.pictures && profile.pictures.length > 0 ? (
                     <Image source={{ uri: getImageUrl(profile.pictures[0]) }} style={styles.avatar} />
                   ) : (
@@ -298,6 +279,13 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#eee'
+  },
+  profileNumber: {
+    width: 32,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1293DA',
+    marginRight: 8,
   },
   profileRow: { flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 50, height: 50, borderRadius: 25, marginRight: 12 },
